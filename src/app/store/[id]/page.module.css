@@ -1,0 +1,34 @@
+.thumbsSwiper {
+  margin-top: 1rem;
+}
+
+.thumbsSwiper :global(.swiper-slide) {
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.thumbsSwiper :global(.swiper-slide-thumb-active) {
+  opacity: 1;
+}
+
+/* Navigation buttons styling */
+.swiperContainer :global(.swiper-button-next),
+.swiperContainer :global(.swiper-button-prev) {
+  color: #ec4899;
+  background: rgba(255, 255, 255, 0.8);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  --swiper-navigation-size: 20px;
+}
+
+.swiperContainer :global(.swiper-button-next:hover),
+.swiperContainer :global(.swiper-button-prev:hover) {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.swiperContainer :global(.swiper-button-next:after),
+.swiperContainer :global(.swiper-button-prev:after) {
+  font-size: 20px;
+  font-weight: bold;
+}

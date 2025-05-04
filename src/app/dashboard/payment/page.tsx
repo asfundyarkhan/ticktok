@@ -1,190 +1,197 @@
 "use client";
 
 import { useState } from "react";
-import toast from "react-hot-toast";
+import { CreditCard, Download } from "lucide-react";
 
-interface Account {
-  name: string;
-  email: string;
-  refId: string;
-  status: "approved" | "suspended" | "pending";
+interface Transaction {
+  id: string;
+  date: string;
+  amount: number;
+  status: "completed" | "pending" | "failed";
+  type: "credit" | "debit";
+  description: string;
 }
 
-const mockAccounts: Account[] = [
-  {
-    name: "Carson Darrin",
-    email: "carson.darrin@devias.io",
-    refId: "REF003",
-    status: "approved",
-  },
-  {
-    name: "Fran Perez",
-    email: "fran.perez@devias.io",
-    refId: "REF004",
-    status: "approved",
-  },
-  {
-    name: "Jie Yan Song",
-    email: "jie.yan.song@devias.io",
-    refId: "REF005",
-    status: "pending",
-  },
-  {
-    name: "Anika Visser",
-    email: "anika.visser@devias.io",
-    refId: "REF006",
-    status: "approved",
-  },
-  {
-    name: "Miron Vitold",
-    email: "miron.vitold@devias.io",
-    refId: "REF007",
-    status: "suspended",
-  },
-];
+interface Card {
+  last4: string;
+  brand: string;
+  expMonth: number;
+  expYear: number;
+}
 
 export default function PaymentPage() {
-  const [accounts, setAccounts] = useState(mockAccounts);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [transactions] = useState<Transaction[]>([
+    {
+      id: "1",
+      date: "2025-04-30T12:00:00",
+      amount: 2500.0,
+      status: "completed",
+      type: "credit",
+      description: "Sales revenue",
+    },
+    {
+      id: "2",
+      date: "2025-04-29T15:00:00",
+      amount: 150.0,
+      status: "completed",
+      type: "debit",
+      description: "Platform fee",
+    },
+    {
+      id: "3",
+      date: "2025-04-28T09:00:00",
+      amount: 1800.0,
+      status: "completed",
+      type: "credit",
+      description: "Sales revenue",
+    },
+  ]);
 
-  const filteredAccounts = accounts.filter(
-    (account) =>
-      account.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      account.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      account.refId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [cards] = useState<Card[]>([
+    {
+      last4: "4242",
+      brand: "visa",
+      expMonth: 12,
+      expYear: 2025,
+    },
+  ]);
 
-  const handleStatusChange = (
-    refId: string,
-    newStatus: "approved" | "suspended"
-  ) => {
-    setAccounts((prevAccounts) =>
-      prevAccounts.map((account) =>
-        account.refId === refId ? { ...account, status: newStatus } : account
-      )
-    );
-
-    const message =
-      newStatus === "approved"
-        ? "Account has been approved"
-        : "Account has been suspended";
-    toast.success(message);
+  const getStatusColor = (status: Transaction["status"]) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Account</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Manage payment accounts and their access privileges
-        </p>
-      </div>
-
-      <div className="max-w-md">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search account"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-          />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              className="h-5 w-5 text-gray-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-medium">Transaction History</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Description
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Receipt
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {transaction.description}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span
+                          className={
+                            transaction.type === "credit"
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }
+                        >
+                          {transaction.type === "credit" ? "+" : "-"}$
+                          {transaction.amount.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                            transaction.status
+                          )}`}
+                        >
+                          {transaction.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button className="text-pink-500 hover:text-pink-600">
+                          <Download className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-              >
-                NAME
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-sm font-semibold text-gray-900"
-              >
-                REF ID
-              </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-right text-sm font-semibold text-gray-900"
-              >
-                GRANT
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
-            {filteredAccounts.map((account) => (
-              <tr key={account.refId} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">
-                      {account.name}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {account.email}
-                    </span>
+        <div>
+          <div className="bg-white rounded-lg shadow-sm mb-6">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-medium">Payment Methods</h2>
+            </div>
+            <div className="p-6">
+              {cards.map((card) => (
+                <div
+                  key={card.last4}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div className="flex items-center">
+                    <CreditCard className="w-8 h-8 text-gray-400 mr-3" />
+                    <div>
+                      <p className="font-medium">
+                        {card.brand.charAt(0).toUpperCase() +
+                          card.brand.slice(1)}{" "}
+                        ending in {card.last4}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Expires {card.expMonth}/{card.expYear}
+                      </p>
+                    </div>
                   </div>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500">
-                  {account.refId}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="space-x-2">
-                    {account.status !== "approved" && (
-                      <button
-                        onClick={() =>
-                          handleStatusChange(account.refId, "approved")
-                        }
-                        className="text-sm bg-pink-500 text-white px-3 py-1 rounded-md hover:bg-pink-600"
-                      >
-                        Approve
-                      </button>
-                    )}
-                    {account.status !== "suspended" && (
-                      <button
-                        onClick={() =>
-                          handleStatusChange(account.refId, "suspended")
-                        }
-                        className="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-300"
-                      >
-                        Deny
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  <button className="text-sm text-pink-500 hover:text-pink-600">
+                    Edit
+                  </button>
+                </div>
+              ))}
+              <button className="w-full mt-4 px-4 py-2 text-pink-500 border border-pink-500 rounded-lg hover:bg-pink-50">
+                Add Payment Method
+              </button>
+            </div>
+          </div>
 
-      <div className="flex items-center justify-between pt-3">
-        <div className="flex items-center text-sm text-gray-500">
-          Rows per page:
-          <select className="ml-2 border-0 bg-transparent text-gray-500 focus:ring-0">
-            <option>5</option>
-            <option>10</option>
-            <option>20</option>
-          </select>
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-6 border-b">
+              <h2 className="text-lg font-medium">Billing Address</h2>
+            </div>
+            <div className="p-6">
+              <div className="text-gray-600">
+                <p>John Doe</p>
+                <p>1234 Main Street</p>
+                <p>Apt 4B</p>
+                <p>New York, NY 10001</p>
+                <p>United States</p>
+              </div>
+              <button className="mt-4 text-sm text-pink-500 hover:text-pink-600">
+                Edit Address
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="text-sm text-gray-500">1-5 of 10</div>
       </div>
     </div>
   );

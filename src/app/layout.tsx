@@ -1,9 +1,21 @@
-"use client";
-
-import "./globals.css";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import "./globals.css";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "TikTok Shop - Sell and Grow Your Business",
+  description:
+    "Join TikTok Shop to reach millions of potential customers and grow your business with our powerful e-commerce platform.",
+  keywords: "tiktok shop, ecommerce, online business, selling platform",
+  themeColor: "#ec4899",
+  icons: {
+    icon: "/favicon.ico",
+  },
+};
 
 export default function RootLayout({
   children,
@@ -11,8 +23,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full bg-gray-50">
-      <body className={`${inter.className} h-full`}>{children}</body>
+    <html lang="en" className="h-full">
+      <body suppressHydrationWarning className={`${inter.className} h-full`}>
+        <Navbar />
+        <main className="min-h-full">{children}</main>
+        <Footer />
+      </body>
     </html>
   );
 }

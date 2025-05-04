@@ -1,115 +1,148 @@
 "use client";
 
 import { useState } from "react";
+import { Building2 } from "lucide-react";
 import TransferTable from "@/app/components/TransferTable";
-import toast from "react-hot-toast";
-
-const mockUsers = [
-  {
-    name: "Carson Darrin",
-    email: "carson.darrin@devias.io",
-    refId: "REF003",
-    balance: 300.0,
-  },
-  {
-    name: "Fran Perez",
-    email: "fran.perez@devias.io",
-    refId: "REF004",
-    balance: 150.0,
-  },
-  {
-    name: "Jie Yan Song",
-    email: "jie.yan.song@devias.io",
-    refId: "REF005",
-    balance: 5600.0,
-  },
-  {
-    name: "Anika Visser",
-    email: "anika.visser@devias.io",
-    refId: "REF006",
-    balance: 500.0,
-  },
-  {
-    name: "Miron Vitold",
-    email: "miron.vitold@devias.io",
-    refId: "REF007",
-    balance: 250.0,
-  },
-];
+import { LoadingSpinner } from "@/app/components/Loading";
 
 export default function TransferPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [users, setUsers] = useState(mockUsers);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState("");
+  const [amount, setAmount] = useState("");
 
-  const handleTransfer = async (userId: string, amount: number) => {
-    try {
-      // Here you would typically make an API call to process the transfer
-      // For now, we'll just update the local state
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.refId === userId
-            ? { ...user, balance: user.balance + amount }
-            : user
-        )
-      );
-      toast.success(
-        `Successfully transferred $${amount.toFixed(2)} to ${userId}`
-      );
-    } catch (error) {
-      toast.error("Failed to process transfer");
-    }
+  const savedAccounts = [
+    { id: "1", number: "**** 1234", bank: "Chase", primary: true },
+    { id: "2", number: "**** 5678", bank: "Bank of America", primary: false },
+    { id: "3", number: "**** 9012", bank: "Wells Fargo", primary: false },
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsLoading(false);
+    // Reset form
+    setSelectedAccount("");
+    setAmount("");
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Transfer Money</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Search for users and transfer money to their accounts
+    <div className="p-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Transfer Funds</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Transfer your earnings to your bank account.
         </p>
       </div>
 
-      <div className="max-w-md">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search users"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-          />
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              className="h-5 w-5 text-gray-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clipRule="evenodd"
-              />
-            </svg>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Transfer Form */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow-sm">
+            <div className="p-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Bank Account
+                  </label>
+                  <div className="mt-2 space-y-3">
+                    {savedAccounts.map((account) => (
+                      <label
+                        key={account.id}
+                        className={`relative block p-4 border rounded-lg cursor-pointer focus-within:ring-2 focus-within:ring-pink-500 ${
+                          selectedAccount === account.id
+                            ? "border-pink-500 ring-1 ring-pink-500"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bank-account"
+                          value={account.id}
+                          checked={selectedAccount === account.id}
+                          onChange={(e) => setSelectedAccount(e.target.value)}
+                          className="sr-only"
+                        />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <Building2 className="h-5 w-5 text-gray-400" />
+                            <div className="ml-3">
+                              <p className="text-sm font-medium text-gray-900">
+                                {account.bank}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {account.number}
+                              </p>
+                            </div>
+                          </div>
+                          {account.primary && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-pink-600 hover:text-pink-500"
+                    >
+                      + Add New Bank Account
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="amount"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Amount to Transfer
+                  </label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">$</span>
+                    </div>
+                    <input
+                      type="text"
+                      name="amount"
+                      id="amount"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="focus:ring-pink-500 focus:border-pink-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
+                      placeholder="0.00"
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">USD</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isLoading || !selectedAccount || !amount}
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      "Transfer Funds"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
-      </div>
 
-      <TransferTable
-        users={users}
-        searchQuery={searchQuery}
-        onTransfer={handleTransfer}
-      />
-
-      <div className="flex items-center justify-between pt-3">
-        <div className="flex items-center text-sm text-gray-500">
-          Rows per page:
-          <select className="ml-2 border-0 bg-transparent text-gray-500 focus:ring-0">
-            <option>5</option>
-            <option>10</option>
-            <option>20</option>
-          </select>
+        {/* Transfer History */}
+        <div className="lg:col-span-2">
+          <TransferTable />
         </div>
-        <div className="text-sm text-gray-500">1-5 of 10</div>
       </div>
     </div>
   );

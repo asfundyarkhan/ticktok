@@ -1,125 +1,175 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { FormEvent } from "react";
-import styles from "./login.module.css";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Formik, Form, Field } from "formik";
+import * as Yup from "yup";
+import { Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
+
+const loginSchema = Yup.object().shape({
+  email: Yup.string()
+    .email("Invalid email address")
+    .required("Email is required"),
+  password: Yup.string()
+    .min(8, "Password must be at least 8 characters")
+    .required("Password is required"),
+});
+
+interface LoginFormValues {
+  email: string;
+  password: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [emailError, setEmailError] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const [showPassword, setShowPassword] = useState(false);
+  const redirectTo = searchParams.get("redirect") || "/dashboard";
 
-  useEffect(() => {
-    // If already authenticated, redirect to dashboard
-    const isAuthenticated = sessionStorage.getItem("isAuthenticated");
-    if (isAuthenticated) {
-      router.push("/dashboard");
-    }
-  }, [router]);
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    setEmailError(false);
-
-    if (!email) {
-      setEmailError(true);
-      return;
-    }
-
-    setLoading(true);
+  const handleLogin = async (values: LoginFormValues) => {
     try {
-      // TODO: Replace with actual authentication API call
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-
-      // Mock successful login
-      sessionStorage.setItem("isAuthenticated", "true");
-      sessionStorage.setItem("userEmail", email);
-      router.push("/dashboard");
-    } catch (err) {
-      setError("Invalid email or password");
-    } finally {
-      setLoading(false);
+      // Here you would typically make an API call to authenticate
+      console.log("Login values:", values);
+      router.push(redirectTo);
+    } catch (error) {
+      console.error("Login failed:", error);
     }
   };
 
   return (
-    <div className={styles.pageContainer}>
-      <div className={styles.leftSection}>
-        <div className={styles.brandContent}>
-          <div className={styles.brandTitle}>
-            <h1 className={styles.tiktokShop}>TikTok Shop</h1>
-            <p className={styles.slogan}>
-              Create joy and
-              <br />
-              sell more
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.rightSection}>
-        <div className={styles.formWrapper}>
-          <Link href="/" className={styles.backLink}>
-            ← Back to shop
-          </Link>
-          <h1 className={styles.formTitle}>Log in</h1>
-          <p className={styles.loginText}>
-            Don't have an account?{" "}
-            <Link href="/register" className={styles.loginLink}>
-              Register
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Sign in to your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Or{" "}
+            <Link
+              href="/register"
+              className="font-medium text-pink-600 hover:text-pink-500"
+            >
+              create a new account
             </Link>
           </p>
-
-          {error && <div className={styles.errorAlert}>{error}</div>}
-
-          <form onSubmit={handleSubmit} className={styles.form}>
-            <div className={styles.inputGroup}>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setEmailError(false);
-                }}
-                placeholder="Email Address"
-                className={`${styles.input} ${emailError ? styles.error : ""}`}
-                disabled={loading}
-              />
-              {emailError && (
-                <div className={styles.errorText}>Email is required</div>
-              )}
-            </div>
-
-            <div className={styles.inputGroup}>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className={styles.input}
-                disabled={loading}
-              />
-            </div>
-
-            <div className={styles.forgotPassword}>
-              <Link href="/forgot-password">Forgot password?</Link>
-            </div>
-
-            <button
-              type="submit"
-              className={styles.submitButton}
-              disabled={loading}
-            >
-              {loading ? "Logging in..." : "Continue"}
-            </button>
-          </form>
         </div>
+
+        <Formik
+          initialValues={{ email: "", password: "" }}
+          validationSchema={loginSchema}
+          onSubmit={handleLogin}
+        >
+          {({ errors, touched }) => (
+            <Form className="mt-8 space-y-6">
+              <div className="rounded-md shadow-sm space-y-4">
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Email address
+                  </label>
+                  <Field
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                      errors.email && touched.email
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm`}
+                    placeholder="Enter your email"
+                  />
+                  {errors.email && touched.email && (
+                    <p className="mt-1 text-sm text-red-500">{errors.email}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Field
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                        errors.password && touched.password
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      } rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm`}
+                      placeholder="Enter your password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-500"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && touched.password && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {errors.password}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    id="remember-me"
+                    name="remember-me"
+                    type="checkbox"
+                    className="h-4 w-4 text-pink-600 focus:ring-pink-500 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="remember-me"
+                    className="ml-2 block text-sm text-gray-900"
+                  >
+                    Remember me
+                  </label>
+                </div>
+
+                <div className="text-sm">
+                  <Link
+                    href="/forgot-password"
+                    className="font-medium text-pink-600 hover:text-pink-500"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 mb-4"
+                >
+                  Sign in
+                </button>
+                <Link
+                  href="/dashboard/profile"
+                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                >
+                  Login as Seller
+                </Link>
+              </div>
+            </Form>
+          )}
+        </Formik>
       </div>
     </div>
   );
