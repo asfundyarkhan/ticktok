@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ChevronRight, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { CartItem } from "@/types/product";
 import Breadcrumb from "@/app/components/Breadcrumb";
 

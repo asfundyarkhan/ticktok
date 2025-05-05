@@ -13,12 +13,13 @@ import {
   Shield,
   CreditCard,
   ArrowLeftRight,
+  LucideIcon,
 } from "lucide-react";
 
 interface NavItem {
   name: string;
   href: string;
-  icon: any;
+  icon: LucideIcon;
   adminOnly?: boolean;
 }
 

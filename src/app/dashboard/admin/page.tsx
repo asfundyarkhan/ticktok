@@ -260,7 +260,7 @@ export default function AdminPage() {
             </h3>
             <p>
               Are you sure you want to add ${creditInput.amount} to{" "}
-              <span className="font-semibold">{selectedUser.name}</span>'s
+              <span className="font-semibold">{selectedUser.name}</span>&apos;s
               account?
             </p>
 

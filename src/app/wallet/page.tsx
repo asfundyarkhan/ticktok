@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useUserBalance } from "../components/UserBalanceContext";
 
 export default function WalletPage() {
@@ -194,8 +193,8 @@ export default function WalletPage() {
               <div className="flex items-start mb-2">
                 <span className="text-amber-500 mr-2 text-lg font-bold">⚠</span>
                 <p className="text-sm text-gray-900">
-                  In your bank's transfer reference/ message field, please enter
-                  your unique user ID or username.
+                  In your bank&apos;s transfer reference/ message field, please
+                  enter your unique user ID or username.
                 </p>
               </div>
               <p className="text-sm text-gray-900 mb-4">

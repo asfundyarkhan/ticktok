@@ -142,13 +142,21 @@ export default function InventoryPage() {
     const storeProducts = JSON.parse(
       localStorage.getItem("storeProducts") || "[]"
     );
+
+    interface StoreProduct {
+      productCode: string;
+      stock: number;
+      price: number;
+      [key: string]: any;
+    }
+
     const listingExists = storeProducts.some(
-      (p: any) => p.productCode === currentProduct.productCode
+      (p: StoreProduct) => p.productCode === currentProduct.productCode
     );
 
     if (listingExists) {
       // Update existing listing
-      const updatedStoreProducts = storeProducts.map((p: any) =>
+      const updatedStoreProducts = storeProducts.map((p: StoreProduct) =>
         p.productCode === currentProduct.productCode
           ? {
               ...p,

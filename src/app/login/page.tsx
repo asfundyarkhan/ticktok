@@ -33,14 +33,14 @@ export default function LoginPage() {
       setIsLoading(true);
       // Here you would typically make an API call to authenticate
       console.log("Customer login values:", values);
-      
+
       // Simulate authentication delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Set authentication in localStorage/cookies/state management
       // localStorage.setItem("userToken", "example-token");
       // localStorage.setItem("userRole", "customer");
-      
+
       router.push(redirectTo);
     } catch (error) {
       console.error("Login failed:", error);
@@ -48,24 +48,46 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
-  
+
   const handleSellerLogin = async () => {
     try {
       setIsLoading(true);
       // Here you would make an API call to authenticate as a seller
       console.log("Authenticating as seller");
-      
+
       // Simulate authentication delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Set authentication data with seller role
       localStorage.setItem("userToken", "example-seller-token");
       localStorage.setItem("userRole", "seller");
-      
+
       // Navigate to seller dashboard after authentication
       router.push("/profile");
     } catch (error) {
       console.error("Seller login failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async () => {
+    try {
+      setIsLoading(true);
+      // Here you would make an API call to authenticate as an admin
+      console.log("Authenticating as admin");
+
+      // Simulate authentication delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Set authentication data with admin role
+      localStorage.setItem("userToken", "example-admin-token");
+      localStorage.setItem("userRole", "admin");
+
+      // Navigate to admin dashboard after authentication
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Admin login failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -199,9 +221,17 @@ export default function LoginPage() {
                   type="button"
                   onClick={handleSellerLogin}
                   disabled={isLoading}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400"
+                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400 mb-4"
                 >
                   {isLoading ? "Processing..." : "Login as Seller"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdminLogin}
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400"
+                >
+                  {isLoading ? "Processing..." : "Login as Admin"}
                 </button>
               </div>
             </Form>

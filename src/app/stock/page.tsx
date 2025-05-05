@@ -15,11 +15,6 @@ interface Product {
   productCode?: string;
 }
 
-interface StockPurchase {
-  productId: number;
-  quantity: number;
-}
-
 export default function StockPage() {
   const router = useRouter();
   const { balance, deductFromBalance } = useUserBalance();
@@ -138,13 +133,20 @@ export default function StockPage() {
     const inventoryProducts = JSON.parse(
       localStorage.getItem("inventoryProducts") || "[]"
     );
+
+    interface InventoryProduct {
+      productCode: string;
+      stock: number;
+      [key: string]: any;
+    }
+
     const existingProduct = inventoryProducts.find(
-      (p: any) => p.productCode === product.productCode
+      (p: InventoryProduct) => p.productCode === product.productCode
     );
 
     if (existingProduct) {
       // Update existing product
-      const updatedInventory = inventoryProducts.map((p: any) =>
+      const updatedInventory = inventoryProducts.map((p: InventoryProduct) =>
         p.productCode === product.productCode
           ? { ...p, stock: p.stock + quantity }
           : p

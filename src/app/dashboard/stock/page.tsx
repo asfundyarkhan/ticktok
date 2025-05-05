@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 interface Product {
   id: string;
@@ -16,7 +15,6 @@ interface Product {
 }
 
 export default function StockPage() {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);

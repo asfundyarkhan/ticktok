@@ -243,7 +243,7 @@ export default function StorePage() {
               </p>
               <select
                 className="border rounded-md px-3 py-1.5 text-gray-800 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                onChange={(e) => {
+                onChange={() => {
                   // Sort functionality can be added here
                 }}
               >
