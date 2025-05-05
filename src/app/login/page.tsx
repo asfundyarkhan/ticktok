@@ -38,8 +38,8 @@ export default function LoginPage() {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Set authentication in localStorage/cookies/state management
-      // localStorage.setItem("userToken", "example-token");
-      // localStorage.setItem("userRole", "customer");
+      localStorage.setItem("userToken", "example-token");
+      localStorage.setItem("userRole", "customer");
 
       router.push(redirectTo);
     } catch (error) {

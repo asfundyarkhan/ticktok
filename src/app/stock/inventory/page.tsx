@@ -147,7 +147,13 @@ export default function InventoryPage() {
       productCode: string;
       stock: number;
       price: number;
-      [key: string]: any;
+      id: number;
+      name: string;
+      description: string;
+      image: string;
+      sellerName: string;
+      rating: number;
+      reviews: number;
     }
 
     const listingExists = storeProducts.some(
@@ -171,7 +177,7 @@ export default function InventoryPage() {
       );
     } else {
       // Create new listing
-      const newListing = {
+      const newListing: StoreProduct = {
         id: Date.now(), // Generate unique ID
         name: currentProduct.name,
         description: currentProduct.description,
