@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: string;
@@ -14,10 +16,14 @@ interface Product {
 }
 
 export default function StockPage() {
-  const products: Product[] = [
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([
     {
       id: "1",
-      image: "/placeholder.jpg",
+      image: "/images/placeholders/t-shirt.svg",
       name: "T-Shirt Nike",
       description: "100% cotton, unisex",
       price: 300.0,
@@ -25,13 +31,59 @@ export default function StockPage() {
     },
     {
       id: "2",
-      image: "/placeholder.jpg",
+      image: "/images/placeholders/t-shirt.svg",
       name: "Long Pants Nike",
       description: "100% cotton, unisex",
       price: 500.0,
       units: 10,
     },
-  ];
+  ]);
+
+  // Load products from localStorage on mount
+  useEffect(() => {
+    const savedProducts = localStorage.getItem("stockProducts");
+    if (savedProducts) {
+      try {
+        const parsedProducts = JSON.parse(savedProducts);
+        setProducts(parsedProducts);
+      } catch (error) {
+        console.error("Failed to parse stored products:", error);
+      }
+    }
+  }, []);
+
+  // Save products to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("stockProducts", JSON.stringify(products));
+  }, [products]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const confirmDelete = (productId: string) => {
+    setSelectedProduct(productId);
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setSelectedProduct(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const deleteProduct = () => {
+    if (selectedProduct) {
+      setProducts(products.filter((product) => product.id !== selectedProduct));
+      setShowDeleteConfirm(false);
+      setSelectedProduct(null);
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -71,6 +123,8 @@ export default function StockPage() {
           type="text"
           placeholder="Search available stock"
           className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+          value={searchQuery}
+          onChange={handleSearch}
         />
       </div>
 
@@ -100,34 +154,87 @@ export default function StockPage() {
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
-              <tr key={product.id} className="border-b last:border-b-0">
-                <td className="px-6 py-4">
-                  <div className="w-20 h-20 bg-gray-100 rounded"></div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="font-medium">{product.name}</span>
-                </td>
-                <td className="px-6 py-4 text-gray-500">
-                  {product.description}
-                </td>
-                <td className="px-6 py-4">${product.price.toFixed(2)}</td>
-                <td className="px-6 py-4">{product.units}pcs</td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-col gap-2">
-                    <button className="px-4 py-1 text-white bg-pink-500 rounded-md hover:bg-pink-600">
-                      Delete
-                    </button>
-                    <button className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
-                      Edit
-                    </button>
-                  </div>
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => (
+                <tr key={product.id} className="border-b last:border-b-0">
+                  <td className="px-6 py-4">
+                    <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden">
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        width={80}
+                        height={80}
+                        className="object-cover w-full h-full"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="font-medium">{product.name}</span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {product.description}
+                  </td>
+                  <td className="px-6 py-4">${product.price.toFixed(2)}</td>
+                  <td className="px-6 py-4">{product.units}pcs</td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        className="px-4 py-1 text-white bg-pink-500 rounded-md hover:bg-pink-600"
+                        onClick={() => confirmDelete(product.id)}
+                      >
+                        Delete
+                      </button>
+                      <button className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+                        Edit
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  No products found.{" "}
+                  <Link
+                    href="/dashboard/stock/add"
+                    className="text-pink-500 hover:underline"
+                  >
+                    Add your first product
+                  </Link>
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 className="text-lg font-medium mb-4">Confirm Deletion</h3>
+            <p>
+              Are you sure you want to delete this product? This action cannot
+              be undone.
+            </p>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteProduct}
+                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

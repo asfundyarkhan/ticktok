@@ -3,8 +3,33 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import styles from "./main.module.css";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function MainPage() {
+  // Mock authentication state - in a real app, this would come from context/cookies
+  const [isAuthenticated] = useState(false);
+  const router = useRouter();
+
+  const handleCartClick = () => {
+    if (isAuthenticated) {
+      router.push("/cart");
+    } else {
+      toast.error("Please login to view your cart");
+      router.push("/login");
+    }
+  };
+
+  const handleGetStartedClick = () => {
+    if (isAuthenticated) {
+      router.push("/store");
+    } else {
+      toast.error("Please login to continue");
+      router.push("/login");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#121212] text-white">
       {/* Navbar */}
@@ -59,7 +84,7 @@ export default function MainPage() {
         </div>
 
         <div className="flex items-center space-x-6">
-          <button className="text-gray-300">
+          <button onClick={handleCartClick} className="text-gray-300">
             <svg
               className="w-6 h-6"
               fill="none"
@@ -99,7 +124,10 @@ export default function MainPage() {
           <p className="text-gray-400 text-xl mb-12">
             Let your customers discover and buy your products the fun way.
           </p>
-          <button className="px-8 py-4 bg-pink-500 text-white rounded-full text-lg font-semibold hover:bg-pink-600 transition-colors">
+          <button
+            onClick={handleGetStartedClick}
+            className="px-8 py-4 bg-pink-500 text-white rounded-full text-lg font-semibold hover:bg-pink-600 transition-colors"
+          >
             Get started
           </button>
 

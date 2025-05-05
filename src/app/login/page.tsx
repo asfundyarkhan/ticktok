@@ -25,15 +25,49 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  const [isLoading, setIsLoading] = useState(false);
+  const redirectTo = searchParams.get("redirect") || "/store";
 
   const handleLogin = async (values: LoginFormValues) => {
     try {
+      setIsLoading(true);
       // Here you would typically make an API call to authenticate
-      console.log("Login values:", values);
+      console.log("Customer login values:", values);
+      
+      // Simulate authentication delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Set authentication in localStorage/cookies/state management
+      // localStorage.setItem("userToken", "example-token");
+      // localStorage.setItem("userRole", "customer");
+      
       router.push(redirectTo);
     } catch (error) {
       console.error("Login failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleSellerLogin = async () => {
+    try {
+      setIsLoading(true);
+      // Here you would make an API call to authenticate as a seller
+      console.log("Authenticating as seller");
+      
+      // Simulate authentication delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Set authentication data with seller role
+      localStorage.setItem("userToken", "example-seller-token");
+      localStorage.setItem("userRole", "seller");
+      
+      // Navigate to seller dashboard after authentication
+      router.push("/profile");
+    } catch (error) {
+      console.error("Seller login failed:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -156,16 +190,19 @@ export default function LoginPage() {
               <div>
                 <button
                   type="submit"
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 mb-4"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 mb-4 disabled:bg-pink-400"
                 >
-                  Sign in
+                  {isLoading ? "Signing in..." : "Sign in"}
                 </button>
-                <Link
-                  href="/dashboard/profile"
-                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                <button
+                  type="button"
+                  onClick={handleSellerLogin}
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400"
                 >
-                  Login as Seller
-                </Link>
+                  {isLoading ? "Processing..." : "Login as Seller"}
+                </button>
               </div>
             </Form>
           )}

@@ -3,9 +3,38 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useUserBalance } from "../components/UserBalanceContext";
 
 export default function WalletPage() {
   const [paymentAmount, setPaymentAmount] = useState("1000");
+  const [receiptUploaded, setReceiptUploaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const { balance, addToBalance } = useUserBalance();
+
+  const handleSubmit = () => {
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid payment amount");
+      return;
+    }
+
+    if (!receiptUploaded) {
+      alert("Please upload a receipt");
+      return;
+    }
+
+    setSubmitting(true);
+
+    // Simulate processing delay
+    setTimeout(() => {
+      // In a real app, this would be an API call to verify the payment
+      addToBalance(amount);
+      alert(`$${amount} has been added to your wallet!`);
+      setReceiptUploaded(false);
+      setPaymentAmount("1000");
+      setSubmitting(false);
+    }, 1500);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,7 +88,9 @@ export default function WalletPage() {
               />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-700">Balance: $100</div>
+          <div className="text-sm font-medium text-gray-700">
+            Balance: ${balance.toFixed(2)}
+          </div>
           <div className="flex items-center space-x-1 text-sm">
             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
               <svg
@@ -117,7 +148,9 @@ export default function WalletPage() {
           <h2 className="text-xs font-semibold text-gray-800 uppercase mb-1">
             TOTAL BALANCE
           </h2>
-          <div className="text-3xl font-bold text-gray-900">$35,916.81</div>
+          <div className="text-3xl font-bold text-gray-900">
+            ${balance.toFixed(2)}
+          </div>
         </div>
 
         {/* Deposit Funds */}
@@ -220,20 +253,53 @@ export default function WalletPage() {
                 <label className="block text-sm text-gray-800 font-medium mb-2">
                   Upload Receipt
                 </label>
-                <div className="border-2 border-dashed border-gray-300 p-8 rounded-md text-center bg-white">
-                  <p className="text-sm text-gray-800 mb-1">
-                    Drag & Drop your receipt here,
-                  </p>
-                  <p className="text-sm text-gray-800 mb-4">or</p>
-                  <button className="bg-[#FF0059] text-white py-2 px-4 rounded-md text-sm font-semibold">
-                    Upload Receipt
-                  </button>
+                <div
+                  className={`border-2 border-dashed ${
+                    receiptUploaded
+                      ? "border-green-300 bg-green-50"
+                      : "border-gray-300 bg-white"
+                  } p-8 rounded-md text-center`}
+                >
+                  {receiptUploaded ? (
+                    <>
+                      <p className="text-sm text-green-600 mb-1">
+                        Receipt uploaded successfully!
+                      </p>
+                      <button
+                        onClick={() => setReceiptUploaded(false)}
+                        className="text-sm text-gray-500 underline mt-2"
+                      >
+                        Remove Receipt
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-800 mb-1">
+                        Drag & Drop your receipt here,
+                      </p>
+                      <p className="text-sm text-gray-800 mb-4">or</p>
+                      <button
+                        onClick={() => setReceiptUploaded(true)}
+                        className="bg-[#FF0059] text-white py-2 px-4 rounded-md text-sm font-semibold"
+                      >
+                        Upload Receipt
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button className="bg-[#FF0059] text-white py-2 px-6 rounded-md text-sm font-semibold">
-                  Submit
+                <button
+                  onClick={handleSubmit}
+                  disabled={!receiptUploaded || submitting}
+                  className={`${
+                    !receiptUploaded || submitting
+                      ? "bg-gray-400"
+                      : "bg-[#FF0059]"
+                  } text-white py-2 px-6 rounded-md text-sm font-semibold`}
+                >
+                  {submitting ? "Processing..." : "Submit"}
                 </button>
               </div>
             </div>

@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+
+interface Product {
+  id: string;
+  image: string;
+  name: string;
+  description: string;
+  price: number;
+  units: number;
+}
 
 export default function AddStockPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -13,10 +25,59 @@ export default function AddStockPage() {
     images: [] as File[],
   });
 
+  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
+
+  // Load existing products on mount
+  useEffect(() => {
+    const savedProducts = localStorage.getItem("stockProducts");
+    if (savedProducts) {
+      try {
+        const parsedProducts = JSON.parse(savedProducts);
+        setExistingProducts(parsedProducts);
+      } catch (error) {
+        console.error("Failed to parse stored products:", error);
+      }
+    }
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement form submission
-    console.log(formData);
+
+    // Form validation
+    if (
+      !formData.name ||
+      !formData.description ||
+      !formData.price ||
+      !formData.quantity
+    ) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Create a new product object
+    const newProduct: Product = {
+      id: Date.now().toString(), // Generate a unique ID using timestamp
+      name: formData.name,
+      description: formData.description,
+      price: parseFloat(formData.price),
+      units: parseInt(formData.quantity),
+      image:
+        formData.images.length > 0
+          ? URL.createObjectURL(formData.images[0])
+          : "/images/placeholders/t-shirt.svg", // Use placeholder if no image
+    };
+
+    // Combine with existing products
+    const updatedProducts = [...existingProducts, newProduct];
+
+    // Save to localStorage
+    localStorage.setItem("stockProducts", JSON.stringify(updatedProducts));
+
+    // Show success message
+    toast.success("Product added successfully");
+
+    // Redirect back to stock listing page
+    router.push("/dashboard/stock");
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useUserBalance } from "../components/UserBalanceContext";
 
 export default function ProfilePage() {
+  const { balance } = useUserBalance();
   const [profileData, setProfileData] = useState({
     fullName: "Anika Visser",
     email: "anika.visser@devias.io",
@@ -68,7 +70,9 @@ export default function ProfilePage() {
               />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-700">Balance: $100</div>
+          <div className="text-sm font-medium text-gray-700">
+            Balance: ${balance.toFixed(2)}
+          </div>
           <div className="flex items-center space-x-1 text-sm">
             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
               <svg
@@ -208,9 +212,12 @@ export default function ProfilePage() {
             Total Balance
           </h2>
           <div className="text-3xl font-bold text-gray-900 mb-4">
-            $35,916.81
+            ${balance.toFixed(2)}
           </div>
-          <button className="flex items-center text-sm text-[#FF0059] font-semibold">
+          <Link
+            href="/wallet"
+            className="flex items-center text-sm text-[#FF0059] font-semibold"
+          >
             Deposit funds
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -224,7 +231,7 @@ export default function ProfilePage() {
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </Link>
         </div>
 
         {/* Recent Activity */}

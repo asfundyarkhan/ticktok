@@ -23,6 +23,8 @@ export default function AdminPage() {
     sellerId: "",
     amount: "",
   });
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([
     {
       name: "Carson Darrin",
@@ -73,6 +75,16 @@ export default function AdminPage() {
       user.sellerId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const openConfirmation = (user: User) => {
+    setSelectedUser(user);
+    setShowConfirmation(true);
+  };
+
+  const closeConfirmation = () => {
+    setShowConfirmation(false);
+    setSelectedUser(null);
+  };
+
   const handleCreditChange = (sellerId: string) => {
     const amount = parseFloat(creditInput.amount);
     if (isNaN(amount)) {
@@ -83,11 +95,16 @@ export default function AdminPage() {
     setUsers(
       users.map((user) =>
         user.sellerId === sellerId
-          ? { ...user, credit: user.credit + amount }
+          ? {
+              ...user,
+              credit: user.credit + amount,
+              receipts: 0, // Clear receipts after adding credit
+            }
           : user
       )
     );
     setCreditInput({ sellerId: "", amount: "" });
+    closeConfirmation();
   };
 
   const toggleSuspension = (sellerId: string) => {
@@ -135,6 +152,9 @@ export default function AdminPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -157,9 +177,9 @@ export default function AdminPage() {
                 <td className="px-6 py-4 text-sm text-gray-500">
                   ${user.credit.toFixed(2)}
                 </td>
-                <td className="px-6 py-4 text-sm font-medium space-x-2">
+                <td className="px-6 py-4">
                   <div className="flex items-center space-x-2">
-                    <div className="relative">
+                    <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                         $
                       </span>
@@ -168,7 +188,7 @@ export default function AdminPage() {
                         step="0.01"
                         min="0"
                         placeholder="Amount"
-                        className="pl-8 pr-4 py-1 border border-gray-300 rounded-md w-24 focus:outline-none focus:border-pink-500"
+                        className="pl-8 pr-4 py-1 border border-gray-300 rounded-md w-full focus:outline-none focus:border-pink-500"
                         value={
                           creditInput.sellerId === user.sellerId
                             ? creditInput.amount
@@ -183,8 +203,15 @@ export default function AdminPage() {
                       />
                     </div>
                     <button
-                      onClick={() => handleCreditChange(user.sellerId)}
-                      className="text-pink-600 hover:text-pink-900 bg-pink-50 px-3 py-1 rounded-md"
+                      onClick={() => {
+                        if (
+                          creditInput.sellerId === user.sellerId &&
+                          creditInput.amount
+                        ) {
+                          openConfirmation(user);
+                        }
+                      }}
+                      className="whitespace-nowrap text-pink-600 hover:text-pink-900 bg-pink-50 px-3 py-1 rounded-md"
                       disabled={
                         creditInput.sellerId !== user.sellerId ||
                         !creditInput.amount
@@ -193,22 +220,67 @@ export default function AdminPage() {
                       Add Credit
                     </button>
                   </div>
-                  <button
-                    onClick={() => toggleSuspension(user.sellerId)}
-                    className={`${
-                      user.suspended
-                        ? "text-green-600 hover:text-green-900 bg-green-50"
-                        : "text-red-600 hover:text-red-900 bg-red-50"
-                    } px-3 py-1 rounded-md`}
-                  >
-                    {user.suspended ? "Activate" : "Suspend"}
-                  </button>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!user.suspended}
+                      onChange={() => toggleSuspension(user.sellerId)}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
+                        user.suspended ? "bg-red-500" : "bg-green-500"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow transform transition-transform ${
+                          user.suspended ? "" : "translate-x-5"
+                        }`}
+                      ></div>
+                    </div>
+                    <span className="ml-2 text-sm text-gray-700">
+                      {user.suspended ? "Suspended" : "Active"}
+                    </span>
+                  </label>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmation && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 className="text-lg font-medium mb-4">
+              Confirm Credit Addition
+            </h3>
+            <p>
+              Are you sure you want to add ${creditInput.amount} to{" "}
+              <span className="font-semibold">{selectedUser.name}</span>'s
+              account?
+            </p>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={closeConfirmation}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleCreditChange(selectedUser.sellerId)}
+                className="px-4 py-2 bg-pink-600 text-white rounded-md text-sm font-medium hover:bg-pink-700"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

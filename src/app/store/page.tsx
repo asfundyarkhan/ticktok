@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import { ShoppingBag } from "lucide-react";
 import ProductGrid from "@/app/components/ProductGrid";
@@ -18,7 +18,8 @@ const categories = [
   { id: "gym", name: "Gym" },
 ];
 
-const products: Product[] = [
+// Default products as fallback
+const defaultProducts: Product[] = [
   {
     id: "1",
     name: "Gradient Graphic T-shirt",
@@ -83,7 +84,57 @@ export default function StorePage() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [products, setProducts] = useState<Product[]>([]);
   const itemsPerPage = 6;
+
+  // Load products from localStorage (those listed by sellers)
+  useEffect(() => {
+    const loadProducts = () => {
+      try {
+        const storeProducts = localStorage.getItem("storeProducts");
+        if (storeProducts) {
+          const parsedProducts = JSON.parse(storeProducts);
+
+          // Convert the seller-listed products to the expected Product format
+          const formattedProducts = parsedProducts.map((p: any) => ({
+            id: p.id.toString(),
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: "casual", // Default category
+            rating: p.rating || 4.5,
+            image: p.image,
+            reviews: p.reviews || 0,
+            sizes: ["S", "M", "L", "XL"], // Default sizes
+            stock: p.stock,
+            sellerName: p.sellerName,
+            productCode: p.productCode,
+          }));
+
+          setProducts([...formattedProducts, ...defaultProducts]);
+        } else {
+          setProducts(defaultProducts);
+        }
+      } catch (err) {
+        console.error("Error loading products:", err);
+        setProducts(defaultProducts);
+      }
+    };
+
+    loadProducts();
+
+    // Set up event listener for storage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "storeProducts") {
+        loadProducts();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -101,11 +152,16 @@ export default function StorePage() {
       const matchesSearch =
         searchQuery === "" ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase());
+        (product.category &&
+          product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (product.description &&
+          product.description
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()));
 
       return matchesCategory && matchesPrice && matchesSize && matchesSearch;
     });
-  }, [selectedCategory, priceRange, selectedSizes, searchQuery]);
+  }, [selectedCategory, priceRange, selectedSizes, searchQuery, products]);
 
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
@@ -198,7 +254,18 @@ export default function StorePage() {
               </select>
             </div>
 
-            <ProductGrid products={paginatedProducts} onAddToCart={addToCart} />
+            {filteredProducts.length > 0 ? (
+              <ProductGrid
+                products={paginatedProducts}
+                onAddToCart={addToCart}
+              />
+            ) : (
+              <div className="text-center py-10 bg-white rounded-lg shadow">
+                <p className="text-gray-500">
+                  No products found matching your criteria.
+                </p>
+              </div>
+            )}
 
             {filteredProducts.length > itemsPerPage && (
               <div className="mt-8 flex justify-center items-center gap-1">

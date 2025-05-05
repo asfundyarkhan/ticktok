@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Layout,
   ShoppingBag,
@@ -34,7 +34,14 @@ const navigation: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleLogout = () => {
+    // Here you would typically clear authentication tokens/cookies
+    // For now, just redirect to main page
+    router.push("/main");
+  };
 
   return (
     <div
@@ -100,12 +107,12 @@ export default function Sidebar() {
               <p className="text-xs text-gray-500">View Profile</p>
             </div>
           </div>
-          <Link
-            href="/logout"
+          <button
+            onClick={handleLogout}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             <LogOut className="h-5 w-5" />
-          </Link>
+          </button>
         </div>
       </div>
     </div>

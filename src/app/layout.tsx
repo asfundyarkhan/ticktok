@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import { UserBalanceProvider } from "./components/UserBalanceContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,9 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body suppressHydrationWarning className={`${inter.className} h-full`}>
-        <Navbar />
-        <main className="min-h-full">{children}</main>
-        <Footer />
+        <UserBalanceProvider>
+          <Navbar />
+          <main className="min-h-full">{children}</main>
+          <Footer />
+        </UserBalanceProvider>
       </body>
     </html>
   );
