@@ -167,10 +167,10 @@ export default function StorePage() {
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.category &&
           product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        // Use type assertion since description exists on our actual data but not in the interface
-        ((product as any).description &&
-          (product as any).description
-            .toLowerCase()
+        // Use proper type check for description
+        ("description" in product &&
+          product.description
+            ?.toLowerCase()
             .includes(searchQuery.toLowerCase()));
 
       return matchesCategory && matchesPrice && matchesSize && matchesSearch;
@@ -257,7 +257,7 @@ export default function StorePage() {
               </p>
               <select
                 className="border rounded-md px-3 py-1.5 text-gray-800 focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                onChange={(_) => {
+                onChange={() => {
                   // Sort functionality can be added here
                 }}
               >
