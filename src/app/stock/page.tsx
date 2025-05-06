@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-// Removed unused router import
 import { useUserBalance } from "../components/UserBalanceContext";
 
 interface Product {

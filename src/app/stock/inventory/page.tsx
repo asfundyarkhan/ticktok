@@ -17,6 +17,19 @@ interface Product {
   listed: boolean;
 }
 
+interface StoreProduct {
+  productCode: string;
+  stock: number;
+  price: number;
+  id: number;
+  name: string;
+  description: string;
+  image: string;
+  sellerName: string;
+  rating: number;
+  reviews: number;
+}
+
 export default function InventoryPage() {
   const router = useRouter();
   const { balance, addToBalance } = useUserBalance();
@@ -139,22 +152,9 @@ export default function InventoryPage() {
     if (!currentProduct || sellQuantity <= 0) return;
 
     // Create a store listing
-    const storeProducts = JSON.parse(
+    const storeProducts: StoreProduct[] = JSON.parse(
       localStorage.getItem("storeProducts") || "[]"
     );
-
-    interface StoreProduct {
-      productCode: string;
-      stock: number;
-      price: number;
-      id: number;
-      name: string;
-      description: string;
-      image: string;
-      sellerName: string;
-      rating: number;
-      reviews: number;
-    }
 
     const listingExists = storeProducts.some(
       (p: StoreProduct) => p.productCode === currentProduct.productCode

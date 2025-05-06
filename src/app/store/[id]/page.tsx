@@ -15,7 +15,7 @@ import "swiper/css/free-mode";
 import "swiper/css/navigation";
 import "swiper/css/thumbs";
 
-export default function ProductDetailPage({}: { params: { id: string } }) {
+export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
   const [thumbsSwiper, setThumbsSwiper] = useState<SwiperType | null>(null);
