@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+// Removed unused router import
 import { useUserBalance } from "../components/UserBalanceContext";
 
 interface Product {
@@ -15,8 +15,19 @@ interface Product {
   productCode?: string;
 }
 
+// Define a proper type for inventory products
+interface InventoryProduct {
+  productCode: string;
+  stock: number;
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  listed: boolean;
+}
+
 export default function StockPage() {
-  const router = useRouter();
   const { balance, deductFromBalance } = useUserBalance();
   const [searchQuery, setSearchQuery] = useState("");
   const [adminProducts, setAdminProducts] = useState<Product[]>([]);
@@ -134,12 +145,6 @@ export default function StockPage() {
       localStorage.getItem("inventoryProducts") || "[]"
     );
 
-    interface InventoryProduct {
-      productCode: string;
-      stock: number;
-      [key: string]: any;
-    }
-
     const existingProduct = inventoryProducts.find(
       (p: InventoryProduct) => p.productCode === product.productCode
     );
@@ -157,12 +162,12 @@ export default function StockPage() {
       );
     } else {
       // Add new product to inventory
-      const newProduct = {
+      const newProduct: InventoryProduct = {
         id: Date.now(),
         name: product.name,
         description: product.description,
         stock: quantity,
-        productCode: product.productCode,
+        productCode: product.productCode!,
         image: product.image,
         price:
           typeof product.price === "string"

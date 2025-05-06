@@ -96,20 +96,33 @@ export default function StorePage() {
           const parsedProducts = JSON.parse(storeProducts);
 
           // Convert the seller-listed products to the expected Product format
-          const formattedProducts = parsedProducts.map((p: any) => ({
-            id: p.id.toString(),
-            name: p.name,
-            description: p.description,
-            price: p.price,
-            category: "casual", // Default category
-            rating: p.rating || 4.5,
-            image: p.image,
-            reviews: p.reviews || 0,
-            sizes: ["S", "M", "L", "XL"], // Default sizes
-            stock: p.stock,
-            sellerName: p.sellerName,
-            productCode: p.productCode,
-          }));
+          const formattedProducts = parsedProducts.map(
+            (p: {
+              id: number;
+              name: string;
+              description: string;
+              price: number;
+              rating?: number;
+              image: string;
+              reviews?: number;
+              stock: number;
+              sellerName: string;
+              productCode: string;
+            }) => ({
+              id: p.id.toString(),
+              name: p.name,
+              description: p.description,
+              price: p.price,
+              category: "casual", // Default category
+              rating: p.rating || 4.5,
+              image: p.image,
+              reviews: p.reviews || 0,
+              sizes: ["S", "M", "L", "XL"], // Default sizes
+              stock: p.stock,
+              sellerName: p.sellerName,
+              productCode: p.productCode,
+            })
+          );
 
           setProducts([...formattedProducts, ...defaultProducts]);
         } else {
@@ -154,8 +167,9 @@ export default function StorePage() {
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.category &&
           product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (product.description &&
-          product.description
+        // Use type assertion since description exists on our actual data but not in the interface
+        ((product as any).description &&
+          (product as any).description
             .toLowerCase()
             .includes(searchQuery.toLowerCase()));
 
