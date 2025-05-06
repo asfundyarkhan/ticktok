@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -21,7 +21,7 @@ interface LoginFormValues {
   password: string;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
@@ -239,5 +239,13 @@ export default function LoginPage() {
         </Formik>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
