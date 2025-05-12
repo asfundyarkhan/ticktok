@@ -26,6 +26,7 @@ interface StoreProduct {
   description: string;
   image: string;
   sellerName: string;
+  sellerId: string; // Add sellerId to StoreProduct
   rating: number;
   reviews: number;
 }
@@ -156,14 +157,27 @@ export default function InventoryPage() {
       localStorage.getItem("storeProducts") || "[]"
     );
 
+    // Get seller information (in a real app, this would come from authentication)
+    const sellerInfo = {
+      id: "current-user-id", // This would be the actual user ID in a real app
+      name: "Your Store", // This would be the actual store name
+    };
+
+    // Create a unique ID that will be stable for this product
+    const stableId =
+      Date.now() + parseInt(currentProduct.productCode.replace(/\D/g, ""));
+
     const listingExists = storeProducts.some(
-      (p: StoreProduct) => p.productCode === currentProduct.productCode
+      (p: StoreProduct) =>
+        p.productCode === currentProduct.productCode &&
+        p.sellerId === sellerInfo.id
     );
 
     if (listingExists) {
       // Update existing listing
       const updatedStoreProducts = storeProducts.map((p: StoreProduct) =>
-        p.productCode === currentProduct.productCode
+        p.productCode === currentProduct.productCode &&
+        p.sellerId === sellerInfo.id
           ? {
               ...p,
               stock: p.stock + sellQuantity,
@@ -178,22 +192,28 @@ export default function InventoryPage() {
     } else {
       // Create new listing
       const newListing: StoreProduct = {
-        id: Date.now(), // Generate unique ID
+        id: stableId, // Use stable ID
         name: currentProduct.name,
         description: currentProduct.description,
         price: sellPrice,
         stock: sellQuantity,
         image: currentProduct.image,
         productCode: currentProduct.productCode,
-        sellerName: "Your Store", // Could be dynamic based on seller profile
+        sellerName: sellerInfo.name,
+        sellerId: sellerInfo.id,
         rating: 4.5,
         reviews: 12,
       };
 
+      // Force-update storeProducts array
+      const updatedStoreProducts = [...storeProducts, newListing];
       localStorage.setItem(
         "storeProducts",
-        JSON.stringify([...storeProducts, newListing])
+        JSON.stringify(updatedStoreProducts)
       );
+
+      // Trigger a storage event for other components to detect
+      window.dispatchEvent(new Event("storage"));
     }
 
     // Calculate the listing fee (10% of total value)
@@ -204,13 +224,13 @@ export default function InventoryPage() {
     addToBalance(listingFee);
 
     // Update inventory
-    setProducts(
-      products.map((p) =>
-        p.id === currentProduct.id
-          ? { ...p, stock: p.stock - sellQuantity, listed: true }
-          : p
-      )
+    const updatedProducts = products.map((p) =>
+      p.id === currentProduct.id
+        ? { ...p, stock: p.stock - sellQuantity, listed: true }
+        : p
     );
+    setProducts(updatedProducts);
+    localStorage.setItem("inventoryProducts", JSON.stringify(updatedProducts));
 
     setShowSellModal(false);
 
@@ -220,6 +240,9 @@ export default function InventoryPage() {
         currentProduct.name
       } listed for sale! Earned $${listingFee.toFixed(2)} in listing fees.`
     );
+
+    // Redirect to listings page
+    router.push("/stock/listings");
   };
 
   // Restock product
@@ -323,6 +346,12 @@ export default function InventoryPage() {
             className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]"
           >
             Inventory
+          </Link>
+          <Link
+            href="/stock/listings"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
+          >
+            My Listings
           </Link>
         </div>
 

@@ -26,6 +26,34 @@ interface InventoryProduct {
   listed: boolean;
 }
 
+// Safe localStorage getter function to prevent SSR issues
+const getFromLocalStorage = (key: string, defaultValue: any = null) => {
+  if (typeof window === "undefined") {
+    return defaultValue;
+  }
+
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+};
+
+// Safe localStorage setter function
+const setToLocalStorage = (key: string, value: any) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error(`Error writing ${key} to localStorage:`, error);
+  }
+};
+
 export default function StockPage() {
   const { balance, deductFromBalance } = useUserBalance();
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,69 +65,79 @@ export default function StockPage() {
     string | null
   >(null);
 
+  // Default admin products
+  const defaultAdminProducts: Product[] = [
+    {
+      id: 1,
+      name: "T-Shirt Nike",
+      description: "100% cotton, unisex",
+      price: 300,
+      image: "/images/placeholders/t-shirt.svg",
+      productCode: "SHRT-NIKE-001",
+    },
+    {
+      id: 2,
+      name: "Long Pants Nike",
+      description: "100% cotton, unisex",
+      price: 500,
+      image: "/images/placeholders/t-shirt.svg",
+      productCode: "PNT-NIKE-001",
+    },
+    {
+      id: 3,
+      name: "Hoodie Adidas",
+      description: "Premium quality, unisex",
+      price: 450,
+      image: "/images/placeholders/t-shirt.svg",
+      productCode: "HOOD-ADIDAS-001",
+    },
+    {
+      id: 4,
+      name: "Cap Nike",
+      description: "Adjustable size",
+      price: 150,
+      image: "/images/placeholders/t-shirt.svg",
+      productCode: "CAP-NIKE-001",
+    },
+  ];
+
   useEffect(() => {
-    // Load admin stock products from localStorage or use defaults
-    const storedAdminProducts = localStorage.getItem("adminStockProducts");
+    // Load admin stock products with safe method
+    const storedAdminProducts = getFromLocalStorage("adminStockProducts", []);
 
-    if (storedAdminProducts) {
-      setAdminProducts(JSON.parse(storedAdminProducts));
+    if (storedAdminProducts.length > 0) {
+      setAdminProducts(storedAdminProducts);
     } else {
-      // Default admin stock if none exists
-      const defaultAdminProducts: Product[] = [
-        {
-          id: 1,
-          name: "T-Shirt Nike",
-          description: "100% cotton, unisex",
-          price: 300,
-          image: "/images/placeholders/t-shirt.svg",
-          productCode: "SHRT-NIKE-001",
-        },
-        {
-          id: 2,
-          name: "Long Pants Nike",
-          description: "100% cotton, unisex",
-          price: 500,
-          image: "/images/placeholders/t-shirt.svg",
-          productCode: "PNT-NIKE-001",
-        },
-        {
-          id: 3,
-          name: "Hoodie Adidas",
-          description: "Premium quality, unisex",
-          price: 450,
-          image: "/images/placeholders/t-shirt.svg",
-          productCode: "HOOD-ADIDAS-001",
-        },
-        {
-          id: 4,
-          name: "Cap Nike",
-          description: "Adjustable size",
-          price: 150,
-          image: "/images/placeholders/t-shirt.svg",
-          productCode: "CAP-NIKE-001",
-        },
-      ];
-
+      // Use default admin stock if none exists
       setAdminProducts(defaultAdminProducts);
-      localStorage.setItem(
-        "adminStockProducts",
-        JSON.stringify(defaultAdminProducts)
-      );
+      setToLocalStorage("adminStockProducts", defaultAdminProducts);
     }
 
-    // Initialize quantities
+    // Initialize quantities safely
     const initialQuantities: Record<number, number> = {};
-    JSON.parse(storedAdminProducts || "[]").forEach((product: Product) => {
+    (storedAdminProducts.length > 0
+      ? storedAdminProducts
+      : defaultAdminProducts
+    ).forEach((product: Product) => {
       initialQuantities[product.id] = 0;
     });
     setSelectedQuantities(initialQuantities);
 
     // Check if there's a product to highlight (coming from restock button)
-    const productToRestock = localStorage.getItem("productToRestock");
+    const productToRestock = getFromLocalStorage("productToRestock", null);
     if (productToRestock) {
       setHighlightedProductCode(productToRestock);
       // Remove it after use
-      localStorage.removeItem("productToRestock");
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("productToRestock");
+        } catch (error) {
+          console.error(
+            "Error removing productToRestock from localStorage:",
+            error
+          );
+        }
+      }
     }
   }, []);
 
@@ -139,10 +177,8 @@ export default function StockPage() {
       return;
     }
 
-    // Add to inventory
-    const inventoryProducts = JSON.parse(
-      localStorage.getItem("inventoryProducts") || "[]"
-    );
+    // Add to inventory safely
+    const inventoryProducts = getFromLocalStorage("inventoryProducts", []);
 
     const existingProduct = inventoryProducts.find(
       (p: InventoryProduct) => p.productCode === product.productCode
@@ -155,10 +191,7 @@ export default function StockPage() {
           ? { ...p, stock: p.stock + quantity }
           : p
       );
-      localStorage.setItem(
-        "inventoryProducts",
-        JSON.stringify(updatedInventory)
-      );
+      setToLocalStorage("inventoryProducts", updatedInventory);
     } else {
       // Add new product to inventory
       const newProduct: InventoryProduct = {
@@ -175,10 +208,10 @@ export default function StockPage() {
         listed: false,
       };
 
-      localStorage.setItem(
-        "inventoryProducts",
-        JSON.stringify([...inventoryProducts, newProduct])
-      );
+      setToLocalStorage("inventoryProducts", [
+        ...inventoryProducts,
+        newProduct,
+      ]);
     }
 
     // Reset quantity
@@ -189,7 +222,7 @@ export default function StockPage() {
 
   useEffect(() => {
     // Highlight row if needed
-    if (highlightedProductCode) {
+    if (highlightedProductCode && typeof window !== "undefined") {
       const element = document.getElementById(
         `product-${highlightedProductCode}`
       );
@@ -308,6 +341,12 @@ export default function StockPage() {
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             Inventory
+          </Link>
+          <Link
+            href="/stock/listings"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
+          >
+            My Listings
           </Link>
         </div>
 

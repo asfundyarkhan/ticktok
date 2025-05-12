@@ -19,21 +19,58 @@ const UserBalanceContext = createContext<UserBalanceContextType | undefined>(
   undefined
 );
 
+// Safe localStorage helper functions
+const getStoredBalance = (): number | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const savedBalance = localStorage.getItem("userBalance");
+    return savedBalance ? parseFloat(savedBalance) : null;
+  } catch (error) {
+    console.error("Error reading balance from localStorage:", error);
+    return null;
+  }
+};
+
+const setStoredBalance = (balance: number): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    localStorage.setItem("userBalance", balance.toString());
+  } catch (error) {
+    console.error("Error saving balance to localStorage:", error);
+  }
+};
+
 export function UserBalanceProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(5000); // Default starting balance
+  const [isClient, setIsClient] = useState(false);
 
-  // Load balance from localStorage on mount
+  // Set isClient flag on mount
   useEffect(() => {
-    const savedBalance = localStorage.getItem("userBalance");
-    if (savedBalance) {
-      setBalance(parseFloat(savedBalance));
-    }
+    setIsClient(true);
   }, []);
 
-  // Save balance to localStorage whenever it changes
+  // Load balance from localStorage on client-side only
   useEffect(() => {
-    localStorage.setItem("userBalance", balance.toString());
-  }, [balance]);
+    if (isClient) {
+      const savedBalance = getStoredBalance();
+      if (savedBalance !== null) {
+        setBalance(savedBalance);
+      }
+    }
+  }, [isClient]);
+
+  // Save balance to localStorage whenever it changes (client-side only)
+  useEffect(() => {
+    if (isClient) {
+      setStoredBalance(balance);
+    }
+  }, [balance, isClient]);
 
   const addToBalance = (amount: number) => {
     setBalance((prevBalance) => prevBalance + amount);

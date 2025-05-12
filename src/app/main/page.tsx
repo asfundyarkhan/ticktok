@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import styles from "./main.module.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 
@@ -11,6 +11,31 @@ export default function MainPage() {
   // Mock authentication state - in a real app, this would come from context/cookies
   const [isAuthenticated] = useState(false);
   const router = useRouter();
+
+  // State to track if navbar should be visible
+  const [showNavbar, setShowNavbar] = useState(false);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  // Handle scroll events
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      if (currentScrollY > 100) {
+        setShowNavbar(true);
+      } else {
+        setShowNavbar(false);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   const handleCartClick = () => {
     if (isAuthenticated) {
@@ -31,9 +56,13 @@ export default function MainPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#121212] text-white">
-      {/* Navbar */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+    <main className="min-h-screen bg-[#121212] text-white relative">
+      {/* Navbar with scroll-based visibility */}
+      <nav
+        className={`fixed top-0 left-0 w-full z-50 flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-[#121212] transition-transform duration-300 ${
+          showNavbar ? "translate-y-0" : "-translate-y-full"
+        }`}
+      >
         <div className="flex items-center space-x-8">
           <Link href="/" className="text-2xl font-bold text-pink-500">
             TikTok Shop
@@ -108,20 +137,26 @@ export default function MainPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className={styles.heroSection}>
+      {/* Hero Section - Added pt-6 for better spacing */}
+      <div className={`${styles.heroSection} pt-6`}>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="container mx-auto px-6 pt-20 pb-24 text-center"
+          className="container mx-auto px-6 pt-20 pb-24 text-center relative z-10"
         >
-          <h1 className="text-pink-500 text-5xl font-bold mb-4">TikTok Shop</h1>
-          <h2 className="text-6xl font-bold mb-8 leading-tight">
+          <h1
+            className={`text-pink-500 text-5xl font-bold mb-4 ${styles.textVisible}`}
+          >
+            TikTok Shop
+          </h1>
+          <h2
+            className={`text-6xl font-bold mb-8 leading-tight ${styles.textVisible}`}
+          >
             Create joy and
             <br />
             sell more
           </h2>
-          <p className="text-gray-400 text-xl mb-12">
+          <p className={`text-gray-400 text-xl mb-12 ${styles.textVisible}`}>
             Let your customers discover and buy your products the fun way.
           </p>
           <button
@@ -131,26 +166,44 @@ export default function MainPage() {
             Get started
           </button>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 mt-24">
-            <div>
-              <h3 className="text-4xl font-bold mb-2">200+</h3>
-              <p className="text-gray-400">International Brands</p>
+          {/* Stats - Added better visibility with improved contrast and colors */}
+          <div className="grid grid-cols-3 gap-8 mt-24 relative z-10">
+            <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-lg">
+              <h3
+                className={`text-cyan-400 text-4xl font-bold mb-2 ${styles.textVisible}`}
+              >
+                200+
+              </h3>
+              <p className={`text-white ${styles.textVisible}`}>
+                International Brands
+              </p>
             </div>
-            <div>
-              <h3 className="text-4xl font-bold mb-2">2,000+</h3>
-              <p className="text-gray-400">High-Quality Products</p>
+            <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-lg">
+              <h3
+                className={`text-pink-400 text-4xl font-bold mb-2 ${styles.textVisible}`}
+              >
+                2,000+
+              </h3>
+              <p className={`text-white ${styles.textVisible}`}>
+                High-Quality Products
+              </p>
             </div>
-            <div>
-              <h3 className="text-4xl font-bold mb-2">30,000+</h3>
-              <p className="text-gray-400">Happy Customers</p>
+            <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-lg">
+              <h3
+                className={`text-amber-400 text-4xl font-bold mb-2 ${styles.textVisible}`}
+              >
+                30,000+
+              </h3>
+              <p className={`text-white ${styles.textVisible}`}>
+                Happy Customers
+              </p>
             </div>
           </div>
         </motion.div>
 
-        {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-1/3 h-screen bg-gradient-to-b from-pink-500/20 to-transparent transform rotate-12 translate-x-1/2 -translate-y-1/4"></div>
-        <div className="absolute bottom-0 left-0 w-1/3 h-screen bg-gradient-to-t from-cyan-500/20 to-transparent transform -rotate-12 -translate-x-1/2 translate-y-1/4"></div>
+        {/* Decorative Elements - Adjusted opacity and z-index */}
+        <div className="absolute top-0 right-0 w-1/3 h-screen bg-gradient-to-b from-pink-500/10 to-transparent transform rotate-12 translate-x-1/2 -translate-y-1/4 z-0"></div>
+        <div className="absolute bottom-0 left-0 w-1/3 h-screen bg-gradient-to-t from-cyan-500/10 to-transparent transform -rotate-12 -translate-x-1/2 translate-y-1/4 z-0"></div>
       </div>
     </main>
   );

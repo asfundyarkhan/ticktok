@@ -28,8 +28,6 @@ const navigation: NavItem[] = [
   { name: "My Profile", href: "/dashboard/profile", icon: Settings },
   { name: "My Referrals", href: "/dashboard/referrals", icon: Share2 },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
-  { name: "Payment", href: "/dashboard/payment", icon: CreditCard },
-  { name: "Transfer", href: "/dashboard/transfer", icon: ArrowLeftRight },
   { name: "Admin", href: "/dashboard/admin", icon: Shield },
 ];
 

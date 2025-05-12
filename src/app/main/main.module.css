@@ -2,4 +2,15 @@
 .heroSection {
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
+  padding-top: 1rem; /* Add padding to prevent content from being hidden */
+}
+
+.textVisible {
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5); /* Add subtle shadow to improve text visibility on any background */
+}
+
+.imageContainer {
+  position: relative;
+  z-index: 1; /* Ensure images are displayed above backgrounds */
 }

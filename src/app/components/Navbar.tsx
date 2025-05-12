@@ -1,18 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut } from "lucide-react";
 import { useUserBalance } from "./UserBalanceContext";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
+
+  // Add logout handler
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to log out?")) {
+      // In a real app, clear auth tokens/cookies here
+      router.push("/login");
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -127,6 +136,14 @@ export default function Navbar() {
               >
                 Profile
               </Link>
+              {/* New Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </button>
             </div>
           ) : (
             <div className="hidden md:flex md:items-center md:space-x-6">
@@ -222,6 +239,14 @@ export default function Navbar() {
               >
                 Profile
               </Link>
+              {/* New Logout Button for mobile */}
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
+              >
+                <LogOut className="h-5 w-5 mr-2" />
+                Logout
+              </button>
             </>
           ) : (
             <>
