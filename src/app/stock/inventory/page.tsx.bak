@@ -43,11 +43,10 @@ export default function InventoryPage() {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [sellQuantity, setSellQuantity] = useState(0);
   const [sellPrice, setSellPrice] = useState(0);
+
   useEffect(() => {
     // Get inventory products from localStorage or initialize with default data
-    if (typeof window === "undefined") return;
-
-    const storedProducts = window.localStorage.getItem("inventoryProducts");
+    const storedProducts = localStorage.getItem("inventoryProducts");
     if (storedProducts) {
       setProducts(JSON.parse(storedProducts));
     } else {
@@ -85,19 +84,17 @@ export default function InventoryPage() {
         },
       ];
       setProducts(initialProducts);
-      window.localStorage.setItem(
+      localStorage.setItem(
         "inventoryProducts",
         JSON.stringify(initialProducts)
       );
     }
   }, []);
+
   // Save changes to localStorage whenever products change
   useEffect(() => {
-    if (products.length > 0 && typeof window !== "undefined") {
-      window.localStorage.setItem(
-        "inventoryProducts",
-        JSON.stringify(products)
-      );
+    if (products.length > 0) {
+      localStorage.setItem("inventoryProducts", JSON.stringify(products));
     }
   }, [products]);
 
@@ -110,8 +107,7 @@ export default function InventoryPage() {
   );
   const totalItems = filteredProducts.length;
   // Ensure rowsPerPage is a valid number
-  const validRowsPerPage =
-    isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
+  const validRowsPerPage = isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
   const totalPages = Math.ceil(totalItems / validRowsPerPage);
   const startIndex = (currentPage - 1) * validRowsPerPage;
   const endIndex = Math.min(startIndex + validRowsPerPage, totalItems);
@@ -153,13 +149,14 @@ export default function InventoryPage() {
     setSellPrice(product.price);
     setShowSellModal(true);
   };
+
   // Handle listing a product for sale
   const handleSellProduct = () => {
     if (!currentProduct || sellQuantity <= 0) return;
 
     // Create a store listing
     const storeProducts: StoreProduct[] = JSON.parse(
-      window.localStorage.getItem("storeProducts") || "[]"
+      localStorage.getItem("storeProducts") || "[]"
     );
 
     // Get seller information (in a real app, this would come from authentication)
@@ -177,6 +174,7 @@ export default function InventoryPage() {
         p.productCode === currentProduct.productCode &&
         p.sellerId === sellerInfo.id
     );
+
     if (listingExists) {
       // Update existing listing
       const updatedStoreProducts = storeProducts.map((p: StoreProduct) =>
@@ -189,7 +187,7 @@ export default function InventoryPage() {
             }
           : p
       );
-      window.localStorage.setItem(
+      localStorage.setItem(
         "storeProducts",
         JSON.stringify(updatedStoreProducts)
       );
@@ -207,9 +205,11 @@ export default function InventoryPage() {
         sellerId: sellerInfo.id,
         rating: 4.5,
         reviews: 12,
-      }; // Force-update storeProducts array
+      };
+
+      // Force-update storeProducts array
       const updatedStoreProducts = [...storeProducts, newListing];
-      window.localStorage.setItem(
+      localStorage.setItem(
         "storeProducts",
         JSON.stringify(updatedStoreProducts)
       );
@@ -232,10 +232,7 @@ export default function InventoryPage() {
         : p
     );
     setProducts(updatedProducts);
-    window.localStorage.setItem(
-      "inventoryProducts",
-      JSON.stringify(updatedProducts)
-    );
+    localStorage.setItem("inventoryProducts", JSON.stringify(updatedProducts));
 
     setShowSellModal(false);
 
@@ -253,16 +250,9 @@ export default function InventoryPage() {
   const handleRestock = (id: number) => {
     // Save the product code in localStorage to highlight it on the Buy Stock page
     const productToRestock = products.find((p) => p.id === id);
-    if (
-      productToRestock &&
-      productToRestock.productCode &&
-      typeof window !== "undefined"
-    ) {
+    if (productToRestock && productToRestock.productCode) {
       try {
-        window.localStorage.setItem(
-          "productToRestock",
-          productToRestock.productCode
-        );
+        localStorage.setItem("productToRestock", productToRestock.productCode);
       } catch (error) {
         console.error("Error setting productToRestock to localStorage:", error);
       }
@@ -335,6 +325,7 @@ export default function InventoryPage() {
 
       <div className="p-6">
         <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>
+
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
           <Link
@@ -368,6 +359,7 @@ export default function InventoryPage() {
             My Listings
           </Link>
         </div>
+
         {/* Current Balance Card */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
           <div className="flex justify-between items-center">
@@ -387,6 +379,7 @@ export default function InventoryPage() {
             </Link>
           </div>
         </div>
+
         {/* Search inventory */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-full max-w-md">
@@ -415,6 +408,7 @@ export default function InventoryPage() {
             </div>
           </div>
         </div>
+
         {/* Table */}
         <div className="mb-4">
           {filteredProducts.length > 0 ? (
@@ -507,26 +501,50 @@ export default function InventoryPage() {
             <div className="p-6 text-center text-gray-500 bg-white border rounded">
               No products found matching your search.
             </div>
-          )}{" "}
-        </div>{" "}
+          )}
+        </div>
+
         {/* Pagination */}
         {filteredProducts.length > 0 && (
-          <div className="mt-4">
+          <div className="flex justify-end items-center space-x-4 text-sm">
+            <div className="flex items-center">
+              <span className="mr-2 text-gray-700">Rows per page:</span>
+              <div className="relative">
+                <select
+                  className="border border-gray-300 rounded-md px-3 py-1.5 text-gray-900 bg-white hover:border-[#FF0059] focus:outline-none focus:ring-1 focus:ring-[#FF0059] focus:border-[#FF0059] transition-colors min-w-[65px] appearance-none pr-8"
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(parseInt(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                  <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-gray-700 font-medium">
+              {totalItems > 0
+                ? `${startIndex + 1}-${endIndex} of ${totalItems}`
+                : "0-0 of 0"}
+            </div>
+
             <PaginationWithCustomRows
               currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={(page: number) => setCurrentPage(page)}
-              totalItems={totalItems}
-              startIndex={startIndex}
-              endIndex={endIndex}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(newRowsPerPage: number) => {
-                setRowsPerPage(newRowsPerPage);
-                setCurrentPage(1); // Reset to first page when changing rows per page
-              }}
+              onPageChange={setCurrentPage}
             />
           </div>
         )}
+
         {/* Sell Modal */}
         {showSellModal && currentProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

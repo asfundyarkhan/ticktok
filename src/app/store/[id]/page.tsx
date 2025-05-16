@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Toaster } from "react-hot-toast";
+import { useState, useRef, useEffect } from "react";
+import { Toaster, toast } from "react-hot-toast";
 import { Star, Minus, Plus } from "lucide-react";
 import { Tab } from "@headlessui/react";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -9,6 +9,14 @@ import type { Swiper as SwiperType } from "swiper";
 import { FreeMode, Navigation, Thumbs } from "swiper/modules";
 import { Product } from "@/types/product";
 import Breadcrumb from "@/app/components/Breadcrumb";
+import EnhancedQuickAddButton from "@/app/components/EnhancedQuickAddButton";
+import AddToCartButton from "@/app/components/AddToCartButton";
+import RelatedProducts from "@/app/components/RelatedProducts";
+import CartNotification from "@/app/components/CartNotification";
+import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
+import CartDrawer from "@/app/components/CartDrawer";
+import { FlyToCartAnimation } from "@/app/components/CartAnimations";
+import { useCart } from "@/app/components/CartContext";
 import styles from "./page.module.css";
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -19,6 +27,40 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
   const [thumbsSwiper, setThumbsSwiper] = useState<SwiperType | null>(null);
+  const [showAnimation, setShowAnimation] = useState(false);
+  const [animationStartPosition, setAnimationStartPosition] = useState({
+    x: 0,
+    y: 0,
+  });
+  const [animationEndPosition, setAnimationEndPosition] = useState({
+    x: 0,
+    y: 0,
+  });
+  const addToCartButtonRef = useRef<HTMLDivElement>(null);
+  const cartIconRef = useRef<HTMLDivElement>(null);
+  const { addToCart, isCartOpen, setIsCartOpen } = useCart();
+
+  // Get cart icon position for animation
+  useEffect(() => {
+    const updateCartPosition = () => {
+      const cartIcon = document.querySelector(".cart-icon-target");
+      if (cartIcon) {
+        const rect = cartIcon.getBoundingClientRect();
+        setAnimationEndPosition({
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      }
+    };
+
+    // Initialize positions and update on resize
+    updateCartPosition();
+    window.addEventListener("resize", updateCartPosition);
+
+    return () => {
+      window.removeEventListener("resize", updateCartPosition);
+    };
+  }, []);
 
   const product: Product = {
     id: "graphic-tshirt-1",
@@ -114,23 +156,75 @@ export default function ProductDetailPage() {
     { label: "Men", href: "/store/men" },
     { label: "T-shirts", href: "/store/men/t-shirts" },
   ];
-
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!selectedSize) {
-      // Show error message
+      toast.error("Please select a size");
       return;
     }
-    // Add to cart logic here
-  };
 
+    // Get animation start position from the click event
+    if (addToCartButtonRef.current) {
+      const rect = addToCartButtonRef.current.getBoundingClientRect();
+      setAnimationStartPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    } else {
+      // Fallback to click position if ref not available
+      setAnimationStartPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+    }
+
+    // Show animation
+    setShowAnimation(true);
+
+    // Add to cart with a slight delay to allow animation to start
+    setTimeout(() => {
+      addToCart({
+        ...product,
+        quantity: quantity,
+        size: selectedSize,
+      });
+
+      // Show success message
+      toast.success(`${quantity} ${product.name} added to cart!`);
+    }, 100);
+
+    // Hide animation after it's complete
+    setTimeout(() => {
+      setShowAnimation(false);
+    }, 1000);
+  };
   return (
     <div className="bg-white">
       <Toaster position="top-right" />
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+
+      {/* Cart Animation */}
+      {showAnimation && (
+        <FlyToCartAnimation
+          startPosition={animationStartPosition}
+          endPosition={animationEndPosition}
+          productImage={product.image}
+          onAnimationComplete={() => setShowAnimation(false)}
+        />
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 relative">
+        {/* Cart Icon - Target for animation */}{" "}
+        <div className="absolute top-8 right-8">
+          <div ref={cartIconRef} className="cart-icon-target">
+            <AnimatedCartIcon
+              size="lg"
+              className="cursor-pointer"
+              onClick={() => setIsCartOpen(true)}
+            />
+          </div>
+        </div>
         <div className="mb-6">
           <Breadcrumb items={breadcrumbItems} />
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Product Images */}
           <div className={styles.swiperContainer}>
@@ -181,7 +275,6 @@ export default function ProductDetailPage() {
             <h1 className="text-2xl font-semibold text-gray-900">
               {product.name}
             </h1>
-
             {/* Rating */}
             <div className="mt-2 flex items-center gap-2">
               <div className="flex items-center">
@@ -200,21 +293,18 @@ export default function ProductDetailPage() {
                 {product.rating}/5 ({product.reviews} reviews)
               </span>
             </div>
-
             {/* Price */}
             <div className="mt-4">
               <span className="text-2xl font-semibold text-gray-900">
                 ${product.price}
               </span>
             </div>
-
             {/* Description */}
             <p className="mt-4 text-gray-600">
               This graphic t-shirt which is perfect for any occasion. Crafted
               from a soft and breathable fabric, it offers superior comfort and
               style.
             </p>
-
             {/* Color Selection */}
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900">
@@ -230,7 +320,6 @@ export default function ProductDetailPage() {
                 ))}
               </div>
             </div>
-
             {/* Size Selection */}
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900">Choose Size</h3>
@@ -250,7 +339,6 @@ export default function ProductDetailPage() {
                 ))}
               </div>
             </div>
-
             {/* Quantity */}
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900">Quantity</h3>
@@ -271,18 +359,23 @@ export default function ProductDetailPage() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-
+            </div>{" "}
             {/* Add to Cart Button */}
-            <button
-              onClick={handleAddToCart}
-              className="mt-8 w-full bg-pink-600 text-white py-3 px-4 rounded-lg hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
-            >
-              Add to Cart
-            </button>
+            <div ref={addToCartButtonRef}>
+              <AddToCartButton
+                product={product}
+                quantity={quantity}
+                size={selectedSize}
+                className="mt-8"
+                fullWidth={true}
+                requiresSize={true}
+                buttonText="Add to Cart"
+                variant="filled"
+                onClick={handleAddToCart}
+              />
+            </div>
           </div>
         </div>
-
         {/* Product Tabs */}
         <div className="mb-12">
           <Tab.Group>
@@ -409,7 +502,6 @@ export default function ProductDetailPage() {
             </Tab.Panels>
           </Tab.Group>
         </div>
-
         {/* Similar Products */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-6">
@@ -432,50 +524,64 @@ export default function ProductDetailPage() {
                       SALE
                     </span>
                   )}
-                </div>
+                </div>{" "}
                 <div className="p-4">
-                  <h3 className="text-sm font-medium text-gray-900">
-                    {product.name}
-                  </h3>
-                  <div className="mt-2">
-                    <div className="flex items-center">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`w-3 h-3 ${
-                            i < Math.floor(product.rating)
-                              ? "text-yellow-400 fill-current"
-                              : "text-gray-300"
-                          }`}
-                        />
-                      ))}
-                      <span className="ml-1 text-xs text-gray-500">
-                        ({product.reviews})
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      {product.salePrice ? (
-                        <>
-                          <span className="text-sm font-medium text-gray-900">
-                            ${product.salePrice}
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {product.name}
+                      </h3>
+                      <div className="mt-1">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < Math.floor(product.rating)
+                                  ? "text-yellow-400 fill-current"
+                                  : "text-gray-300"
+                              }`}
+                            />
+                          ))}
+                          <span className="ml-1 text-xs text-gray-500">
+                            ({product.reviews})
                           </span>
-                          <span className="text-xs text-gray-500 line-through">
-                            ${product.price}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-sm font-medium text-gray-900">
-                          ${product.price}
-                        </span>
-                      )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2">
+                          {product.salePrice ? (
+                            <>
+                              <span className="text-sm font-medium text-gray-900">
+                                ${product.salePrice}
+                              </span>
+                              <span className="text-xs text-gray-500 line-through">
+                                ${product.price}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm font-medium text-gray-900">
+                              ${product.price}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+                    <EnhancedQuickAddButton
+                      product={product}
+                      className="flex items-center justify-center"
+                      showIcon={true}
+                      variant="round"
+                      size="sm"
+                    />
                   </div>
                 </div>
               </div>
             ))}
-          </div>
+          </div>{" "}
         </div>
       </div>
+
+      {/* Cart Drawer */}
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </div>
   );
 }

@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useUserBalance } from "./UserBalanceContext";
+import { useCart } from "./CartContext";
+import CartDrawer from "./CartDrawer";
+import AnimatedCartIcon from "./AnimatedCartIcon";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -14,6 +17,7 @@ export default function Navbar() {
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
+  const { cartCount, isCartOpen, setIsCartOpen } = useCart();
 
   // Add logout handler
   const handleLogout = () => {
@@ -126,10 +130,14 @@ export default function Navbar() {
                 }`}
               >
                 Wallet
-              </Link>
+              </Link>{" "}
               <div className="px-4 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-800">
                 Balance: ${balance.toFixed(2)}
-              </div>
+              </div>{" "}
+              <AnimatedCartIcon
+                className="p-2 text-gray-600 hover:text-gray-900"
+                onClick={() => setIsCartOpen(true)}
+              />
               <Link
                 href="/profile"
                 className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700"
@@ -229,9 +237,15 @@ export default function Navbar() {
                 className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
               >
                 Wallet
-              </Link>
+              </Link>{" "}
               <div className="px-3 py-2 text-base font-medium text-gray-800 bg-gray-100 rounded-md">
                 Balance: ${balance.toFixed(2)}
+              </div>
+              <div className="px-3 py-2 flex items-center">
+                <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
+                <span className="ml-2 text-base font-medium text-gray-600">
+                  Cart
+                </span>
               </div>
               <Link
                 href="/profile"
@@ -267,7 +281,7 @@ export default function Navbar() {
                 className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
               >
                 Sign in
-              </Link>
+              </Link>{" "}
               <Link
                 href="/register"
                 className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md"
@@ -278,6 +292,9 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Cart Drawer */}
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </nav>
   );
 }

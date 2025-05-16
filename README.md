@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TikTok Shop E-Commerce Application
+
+This is a Next.js-based e-commerce application designed to provide a seamless shopping experience for TikTok Shop users.
 
 ## Getting Started
 
@@ -10,15 +12,63 @@ npm run dev
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment on Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This application is optimized for deployment on Vercel. Follow these steps:
+
+1. Create a Vercel account at [vercel.com](https://vercel.com) if you don't have one
+2. Install the Vercel CLI:
+   ```bash
+   npm install -g vercel
+   ```
+3. Login to your Vercel account:
+   ```bash
+   vercel login
+   ```
+4. Deploy to Vercel:
+   ```bash
+   vercel
+   ```
+
+### Setting Up Custom Domain
+
+1. On the Vercel dashboard, navigate to your project settings
+2. Go to "Domains" section
+3. Add your custom domain (e.g., yourdomain.com)
+4. Update your DNS settings with the records provided by Vercel:
+   - For apex domains: Add an A record pointing to Vercel's IP addresses
+   - For subdomains: Add a CNAME record pointing to your Vercel project
+
+Make sure to:
+
+- Enable HTTPS for your domain (Vercel handles this automatically with Let's Encrypt)
+- Verify domain ownership following Vercel's instructions
+- Update your environment variables to match your custom domain
+
+### Environment Variables
+
+For production deployment, ensure these environment variables are set in your Vercel project:
+
+- `NEXT_PUBLIC_SITE_URL` - Your custom domain (e.g., https://yourdomain.com)
+- `NEXTAUTH_URL` - Same as your custom domain for authentication to work properly
+- `NEXTAUTH_SECRET` - A secure random string for authentication security
+- `NODE_ENV` - Set to "production" for production builds
+
+## Key Features
+
+- Product browsing and search
+- Shopping cart functionality
+- Seller inventory management
+- Product listings management
+- User balance/wallet functionality
+
+## Client-Side Storage
+
+This application uses localStorage for state management. All localStorage interactions have been optimized to work correctly with Next.js server-side rendering.
 
 ## Learn More
 

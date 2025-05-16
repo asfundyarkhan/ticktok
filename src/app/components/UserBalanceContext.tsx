@@ -19,31 +19,16 @@ const UserBalanceContext = createContext<UserBalanceContextType | undefined>(
   undefined
 );
 
+import { getFromLocalStorage, setToLocalStorage } from "../utils/localStorage";
+
 // Safe localStorage helper functions
 const getStoredBalance = (): number | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const savedBalance = localStorage.getItem("userBalance");
-    return savedBalance ? parseFloat(savedBalance) : null;
-  } catch (error) {
-    console.error("Error reading balance from localStorage:", error);
-    return null;
-  }
+  const savedBalance = getFromLocalStorage<string | null>("userBalance", null);
+  return savedBalance ? parseFloat(savedBalance) : null;
 };
 
 const setStoredBalance = (balance: number): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    localStorage.setItem("userBalance", balance.toString());
-  } catch (error) {
-    console.error("Error saving balance to localStorage:", error);
-  }
+  setToLocalStorage("userBalance", balance.toString());
 };
 
 export function UserBalanceProvider({ children }: { children: ReactNode }) {

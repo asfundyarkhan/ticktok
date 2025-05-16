@@ -5,20 +5,9 @@ import { Trash2, Plus, Minus } from "lucide-react";
 import Breadcrumb from "@/app/components/Breadcrumb";
 import { useCart } from "@/app/components/CartContext";
 import Link from "next/link";
-import CheckoutButton from "@/app/components/CheckoutButton";
-import RelatedProducts from "@/app/components/RelatedProducts";
 
 export default function CartPage() {
-  const {
-    cartItems,
-    savedItems,
-    updateQuantity,
-    removeFromCart,
-    saveForLater,
-    moveToCart,
-    removeSavedItem,
-    cartTotal,
-  } = useCart();
+  const { cartItems, updateQuantity, removeFromCart, cartTotal } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const discount = 0.2; // 20% discount
 
@@ -39,9 +28,7 @@ export default function CartPage() {
         <Breadcrumb items={breadcrumbItems} />
         <div className="mt-8 text-center py-16">
           <div className="p-6 max-w-md mx-auto">
-            <h1 className="text-2xl font-semibold text-gray-900 mb-4">
-              Your cart is empty
-            </h1>
+            <h1 className="text-2xl font-semibold text-gray-900 mb-4">Your cart is empty</h1>
             <p className="text-gray-600 mb-8">
               Looks like you haven't added anything to your cart yet.
             </p>
@@ -86,32 +73,22 @@ export default function CartPage() {
                     </h3>
                     {(item.size || item.color) && (
                       <p className="mt-1 text-sm text-gray-500">
-                        {item.size && `Size: ${item.size}`}{" "}
-                        {item.color && `| Color: ${item.color}`}
+                        {item.size && `Size: ${item.size}`} {item.color && `| Color: ${item.color}`}
                       </p>
                     )}
-                  </div>{" "}
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => saveForLater(item.id)}
-                      className="text-sm text-[#FF0059] hover:underline px-2 py-1"
-                    >
-                      Save for later
-                    </button>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-gray-400 hover:text-gray-500"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
                   </div>
+                  <button
+                    onClick={() => removeFromCart(item.id)}
+                    className="text-gray-400 hover:text-gray-500"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center border rounded-md">
                     <button
                       onClick={() =>
-                        item.quantity > 1 &&
-                        updateQuantity(item.id, item.quantity - 1)
+                        item.quantity > 1 && updateQuantity(item.id, item.quantity - 1)
                       }
                       className="px-3 py-1 border-r text-gray-700 hover:bg-gray-50 font-medium text-lg"
                       disabled={item.quantity <= 1}
@@ -123,7 +100,9 @@ export default function CartPage() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() =>
+                        updateQuantity(item.id, item.quantity + 1)
+                      }
                       className="px-3 py-1 border-l text-gray-700 hover:bg-gray-50 font-medium text-lg"
                       aria-label="Increase quantity"
                     >
@@ -131,20 +110,20 @@ export default function CartPage() {
                     </button>
                   </div>
                   <span className="font-medium">
-                    $
-                    {((item.salePrice || item.price) * item.quantity).toFixed(
-                      2
-                    )}
+                    ${((item.salePrice || item.price) * item.quantity).toFixed(2)}
                   </span>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
         {/* Order Summary */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-lg border">
-            <h2 className="text-lg font-medium text-gray-900">Order Summary</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Order Summary
+            </h2>
 
             <div className="mt-6 space-y-4">
               <div className="flex justify-between">
@@ -162,9 +141,7 @@ export default function CartPage() {
               <div className="pt-4 border-t">
                 <div className="flex justify-between">
                   <span className="text-base font-medium">Total</span>
-                  <span className="text-base font-medium">
-                    ${total.toFixed(2)}
-                  </span>
+                  <span className="text-base font-medium">${total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -181,10 +158,13 @@ export default function CartPage() {
                 <button className="px-4 py-2 text-sm font-medium text-[#FF0059] bg-white border border-[#FF0059] rounded-md hover:bg-pink-50">
                   Apply
                 </button>
-              </div>{" "}
+              </div>
             </div>
+
             <div className="mt-6">
-              <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
+              <button className="w-full py-3 px-4 bg-[#FF0059] border border-transparent rounded-md shadow-sm text-base font-medium text-white hover:bg-[#E60050]">
+                Proceed to Checkout
+              </button>
             </div>
 
             <div className="mt-4">
@@ -196,64 +176,7 @@ export default function CartPage() {
               </Link>
             </div>
           </div>
-        </div>{" "}
-      </div>
-
-      {/* Saved For Later Section */}
-      {savedItems.length > 0 && (
-        <div className="mt-12 border-t border-gray-200 pt-10">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Saved for Later ({savedItems.length})
-          </h2>
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {savedItems.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white rounded-lg border overflow-hidden"
-              >
-                <div className="aspect-square overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-base font-medium text-gray-900 truncate">
-                    {item.name}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 truncate">
-                    {item.description}
-                  </p>
-                  <div className="mt-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-900">
-                      ${(item.salePrice || item.price).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex flex-col space-y-2">
-                    <button
-                      onClick={() => moveToCart(item.id)}
-                      className="w-full py-2 px-3 text-sm font-medium text-white bg-[#FF0059] rounded-md hover:bg-[#E60050]"
-                    >
-                      Move to Cart
-                    </button>
-                    <button
-                      onClick={() => removeSavedItem(item.id)}
-                      className="w-full py-2 px-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
-      )}
-
-      {/* Related Products Section */}
-      <div className="mt-16">
-        <RelatedProducts />
       </div>
     </div>
   );

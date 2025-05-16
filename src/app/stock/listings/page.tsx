@@ -4,20 +4,12 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useUserBalance } from "../../components/UserBalanceContext";
-
-interface StoreProduct {
-  id: number;
-  productCode: string;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  image: string;
-  sellerName: string;
-  sellerId: string;
-  rating: number;
-  reviews: number;
-}
+import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
+import {
+  getFromLocalStorage,
+  setToLocalStorage,
+} from "../../utils/localStorage";
+import { StoreProduct, InventoryProduct } from "../../types/marketplace";
 
 export default function MyListingsPage() {
   const [myListings, setMyListings] = useState<StoreProduct[]>([]);
@@ -26,79 +18,81 @@ export default function MyListingsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const { balance } = useUserBalance();
 
-  // Load seller's listings from localStorage - completely rewritten for reliability
+  // Load seller's listings from localStorage - using safe utility functions
   useEffect(() => {
     // Direct function to load listings - guaranteed to work
     function loadListingsDirectly() {
       // First, get all store products
-      const allStoreProducts = JSON.parse(
-        localStorage.getItem("storeProducts") || "[]"
+      const allStoreProducts: StoreProduct[] = getFromLocalStorage(
+        "storeProducts",
+        []
       );
 
       // Get inventory to check for listed items
-      const inventoryProducts = JSON.parse(
-        localStorage.getItem("inventoryProducts") || "[]"
+      const inventoryProducts: InventoryProduct[] = getFromLocalStorage(
+        "inventoryProducts",
+        []
       );
-      const listedInventoryItems = inventoryProducts.filter(
-        (product) => product.listed === true
+      const listedInventoryItems: InventoryProduct[] = inventoryProducts.filter(
+        (product: InventoryProduct) => product.listed === true
       );
 
       // Filter for current seller's products
       const currentSellerId = "current-user-id";
-      let sellerListings = allStoreProducts.filter(
-        (product) => product.sellerId === currentSellerId
+      let sellerListings: StoreProduct[] = allStoreProducts.filter(
+        (product: StoreProduct) => product.sellerId === currentSellerId
       );
 
       // Check if we're missing any products that are marked as listed in inventory
       if (listedInventoryItems.length > 0) {
         // Get product codes that are already in listings
-        const existingProductCodes = new Set(
-          sellerListings.map((item) => item.productCode)
+        const existingListingsCodes = sellerListings.map(
+          (item: StoreProduct) => item.productCode
         );
 
-        // Find missing inventory items
-        const missingItems = listedInventoryItems.filter(
-          (item) => !existingProductCodes.has(item.productCode)
+        // Find inventory items that are not in listings
+        const missingListings = listedInventoryItems.filter(
+          (item: InventoryProduct) =>
+            !existingListingsCodes.includes(item.productCode)
         );
 
-        // Create listings for missing items
-        if (missingItems.length > 0) {
-          const newListings = missingItems.map((item, index) => {
-            // Create a unique ID for each listing by using:
-            // 1. Current timestamp
-            // 2. Index in the array
-            // 3. Numeric portion of product code
-            // 4. Random value
-            const numericCode = parseInt(
-              item.productCode.replace(/\D/g, "") || "0"
-            );
-            const uniqueId =
-              Date.now() +
-              index +
-              numericCode * 100 +
-              Math.floor(Math.random() * 10000);
+        // If we have missing items, add them to store products
+        if (missingListings.length > 0) {
+          const newListings = missingListings.map(
+            (item: InventoryProduct, index: number) => {
+              // Create a unique ID from:
+              // 1. Current timestamp
+              // 2. Index in the array
+              // 3. Numeric portion of product code
+              // 4. Random value
+              const numericCode = parseInt(
+                item.productCode.replace(/\D/g, "") || "0"
+              );
+              const uniqueId =
+                Date.now() +
+                index +
+                numericCode * 100 +
+                Math.floor(Math.random() * 10000);
 
-            return {
-              id: uniqueId,
-              name: item.name,
-              description: item.description,
-              price: item.price,
-              stock: item.stock,
-              image: item.image,
-              productCode: item.productCode,
-              sellerName: "Your Store",
-              sellerId: currentSellerId,
-              rating: 4.5,
-              reviews: 0,
-            };
-          });
-
-          // Add new listings to store products
-          const updatedStoreProducts = [...allStoreProducts, ...newListings];
-          localStorage.setItem(
-            "storeProducts",
-            JSON.stringify(updatedStoreProducts)
+              return {
+                id: uniqueId,
+                name: item.name,
+                description: item.description,
+                price: item.price,
+                stock: item.stock,
+                image: item.image,
+                productCode: item.productCode,
+                sellerName: "Your Store",
+                sellerId: currentSellerId,
+                rating: 4.5,
+                reviews: 0,
+              };
+            }
           );
+
+          // Add new listings to store products - using safe utility function
+          const updatedStoreProducts = [...allStoreProducts, ...newListings];
+          setToLocalStorage("storeProducts", updatedStoreProducts);
 
           // Update our local state with all listings
           sellerListings = [...sellerListings, ...newListings];
@@ -107,7 +101,7 @@ export default function MyListingsPage() {
 
       // Update state with final listings and ensure all IDs are unique
       const seenIds = new Set();
-      const uniqueListings = sellerListings.filter((listing) => {
+      const uniqueListings = sellerListings.filter((listing: StoreProduct) => {
         // Convert the ID to a string to ensure consistent type handling
         const idStr = String(listing.id);
         if (seenIds.has(idStr)) {
@@ -176,22 +170,23 @@ export default function MyListingsPage() {
       (product) => product.id !== productId
     );
     setMyListings(updatedListings);
-    localStorage.setItem("storeProducts", JSON.stringify(updatedListings));
+
+    // Update localStorage safely
+    setToLocalStorage("storeProducts", updatedListings);
 
     // Update inventory listed status
     if (productToRemove) {
-      const inventoryProducts = JSON.parse(
-        localStorage.getItem("inventoryProducts") || "[]"
-      );
-      const updatedInventory = inventoryProducts.map((product) =>
-        product.productCode === productToRemove.productCode
-          ? { ...product, listed: false }
-          : product
-      );
-      localStorage.setItem(
+      const inventoryProducts: InventoryProduct[] = getFromLocalStorage(
         "inventoryProducts",
-        JSON.stringify(updatedInventory)
+        []
       );
+      const updatedInventory = inventoryProducts.map(
+        (product: InventoryProduct) =>
+          product.productCode === productToRemove.productCode
+            ? { ...product, listed: false }
+            : product
+      );
+      setToLocalStorage("inventoryProducts", updatedInventory);
     }
   };
 
@@ -207,7 +202,7 @@ export default function MyListingsPage() {
         : product
     );
     setMyListings(updatedListings);
-    localStorage.setItem("storeProducts", JSON.stringify(updatedListings));
+    setToLocalStorage("storeProducts", updatedListings);
   };
 
   return (
@@ -262,6 +257,22 @@ export default function MyListingsPage() {
               />
             </svg>
           </button>
+          <Link href="/cart" className="ml-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+          </Link>
           <div className="text-sm font-medium text-gray-700">
             Balance: ${balance.toFixed(2)}
           </div>
@@ -480,63 +491,22 @@ export default function MyListingsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-
+              </table>{" "}
               {/* Pagination */}
-              <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-gray-200">
-                <div className="flex items-center">
-                  <span className="text-sm text-gray-700 mr-4">
-                    Rows per page:
-                  </span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => {
-                      setRowsPerPage(parseInt(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm w-[50px] appearance-none bg-no-repeat"
-                    style={{
-                      backgroundImage:
-                        "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')",
-                      backgroundPosition: "right 6px center",
-                      backgroundSize: "8px 8px",
-                      paddingRight: "24px",
-                    }}
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                  </select>
-                </div>
-
-                <div className="text-sm text-gray-700">
-                  Showing {startIndex + 1} to {endIndex} of {totalItems} results
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={goToPreviousPage}
-                    disabled={currentPage === 1}
-                    className={`${
-                      currentPage === 1
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-700 hover:bg-gray-100"
-                    } px-3 py-1 rounded-md`}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={goToNextPage}
-                    disabled={currentPage === totalPages}
-                    className={`${
-                      currentPage === totalPages
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-700 hover:bg-gray-100"
-                    } px-3 py-1 rounded-md`}
-                  >
-                    Next
-                  </button>
-                </div>
+              <div className="px-6 py-3 bg-white border-t border-gray-200">
+                <PaginationWithCustomRows
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={(page) => setCurrentPage(page)}
+                  totalItems={totalItems}
+                  startIndex={startIndex}
+                  endIndex={endIndex}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={(newRowsPerPage) => {
+                    setRowsPerPage(newRowsPerPage);
+                    setCurrentPage(1); // Reset to first page when changing rows per page
+                  }}
+                />
               </div>
             </>
           ) : (

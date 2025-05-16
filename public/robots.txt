@@ -1,0 +1,14 @@
+# Robots.txt for Ticktok e-commerce platform
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin and dashboard areas
+Disallow: /dashboard/admin/
+Disallow: /dashboard/payment/
+Disallow: /dashboard/wallet/
+Disallow: /dashboard/transfer/
+
+# Sitemap location
+Sitemap: https://yourdomain.com/sitemap.xml

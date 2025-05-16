@@ -4,11 +4,13 @@ import React from "react";
 import { ShoppingCart } from "lucide-react";
 import { Product } from "@/types/product";
 import StarRating from "./StarRating";
+import QuickAddButton from "./QuickAddButton";
+import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
 import { useRouter } from "next/navigation";
 
 interface ProductGridProps {
   products: Product[];
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, event?: React.MouseEvent) => void;
 }
 
 export default function ProductGrid({
@@ -67,16 +69,17 @@ export default function ProductGrid({
                     ${product.price}
                   </span>
                 )}
+              </div>{" "}
+              <div onClick={(e) => e.stopPropagation()}>
+                <EnhancedQuickAddButton
+                  product={product}
+                  className="flex items-center justify-center w-10 h-10"
+                  showIcon={true}
+                  variant="round"
+                  size="md"
+                  onClick={(e) => onAddToCart(product, e)}
+                />
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAddToCart(product);
-                }}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-pink-500 text-white hover:bg-pink-600 transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-              </button>
             </div>
           </div>
         </div>

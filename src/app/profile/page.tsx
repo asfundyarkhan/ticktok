@@ -54,10 +54,10 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center">
+          <Link href="/cart" className="flex items-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700"
+              className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -69,7 +69,7 @@ export default function ProfilePage() {
                 d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
               />
             </svg>
-          </div>
+          </Link>
           <div className="text-sm font-medium text-gray-700">
             Balance: ${balance.toFixed(2)}
           </div>
@@ -263,46 +263,71 @@ export default function ProfilePage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-            <div className="flex justify-between items-center mt-4 text-sm text-gray-800">
+            </table>{" "}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 text-sm text-gray-800 gap-4">
               <div className="flex items-center font-medium">
-                Rows per page:
-                <select className="ml-2 p-1 border border-gray-300 rounded text-gray-900 bg-white">
-                  <option>5</option>
-                  <option>10</option>
-                  <option>25</option>
-                </select>
+                <span className="whitespace-nowrap">Rows per page:</span>
+                <div className="relative ml-2">
+                  <select className="appearance-none pl-3 pr-8 py-1 border border-gray-300 rounded text-gray-900 bg-white">
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <svg
+                      className="h-4 w-4 text-gray-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-2 font-medium">
-                <span>1-2 of 2</span>
-                <button className="p-1" disabled>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+              <div className="flex items-center space-x-4 font-medium">
+                <span className="whitespace-nowrap">1-2 of 2</span>
+                <div className="flex space-x-2">
+                  <button
+                    className="p-1 rounded-full hover:bg-gray-100"
+                    disabled
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-                <button className="p-1" disabled>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-gray-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    className="p-1 rounded-full hover:bg-gray-100"
+                    disabled
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4-4a1 1 0 01-1.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 text-gray-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

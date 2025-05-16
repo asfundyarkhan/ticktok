@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
-import { toast } from "react-hot-toast";
+import { useState, useMemo, useEffect } from "react";
+import { Toaster } from "react-hot-toast";
 import ProductGrid from "@/app/components/ProductGrid";
 import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
-import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
+import CartIcon from "@/app/components/CartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
 import { useCart } from "@/app/components/CartContext";
-import { FlyToCartAnimation } from "@/app/components/CartAnimations";
-import CartQtyIndicator from "@/app/components/CartQtyIndicator";
 import "rc-pagination/assets/index.css";
 import { Product } from "@/types/product";
 
@@ -85,53 +83,14 @@ const defaultProducts: Product[] = [
 ];
 
 export default function StorePage() {
-  // Animation settings - easily configurable
-  const animationSettings = {
-    animationDuration: 700,
-    animationDelay: 300,
-    openCartAfterAdd: false,
-    openCartDelay: 300,
-  };
-
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 300]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [showAnimation, setShowAnimation] = useState(false);
-  const [animationStartPosition, setAnimationStartPosition] = useState({
-    x: 0,
-    y: 0,
-  });
-  const [animationEndPosition, setAnimationEndPosition] = useState({
-    x: 0,
-    y: 0,
-  });
-  const [animatedProduct, setAnimatedProduct] = useState<Product | null>(null);
   const { addToCart, isCartOpen, setIsCartOpen } = useCart();
-  const cartIconRef = useRef<HTMLDivElement>(null);
   const itemsPerPage = 6;
-  // Get cart icon position for animation
-  useEffect(() => {
-    const updateCartPosition = () => {
-      if (cartIconRef.current) {
-        const rect = cartIconRef.current.getBoundingClientRect();
-        setAnimationEndPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        });
-      }
-    };
-
-    // Initialize positions and update on resize
-    updateCartPosition();
-    window.addEventListener("resize", updateCartPosition);
-
-    return () => {
-      window.removeEventListener("resize", updateCartPosition);
-    };
-  }, []);
 
   // Load products from localStorage (those listed by sellers)
   useEffect(() => {
@@ -227,60 +186,23 @@ export default function StorePage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-  const handleProductAddToCart = (
-    product: Product,
-    event?: React.MouseEvent
-  ) => {
-    // Set animation start position from the click event or product position
-    if (event) {
-      setAnimationStartPosition({
-        x: event.clientX,
-        y: event.clientY,
-      });
-    }
 
-    // Set the product being animated
-    setAnimatedProduct(product);
-
-    // Show animation
-    setShowAnimation(true);
-
-    // Add to cart with a slight delay to allow animation to complete
-    setTimeout(() => {
-      addToCart({
-        ...product,
-        quantity: 1,
-      });
-
-      // Show toast notification that item was added
-      toast.success(`${product.name} added to cart!`);
-
-      // Hide animation after it completes
-      setTimeout(() => {
-        setShowAnimation(false);
-        setAnimatedProduct(null);
-
-        // Don't automatically open cart drawer - let user continue shopping
-      }, animationSettings.animationDuration);
-    }, animationSettings.animationDelay);
+  const handleProductAddToCart = (product: Product) => {
+    addToCart({
+      ...product,
+      quantity: 1,
+    });
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
+
   return (
     <div className="min-h-screen bg-gray-100">
-      {" "}
-      {/* Cart Animation */}
-      {showAnimation && animatedProduct && (
-        <FlyToCartAnimation
-          startPosition={animationStartPosition}
-          endPosition={animationEndPosition}
-          productImage={animatedProduct.image}
-          onAnimationComplete={() => setShowAnimation(false)}
-        />
-      )}
+      <Toaster position="top-right" />
+
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -292,18 +214,15 @@ export default function StorePage() {
                 value={searchQuery}
                 onChange={handleSearch}
                 className="w-full max-w-lg px-4 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-500 bg-white focus:ring-2 focus:ring-[#FF0059] focus:border-transparent"
-              />{" "}
-            </div>{" "}
-            <div className="ml-4 relative" ref={cartIconRef}>
-              <AnimatedCartIcon
-                onClick={() => setIsCartOpen(true)}
-                className="hover:scale-110 transition-transform duration-200"
-                size="lg"
               />
+            </div>
+            <div className="ml-4">
+              <CartIcon onClick={() => setIsCartOpen(true)} className="hover:scale-110 transition-transform duration-200" />
             </div>
           </div>
         </div>
       </header>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <CategoryBar
@@ -398,7 +317,11 @@ export default function StorePage() {
           </div>
         </div>
       </main>
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+      />
     </div>
   );
 }
