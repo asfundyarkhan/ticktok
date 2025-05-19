@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   ReactNode,
+  useRef,
 } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
@@ -74,11 +75,13 @@ export function UserBalanceProvider({ children }: { children: ReactNode }) {
 
     fetchBalance();
   }, [user, userProfile, isClient]);
-
   // Save balance to localStorage when not authenticated
+  // Use a ref to track previous balance to prevent unnecessary updates
+  const prevBalanceRef = useRef(balance);
   useEffect(() => {
-    if (isClient && !user) {
+    if (isClient && !user && prevBalanceRef.current !== balance) {
       setStoredBalance(balance);
+      prevBalanceRef.current = balance;
     }
   }, [balance, isClient, user]);
 

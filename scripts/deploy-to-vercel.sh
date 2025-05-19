@@ -6,6 +6,16 @@ echo "🚀 Deploying to Vercel with custom domain..."
 echo "📦 Installing dependencies..."
 npm ci
 
+# Run Firebase environment preparation
+echo "🔥 Preparing Firebase environment..."
+npm run prepare:vercel
+if [ $? -ne 0 ]; then
+  echo "❌ Firebase environment preparation failed!"
+  exit 1
+else
+  echo "✅ Firebase environment ready"
+fi
+
 # Run lint check but don't fail on errors
 echo "🔍 Running lint check..."
 npm run lint || echo "⚠️ Lint issues found but continuing..."

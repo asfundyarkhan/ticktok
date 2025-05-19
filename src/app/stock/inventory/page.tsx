@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -90,14 +90,19 @@ export default function InventoryPage() {
         JSON.stringify(initialProducts)
       );
     }
-  }, []);
-  // Save changes to localStorage whenever products change
+  }, []);  // Save changes to localStorage whenever products change, using ref to prevent infinite loops
+  const productsRef = useRef(products);
   useEffect(() => {
-    if (products.length > 0 && typeof window !== "undefined") {
+    // Only update localStorage if the products are different from previous render
+    if (products.length > 0 && 
+        typeof window !== "undefined" && 
+        JSON.stringify(productsRef.current) !== JSON.stringify(products)) {
       window.localStorage.setItem(
         "inventoryProducts",
         JSON.stringify(products)
       );
+      // Update the ref to current products
+      productsRef.current = products;
     }
   }, [products]);
 

@@ -113,3 +113,71 @@ Write-Host "1. Deploy your application to Vercel:"
 Write-Host "   vercel --prod" -ForegroundColor Green
 Write-Host "2. Test authentication in the deployed application"
 Write-Host "3. Check Vercel Function Logs if you encounter any issues"
+
+# Client-side Firebase configuration section
+Write-Host "`n`n=============================================================" -ForegroundColor Yellow
+Write-Host "CLIENT-SIDE FIREBASE CONFIGURATION" -ForegroundColor Yellow  
+Write-Host "=============================================================" -ForegroundColor Yellow
+
+# Check if .env.production file exists
+$envProductionPath = ".\.env.production"
+$envProductionExamplePath = ".\.env.production.example"
+
+if (Test-Path $envProductionPath) {
+    Write-Host "Found .env.production file. Reading Firebase client configuration..." -ForegroundColor Green
+    
+    # Parse environment variables from .env.production
+    $envContent = Get-Content $envProductionPath
+    $clientConfig = @{
+    }
+    
+    foreach ($line in $envContent) {
+        if ($line -match '^\s*NEXT_PUBLIC_FIREBASE_([^=]+)=(.+)\s*$') {
+            $key = $Matches[1]
+            $value = $Matches[2].Trim()
+            $clientConfig[$key] = $value
+        }
+    }
+    
+    # Display client config
+    Write-Host "`nClient-side Firebase configuration found:" -ForegroundColor Blue
+    foreach ($key in $clientConfig.Keys) {
+        $value = $clientConfig[$key]
+        Write-Host "NEXT_PUBLIC_FIREBASE_$key = $value" -ForegroundColor Green
+    }
+    
+    # Instructions for Vercel
+    Write-Host "`nTo set these in Vercel via CLI or dashboard:" -ForegroundColor Blue
+    foreach ($key in $clientConfig.Keys) {
+        $value = $clientConfig[$key]
+        Write-Host "vercel env add NEXT_PUBLIC_FIREBASE_$key" -ForegroundColor Green
+    }
+    
+    Write-Host "`nNote: These values will be visible in client-side code, which is safe for Firebase client configuration" -ForegroundColor Yellow
+} 
+elseif (Test-Path $envProductionExamplePath) {
+    Write-Host ".env.production not found, but found .env.production.example" -ForegroundColor Yellow
+    Write-Host "Please copy .env.production.example to .env.production and update with your Firebase configuration" -ForegroundColor Yellow
+    Write-Host "Command: Copy-Item .env.production.example .env.production" -ForegroundColor Green
+}
+else {
+    Write-Host "Could not find Firebase client configuration files (.env.production or .env.production.example)" -ForegroundColor Red
+    Write-Host "Please create these files with your Firebase configuration" -ForegroundColor Yellow
+}
+
+# Offer to update firebase.js file
+Write-Host "`n=============================================================" -ForegroundColor Yellow
+Write-Host "VERIFY FIREBASE STORAGE BUCKET FORMAT" -ForegroundColor Yellow
+Write-Host "=============================================================" -ForegroundColor Yellow
+Write-Host "Make sure your Firebase storage bucket URL has the correct format:" -ForegroundColor Blue
+Write-Host "It should be: projectId.appspot.com (not projectId.firebasestorage.app)" -ForegroundColor Yellow
+
+$firebaseConfigPath = ".\src\lib\firebase\firebase.ts"
+if (Test-Path $firebaseConfigPath) {
+    $firebaseContent = Get-Content $firebaseConfigPath -Raw
+    
+    if ($firebaseContent -match 'storageBucket: [^,]+firebasestorage\.app') {
+        Write-Host "`nWarning: Your firebase.ts file may be using the wrong storage bucket format!" -ForegroundColor Red
+        Write-Host "Consider updating to the 'projectId.appspot.com' format for Vercel compatibility" -ForegroundColor Yellow
+    }
+}

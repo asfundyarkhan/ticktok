@@ -6,6 +6,16 @@ Write-Host "🚀 Deploying to Vercel with custom domain..." -ForegroundColor Cya
 Write-Host "📦 Installing dependencies..." -ForegroundColor Green
 npm ci
 
+# Run Firebase environment preparation
+Write-Host "🔥 Preparing Firebase environment..." -ForegroundColor Green
+npm run prepare:vercel:win
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Firebase environment preparation failed!" -ForegroundColor Red
+    exit 1
+} else {
+    Write-Host "✅ Firebase environment ready" -ForegroundColor Green
+}
+
 # Run lint check but don't fail on errors
 Write-Host "🔍 Running lint check..." -ForegroundColor Green
 npm run lint

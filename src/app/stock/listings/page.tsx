@@ -116,13 +116,12 @@ export default function MyListingsPage() {
       });
 
       setMyListings(uniqueListings);
-    }
-
-    // Load listings immediately
+    }    // Load listings immediately
     loadListingsDirectly();
 
-    // Set up polling to refresh listings
-    const intervalId = setInterval(loadListingsDirectly, 1000);
+    // Set up polling to refresh listings, but use a more reasonable interval (5 seconds instead of 1 second)
+    // This reduces the chance of update loops and performance issues
+    const intervalId = setInterval(loadListingsDirectly, 5000);
 
     // Cleanup on component unmount
     return () => {
@@ -144,19 +143,7 @@ export default function MyListingsPage() {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentListings = filteredListings.slice(startIndex, endIndex);
-
-  // Pagination handlers
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
+  // No need for separate pagination handlers as we're using PaginationWithCustomRows component
 
   // Remove a listing
   const handleRemoveListing = (productId: number) => {
