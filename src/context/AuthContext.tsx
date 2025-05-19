@@ -73,6 +73,8 @@ const formatAuthError = (error: any): string => {
       return "Too many failed attempts. Please try again later.";
     case "auth/network-request-failed":
       return "Network error. Please check your connection.";
+    case "auth/invalid-credential":
+      return "Invalid email or password. Please check your credentials and try again.";
     default:
       return error?.message || "An unknown error occurred";
   }
@@ -149,17 +151,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Clean up the listener when the component unmounts
     return () => unsubscribe();
-  }, []);
-  // Sign in function
+  }, []);  // Sign in function
   const signIn = async (email: string, password: string): Promise<User> => {
     try {
+      console.log("Attempting to sign in with email:", email);
+      
       // First authenticate with Firebase Auth
       const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log("Firebase Auth successful, checking Firestore profile");
 
       // Then verify if the user exists in Firestore
       const userRef = doc(firestore, "users", result.user.uid);
       const userDoc = await getDoc(userRef);
       if (!userDoc.exists()) {
+        console.warn("User authenticated but has no Firestore profile");
         // If the user doesn't exist in Firestore, sign them out and throw an error
         await signOut(auth);
         throw new Error(
@@ -167,22 +172,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         );
       }
 
-      // Get the ID token from Firebase
-      const idToken = await result.user.getIdToken();
+      console.log("User exists in Firestore, fetching ID token");
 
-      // Send the ID token to the backend to create a session cookie
-      await fetch("/api/auth/session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ idToken }),
-      });
+      try {
+        // Get the ID token from Firebase
+        const idToken = await result.user.getIdToken();
+        console.log("ID token obtained, creating session");
+
+        // Send the ID token to the backend to create a session cookie
+        const response = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ idToken }),
+        });
+
+        if (!response.ok) {
+          console.error("Session API error:", await response.text());
+          // We'll continue even if session creation fails
+          // The user will still be authenticated with Firebase
+        }
+      } catch (sessionError) {
+        console.error("Session creation error:", sessionError);
+        // We'll continue even if session creation fails
+        // The user will still be authenticated with Firebase
+      }
 
       await fetchUserProfile(result.user.uid);
       return result.user;
     } catch (error) {
       console.error("Sign in error:", error);
+      
+      // Check if this is specifically an invalid credential error
+      if (error && typeof error === 'object' && 'code' in error && 
+          (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found')) {
+        console.warn("Invalid credentials or user not found");
+      }
+      
+      // Re-throw with formatted error message
       throw new Error(formatAuthError(error));
     }
   };

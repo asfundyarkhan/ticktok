@@ -37,8 +37,23 @@ function LoginForm() {
       setIsLoading(true);
       setErrorMessage(null);
 
+      // Additional validation
+      if (!values.email || !values.email.includes('@')) {
+        setErrorMessage("Please enter a valid email address");
+        return;
+      }
+
+      if (!values.password || values.password.length < 6) {
+        setErrorMessage("Password must be at least 6 characters");
+        return;
+      }
+
+      console.log("Attempting to sign in with Firebase");
+
       // Authenticate with Firebase and verify in Firestore
       await signIn(values.email, values.password);
+      
+      console.log("Sign in successful, handling redirect");
 
       // If there's a specific redirect URL in the params, use that
       if (redirectParam) {
@@ -50,17 +65,21 @@ function LoginForm() {
       // The auth state will be processed by useEffect in AuthRedirect component
       // which will redirect users based on their role
       // No need to manually redirect here
-    } catch (error: any) {
+    } catch (error) {
       console.error("Login failed:", error);
-      const errorCode = error.code || "";
-      if (errorCode === "auth/user-not-found") {
-        setErrorMessage(
-          "No account exists with this email. Please create an account first."
-        );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Handle specific error cases
+      if (errorMessage.includes("invalid-credential") || errorMessage.includes("wrong password")) {
+        setErrorMessage("Invalid email or password. Please check your credentials and try again.");
+      } else if (errorMessage.includes("user-not-found") || errorMessage.includes("not found")) {
+        setErrorMessage("No account exists with this email. Please create an account first.");
+      } else if (errorMessage.includes("too-many-requests")) {
+        setErrorMessage("Too many login attempts. Please try again later or reset your password.");
+      } else if (errorMessage.includes("network")) {
+        setErrorMessage("Network error. Please check your internet connection and try again.");
       } else {
-        setErrorMessage(
-          error.message || "Failed to login. Please check your credentials."
-        );
+        setErrorMessage(errorMessage || "Failed to login. Please check your credentials.");
       }
     } finally {
       setIsLoading(false);
