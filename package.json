@@ -1,12 +1,14 @@
 {
   "name": "ticktok",
   "version": "0.1.0",
-  "private": true,
-  "scripts": {
+  "private": true,  "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:vercel": "node -e \"require('fs').existsSync('.env.production') || require('fs').copyFileSync('.env.production.example', '.env.production')\" && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prepare:vercel": "bash scripts/prepare-vercel-deploy.sh",
+    "prepare:vercel:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\prepare-vercel-deploy.ps1"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

@@ -1,19 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { updateUserProfile } from "../../../services/userService";
+import { UserService } from "../../../services/userService";
 import { useAuth } from "../../../context/AuthContext";
 import { AdminRoute } from "../../components/AdminRoute";
 import { LoadingSpinner } from "../../components/Loading";
 
 function RoleManagerContent() {
-  const { userProfile, loading } = useAuth();
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("user");
+  // Only use the loading state from useAuth
+  const { loading } = useAuth();const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"user" | "seller" | "admin" | "superadmin">("user");
   const [message, setMessage] = useState({ text: "", type: "" });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email) {
       setMessage({ text: "Please enter an email", type: "error" });
@@ -24,18 +22,31 @@ function RoleManagerContent() {
     setMessage({ text: "", type: "" });
 
     try {
-      // Note: This is a simplified example
-      // In a real app, you would validate that the email exists in your database first
-      await updateUserProfile(email, { role });
+      // First, find the user by email to get their uid
+      const userByEmail = await UserService.getUserByEmail(email);
+      
+      if (!userByEmail) {
+        throw new Error(`User with email ${email} not found`);
+      }
+      
+      // Update the user's role based on the selected role
+      if (role === "seller") {
+        // Use the dedicated method for upgrading to seller
+        await UserService.upgradeToSeller(userByEmail.uid);
+      } else {
+        // Use the general update method for other roles
+        await UserService.updateUserProfile(userByEmail.uid, { role });
+      }
+      
       setMessage({
         text: `User ${email} has been updated to ${role} role`,
         type: "success",
       });
-      setEmail("");
-    } catch (error) {
+      setEmail("");} catch (error: unknown) {
       console.error("Error updating role:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to update role";
       setMessage({
-        text: `Error: ${error.message || "Failed to update role"}`,
+        text: `Error: ${errorMessage}`,
         type: "error",
       });
     } finally {
@@ -72,10 +83,9 @@ function RoleManagerContent() {
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Role
-            </label>
-            <select
+            </label>            <select
               value={role}
-              onChange={(e) => setRole(e.target.value)}
+              onChange={(e) => setRole(e.target.value as "user" | "seller" | "admin" | "superadmin")}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-pink-500"
             >
               <option value="user">User</option>

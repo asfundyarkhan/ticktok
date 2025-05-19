@@ -40,8 +40,8 @@ export default function StockPage() {
     string | null
   >(null);
 
-  // Default admin products
-  const defaultAdminProducts: Product[] = [
+  // Default admin products  // Define default products outside of the component's render cycle
+  const getDefaultAdminProducts = (): Product[] => [
     {
       id: 1,
       name: "T-Shirt Nike",
@@ -75,8 +75,10 @@ export default function StockPage() {
       productCode: "CAP-NIKE-001",
     },
   ];
+  
   useEffect(() => {
     // Load admin stock products with safe method
+    const defaultAdminProducts = getDefaultAdminProducts();
     let productsToUse = defaultAdminProducts;
     
     try {
@@ -128,7 +130,7 @@ export default function StockPage() {
     } catch (error) {
       console.error("Error processing productToRestock:", error);
     }
-  }, [defaultAdminProducts]);
+  }, []);
   // Filter products based on search query
   const filteredProducts = adminProducts.filter(
     (product) =>

@@ -19,7 +19,7 @@ const firebaseConfig: {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBwqU1SU4jNWYKjhqkN1tEyyp64HXzmyG8",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "ticktokshop-5f1e9.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "ticktokshop-5f1e9",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.firebasestorage.app",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.appspot.com", // Fixed storage bucket URL
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "155434252666",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:155434252666:web:fa5051f4cb33f3a784bec3",
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-5BRMHTMXHR"
@@ -27,9 +27,9 @@ const firebaseConfig: {
 
 // Initialize Firebase with error handling for production readiness
 let app: FirebaseApp;
-let auth: Auth;
-let firestore: Firestore;
-let storage: FirebaseStorage;
+let auth: Auth = null as unknown as Auth;  // Will be properly initialized below
+let firestore: Firestore = null as unknown as Firestore;  // Will be properly initialized below
+let storage: FirebaseStorage = null as unknown as FirebaseStorage;  // Will be properly initialized below
 let analytics: Analytics | null = null;
 
 // Initialize Firebase

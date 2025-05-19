@@ -94,3 +94,68 @@ echo -e "1. Deploy your application to Vercel:"
 echo -e "   ${GREEN}vercel --prod${RESET}"
 echo -e "2. Test authentication in the deployed application"
 echo -e "3. Check Vercel Function Logs if you encounter any issues"
+
+echo -e "\n\n${BLUE}${BOLD}=============================================================${RESET}"
+echo -e "${BLUE}${BOLD}CLIENT-SIDE FIREBASE CONFIGURATION${RESET}"
+echo -e "${BLUE}${BOLD}=============================================================${RESET}"
+
+# Check if .env.production file exists
+ENV_PRODUCTION_PATH="./.env.production"
+ENV_PRODUCTION_EXAMPLE_PATH="./.env.production.example"
+
+if [ -f "$ENV_PRODUCTION_PATH" ]; then
+  echo -e "${GREEN}Found .env.production file. Reading Firebase client configuration...${RESET}"
+  
+  # Parse environment variables from .env.production
+  API_KEY=$(grep "NEXT_PUBLIC_FIREBASE_API_KEY" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  AUTH_DOMAIN=$(grep "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  PROJECT_ID_CLIENT=$(grep "NEXT_PUBLIC_FIREBASE_PROJECT_ID" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  STORAGE_BUCKET=$(grep "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  MESSAGING_SENDER_ID=$(grep "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  APP_ID=$(grep "NEXT_PUBLIC_FIREBASE_APP_ID" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+  MEASUREMENT_ID=$(grep "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID" "$ENV_PRODUCTION_PATH" | cut -d "=" -f2)
+
+  # Display client config
+  echo -e "\n${BLUE}${BOLD}Client-side Firebase configuration found:${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_API_KEY = ${GREEN}$API_KEY${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = ${GREEN}$AUTH_DOMAIN${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_PROJECT_ID = ${GREEN}$PROJECT_ID_CLIENT${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = ${GREEN}$STORAGE_BUCKET${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID = ${GREEN}$MESSAGING_SENDER_ID${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_APP_ID = ${GREEN}$APP_ID${RESET}"
+  echo -e "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID = ${GREEN}$MEASUREMENT_ID${RESET}"
+  
+  # Instructions for Vercel
+  echo -e "\n${BLUE}${BOLD}To set these in Vercel via CLI:${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_API_KEY${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_PROJECT_ID${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_APP_ID${RESET}"
+  echo -e "${GREEN}vercel env add NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID${RESET}"
+  
+  echo -e "\n${YELLOW}Note: These values will be visible in client-side code, which is safe for Firebase client configuration${RESET}"
+elif [ -f "$ENV_PRODUCTION_EXAMPLE_PATH" ]; then
+  echo -e "${YELLOW}.env.production not found, but found .env.production.example${RESET}"
+  echo -e "${YELLOW}Please copy .env.production.example to .env.production and update with your Firebase configuration${RESET}"
+  echo -e "${GREEN}Command: cp .env.production.example .env.production${RESET}"
+else
+  echo -e "${RED}Could not find Firebase client configuration files (.env.production or .env.production.example)${RESET}"
+  echo -e "${YELLOW}Please create these files with your Firebase configuration${RESET}"
+fi
+
+# Offer to update firebase.js file
+echo -e "\n${BLUE}${BOLD}=============================================================${RESET}"
+echo -e "${BLUE}${BOLD}VERIFY FIREBASE STORAGE BUCKET FORMAT${RESET}"
+echo -e "${BLUE}${BOLD}=============================================================${RESET}"
+echo -e "${BLUE}Make sure your Firebase storage bucket URL has the correct format:${RESET}"
+echo -e "${YELLOW}It should be: projectId.appspot.com (not projectId.firebasestorage.app)${RESET}"
+
+FIREBASE_CONFIG_PATH="./src/lib/firebase/firebase.ts"
+if [ -f "$FIREBASE_CONFIG_PATH" ]; then
+  if grep -q "firebasestorage\.app" "$FIREBASE_CONFIG_PATH"; then
+    echo -e "\n${RED}Warning: Your firebase.ts file may be using the wrong storage bucket format!${RESET}"
+    echo -e "${YELLOW}Consider updating to the 'projectId.appspot.com' format for Vercel compatibility${RESET}"
+  fi
+fi

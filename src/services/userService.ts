@@ -13,6 +13,11 @@ import {
 import { firestore, storage } from '../lib/firebase/firebase';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 
+// Export the updateUserProfile function for backward compatibility
+export const updateUserProfile = async (uid: string, data: Partial<UserProfile>): Promise<void> => {
+  return UserService.updateUserProfile(uid, data);
+};
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -88,11 +93,9 @@ export class UserService {
   // Create/Update user profile
   static async updateUserProfile(uid: string, data: Partial<UserProfile>): Promise<void> {
     try {
-      const userRef = doc(firestore, this.COLLECTION, uid);
-      
-      // Filter out any undefined values to prevent Firestore errors
+      const userRef = doc(firestore, this.COLLECTION, uid);      // Filter out any undefined values to prevent Firestore errors
       const filteredData = Object.fromEntries(
-        Object.entries(data).filter(([_, value]) => value !== undefined)
+        Object.entries(data).filter(([, value]) => value !== undefined)
       );
       
       // Convert Date objects to Firestore Timestamps

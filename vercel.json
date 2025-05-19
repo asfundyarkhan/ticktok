@@ -1,6 +1,5 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "next build",
+{  "framework": "nextjs",
+  "buildCommand": "npm run prepare:vercel && npm run build",
   "devCommand": "next dev",
   "installCommand": "npm install",
   "regions": ["iad1"],
