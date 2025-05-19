@@ -29,13 +29,11 @@ const securityHeaders = [
   {
     key: 'Permissions-Policy',
     value: 'camera=(), microphone=(), geolocation=(self)',
-  },
-  // Add Content Security Policy in production
+  },  
+  // Add Content Security Policy in production - allowing Firebase connections
   ...(process.env.NODE_ENV === 'production'
-    ? [
-        {
-          key: 'Content-Security-Policy',
-          value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.vercel.app; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' *.vercel.app; frame-src 'self'",
+    ? [        {          key: 'Content-Security-Policy',
+          value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.vercel.app *.googleapis.com *.googletagmanager.com *.google-analytics.com *.gstatic.com tiktokshophub.co www.tiktokshophub.co; style-src 'self' 'unsafe-inline' *.googleapis.com; img-src 'self' data: blob: *.googleapis.com *.gstatic.com tiktokshophub.co www.tiktokshophub.co; font-src 'self' *.gstatic.com; connect-src 'self' *.vercel.app *.firebaseio.com *.googleapis.com *.firebase.googleapis.com *.firebaseinstallations.googleapis.com *.identitytoolkit.googleapis.com *.firebasestorage.googleapis.com *.google-analytics.com *.appspot.com wss://*.firebaseio.com tiktokshophub.co www.tiktokshophub.co tiktok-6upktrfhg-asfundyarkhans-projects.vercel.app tiktok-git-main-asfundyarkhans-projects.vercel.app tiktok-ten-lilac.vercel.app; frame-src 'self' *.firebaseapp.com *.web.app ticktokshop-5f1e9.firebaseapp.com ticktokshop-5f1e9.web.app tiktokshophub.co www.tiktokshophub.co tiktok-6upktrfhg-asfundyarkhans-projects.vercel.app tiktok-git-main-asfundyarkhans-projects.vercel.app tiktok-ten-lilac.vercel.app",
         },
       ]
     : []),
