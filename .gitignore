@@ -44,3 +44,5 @@ next-env.d.ts
 src/lib/firebase/credentials/
 *firebase-adminsdk*.json
 *service-account*.json
+# Allow example credentials
+!src/lib/firebase/credentials-example/service-account-example.json

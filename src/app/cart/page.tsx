@@ -7,8 +7,18 @@ import { useCart } from "@/app/components/CartContext";
 import Link from "next/link";
 import CheckoutButton from "@/app/components/CheckoutButton";
 import RelatedProducts from "@/app/components/RelatedProducts";
+import LoadingOverlay from "@/app/components/LoadingOverlay";
+import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CartPage() {
+  return (
+    <ProtectedRoute>
+      <CartContent />
+    </ProtectedRoute>
+  );
+}
+
+function CartContent() {
   const {
     cartItems,
     savedItems,
@@ -18,6 +28,8 @@ export default function CartPage() {
     moveToCart,
     removeSavedItem,
     cartTotal,
+    loading,
+    operationLoading,
   } = useCart();
   const [promoCode, setPromoCode] = useState("");
   const discount = 0.2; // 20% discount
@@ -32,8 +44,27 @@ export default function CartPage() {
   const discountAmount = subtotal * discount;
   const deliveryFee = 15;
   const total = subtotal - discountAmount + deliveryFee;
+  // Handle loading state
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Breadcrumb items={breadcrumbItems} />
+        <div className="mt-8 text-center py-16">
+          <div className="p-6 max-w-md mx-auto">
+            <h1 className="text-2xl font-semibold text-gray-900 mb-4">
+              Loading your cart...
+            </h1>
+            <div className="flex justify-center items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FF0059]"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  if (cartItems.length === 0) {
+  // Handle empty cart state
+  if (!loading && cartItems.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Breadcrumb items={breadcrumbItems} />
@@ -60,92 +91,103 @@ export default function CartPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <Breadcrumb items={breadcrumbItems} />
-
       <h1 className="text-3xl font-bold text-gray-900 mt-8">Shopping Cart</h1>
-
       <div className="mt-8 grid lg:grid-cols-3 gap-8">
-        {/* Cart Items */}
+        {/* Cart Items */}{" "}
         <div className="lg:col-span-2 space-y-4">
           {cartItems.map((item) => (
-            <div
+            <LoadingOverlay
               key={item.id}
-              className="flex gap-6 p-6 bg-white rounded-lg border"
+              isLoading={
+                operationLoading.removeFromCart ||
+                operationLoading.saveForLater ||
+                operationLoading.updateQuantity
+              }
+              message="Updating cart..."
             >
-              <div className="w-24 h-24 flex-shrink-0">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-full object-cover rounded-md"
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between">
-                  <div>
-                    <h3 className="text-base font-medium text-gray-900">
-                      {item.name}
-                    </h3>
-                    {(item.size || item.color) && (
-                      <p className="mt-1 text-sm text-gray-500">
-                        {item.size && `Size: ${item.size}`}{" "}
-                        {item.color && `| Color: ${item.color}`}
-                      </p>
-                    )}
-                  </div>{" "}
-                  <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => saveForLater(item.id)}
-                      className="text-sm text-[#FF0059] hover:underline px-2 py-1"
-                    >
-                      Save for later
-                    </button>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-gray-400 hover:text-gray-500"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </div>
+              <div className="flex gap-6 p-6 bg-white rounded-lg border">
+                <div className="w-24 h-24 flex-shrink-0">
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover rounded-md"
+                  />
                 </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center border rounded-md">
-                    <button
-                      onClick={() =>
-                        item.quantity > 1 &&
-                        updateQuantity(item.id, item.quantity - 1)
-                      }
-                      className="px-3 py-1 border-r text-gray-700 hover:bg-gray-50 font-medium text-lg"
-                      disabled={item.quantity <= 1}
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <span className="px-4 py-1 text-gray-900">
-                      {item.quantity}
+                <div className="flex-1">
+                  <div className="flex justify-between">
+                    <div>
+                      <h3 className="text-base font-medium text-gray-900">
+                        {item.name}
+                      </h3>
+                      {(item.size || item.color) && (
+                        <p className="mt-1 text-sm text-gray-500">
+                          {item.size && `Size: ${item.size}`}{" "}
+                          {item.color && `| Color: ${item.color}`}
+                        </p>
+                      )}
+                    </div>{" "}
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => saveForLater(item.id)}
+                        className="text-sm text-[#FF0059] hover:underline px-2 py-1"
+                        disabled={operationLoading.saveForLater}
+                      >
+                        Save for later
+                      </button>
+                      <button
+                        onClick={() => removeFromCart(item.id)}
+                        className="text-gray-400 hover:text-gray-500"
+                        disabled={operationLoading.removeFromCart}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center border rounded-md">
+                      <button
+                        onClick={() =>
+                          item.quantity > 1 &&
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
+                        className="px-3 py-1 border-r text-gray-700 hover:bg-gray-50 font-medium text-lg"
+                        disabled={
+                          item.quantity <= 1 || operationLoading.updateQuantity
+                        }
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="px-4 py-1 text-gray-900">
+                        {item.quantity}
+                      </span>
+                      <button
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
+                        className="px-3 py-1 border-l text-gray-700 hover:bg-gray-50 font-medium text-lg"
+                        disabled={operationLoading.updateQuantity}
+                        aria-label="Increase quantity"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="font-medium">
+                      $
+                      {((item.salePrice || item.price) * item.quantity).toFixed(
+                        2
+                      )}
                     </span>
-                    <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="px-3 py-1 border-l text-gray-700 hover:bg-gray-50 font-medium text-lg"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
                   </div>
-                  <span className="font-medium">
-                    $
-                    {((item.salePrice || item.price) * item.quantity).toFixed(
-                      2
-                    )}
-                  </span>
                 </div>
               </div>
-            </div>
+            </LoadingOverlay>
           ))}
         </div>
         {/* Order Summary */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-lg border">
             <h2 className="text-lg font-medium text-gray-900">Order Summary</h2>
-
             <div className="mt-6 space-y-4">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal</span>
@@ -168,7 +210,6 @@ export default function CartPage() {
                 </div>
               </div>
             </div>
-
             <div className="mt-6">
               <div className="flex gap-2">
                 <input
@@ -182,11 +223,15 @@ export default function CartPage() {
                   Apply
                 </button>
               </div>{" "}
-            </div>
+            </div>{" "}
             <div className="mt-6">
-              <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
+              <LoadingOverlay
+                isLoading={operationLoading.clearCart}
+                message="Processing..."
+              >
+                <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
+              </LoadingOverlay>
             </div>
-
             <div className="mt-4">
               <Link
                 href="/store"
@@ -197,8 +242,7 @@ export default function CartPage() {
             </div>
           </div>
         </div>{" "}
-      </div>
-
+      </div>{" "}
       {/* Saved For Later Section */}
       {savedItems.length > 0 && (
         <div className="mt-12 border-t border-gray-200 pt-10">
@@ -207,50 +251,57 @@ export default function CartPage() {
           </h2>
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {savedItems.map((item) => (
-              <div
+              <LoadingOverlay
                 key={item.id}
-                className="bg-white rounded-lg border overflow-hidden"
+                isLoading={
+                  operationLoading.moveToCart ||
+                  operationLoading.removeSavedItem
+                }
+                message="Updating saved items..."
               >
-                <div className="aspect-square overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <div className="p-4">
-                  <h3 className="text-base font-medium text-gray-900 truncate">
-                    {item.name}
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 truncate">
-                    {item.description}
-                  </p>
-                  <div className="mt-2 flex justify-between items-center">
-                    <span className="font-medium text-gray-900">
-                      ${(item.salePrice || item.price).toFixed(2)}
-                    </span>
+                <div className="bg-white rounded-lg border overflow-hidden">
+                  <div className="aspect-square overflow-hidden">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                  <div className="mt-4 flex flex-col space-y-2">
-                    <button
-                      onClick={() => moveToCart(item.id)}
-                      className="w-full py-2 px-3 text-sm font-medium text-white bg-[#FF0059] rounded-md hover:bg-[#E60050]"
-                    >
-                      Move to Cart
-                    </button>
-                    <button
-                      onClick={() => removeSavedItem(item.id)}
-                      className="w-full py-2 px-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                    >
-                      Remove
-                    </button>
+                  <div className="p-4">
+                    <h3 className="text-base font-medium text-gray-900 truncate">
+                      {item.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500 truncate">
+                      {item.description}
+                    </p>
+                    <div className="mt-2 flex justify-between items-center">
+                      <span className="font-medium text-gray-900">
+                        ${(item.salePrice || item.price).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex flex-col space-y-2">
+                      <button
+                        onClick={() => moveToCart(item.id)}
+                        className="w-full py-2 px-3 text-sm font-medium text-white bg-[#FF0059] rounded-md hover:bg-[#E60050]"
+                        disabled={operationLoading.moveToCart}
+                      >
+                        Move to Cart
+                      </button>
+                      <button
+                        onClick={() => removeSavedItem(item.id)}
+                        className="w-full py-2 px-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                        disabled={operationLoading.removeSavedItem}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </LoadingOverlay>
             ))}
           </div>
         </div>
       )}
-
       {/* Related Products Section */}
       <div className="mt-16">
         <RelatedProducts />

@@ -6,6 +6,9 @@ import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { Eye, EyeOff } from "lucide-react";
 import { useState, Suspense } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { LoadingSpinner } from "@/app/components/Loading";
+import AuthRedirect from "@/app/components/AuthRedirect";
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -26,68 +29,39 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const redirectTo = searchParams.get("redirect") || "/store";
-
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { signIn, userProfile } = useAuth();
+  const redirectParam = searchParams.get("redirect");
   const handleLogin = async (values: LoginFormValues) => {
     try {
       setIsLoading(true);
-      // Here you would typically make an API call to authenticate
-      console.log("Customer login values:", values);
+      setErrorMessage(null);
 
-      // Simulate authentication delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Authenticate with Firebase and verify in Firestore
+      await signIn(values.email, values.password);
 
-      // Set authentication in localStorage/cookies/state management
-      localStorage.setItem("userToken", "example-token");
-      localStorage.setItem("userRole", "customer");
+      // If there's a specific redirect URL in the params, use that
+      if (redirectParam) {
+        router.replace(redirectParam);
+        return;
+      }
 
-      router.push(redirectTo);
-    } catch (error) {
+      // Otherwise, redirect based on user role
+      // The auth state will be processed by useEffect in AuthRedirect component
+      // which will redirect users based on their role
+      // No need to manually redirect here
+    } catch (error: any) {
       console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSellerLogin = async () => {
-    try {
-      setIsLoading(true);
-      // Here you would make an API call to authenticate as a seller
-      console.log("Authenticating as seller");
-
-      // Simulate authentication delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Set authentication data with seller role
-      localStorage.setItem("userToken", "example-seller-token");
-      localStorage.setItem("userRole", "seller");
-
-      // Navigate to seller dashboard after authentication
-      router.push("/profile");
-    } catch (error) {
-      console.error("Seller login failed:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAdminLogin = async () => {
-    try {
-      setIsLoading(true);
-      // Here you would make an API call to authenticate as an admin
-      console.log("Authenticating as admin");
-
-      // Simulate authentication delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Set authentication data with admin role
-      localStorage.setItem("userToken", "example-admin-token");
-      localStorage.setItem("userRole", "admin");
-
-      // Navigate to admin dashboard after authentication
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Admin login failed:", error);
+      const errorCode = error.code || "";
+      if (errorCode === "auth/user-not-found") {
+        setErrorMessage(
+          "No account exists with this email. Please create an account first."
+        );
+      } else {
+        setErrorMessage(
+          error.message || "Failed to login. Please check your credentials."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -109,8 +83,25 @@ function LoginForm() {
               create a new account
             </Link>
           </p>
-        </div>
-
+        </div>{" "}
+        {errorMessage && (
+          <div
+            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md"
+            role="alert"
+          >
+            <p>{errorMessage}</p>
+            {errorMessage.includes("No account exists") && (
+              <p className="mt-2">
+                <Link
+                  href="/register"
+                  className="font-medium text-pink-600 hover:text-pink-500"
+                >
+                  Create an account
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
         <Formik
           initialValues={{ email: "", password: "" }}
           validationSchema={loginSchema}
@@ -201,7 +192,7 @@ function LoginForm() {
 
                 <div className="text-sm">
                   <Link
-                    href="/forgot-password"
+                    href="/auth/forgot-password"
                     className="font-medium text-pink-600 hover:text-pink-500"
                   >
                     Forgot your password?
@@ -213,25 +204,19 @@ function LoginForm() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 mb-4 disabled:bg-pink-400"
+                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:bg-pink-400"
                 >
-                  {isLoading ? "Signing in..." : "Sign in"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSellerLogin}
-                  disabled={isLoading}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400 mb-4"
-                >
-                  {isLoading ? "Processing..." : "Login as Seller"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAdminLogin}
-                  disabled={isLoading}
-                  className="group relative w-full flex justify-center py-2 px-4 border border-pink-600 text-sm font-medium rounded-md text-pink-600 hover:bg-pink-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:text-pink-400 disabled:border-pink-400"
-                >
-                  {isLoading ? "Processing..." : "Login as Admin"}
+                  {" "}
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <span className="mr-2">
+                        <LoadingSpinner size="sm" />
+                      </span>{" "}
+                      Signing in...
+                    </span>
+                  ) : (
+                    "Sign in"
+                  )}
                 </button>
               </div>
             </Form>
@@ -247,10 +232,13 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex justify-center items-center min-h-screen">
-          Loading...
+          <LoadingSpinner size="lg" />
         </div>
       }
     >
+      {" "}
+      {/* Redirect authenticated users to their appropriate dashboard */}
+      <AuthRedirect />
       <LoginForm />
     </Suspense>
   );

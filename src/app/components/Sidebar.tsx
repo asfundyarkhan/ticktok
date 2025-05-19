@@ -2,45 +2,66 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   Layout,
   ShoppingBag,
   Settings,
   Share2,
   ChevronRight,
-  LogOut,
   Shield,
   CreditCard,
   ArrowLeftRight,
   LucideIcon,
+  LogOut,
+  Users,
 } from "lucide-react";
+import LogoutButton from "./LogoutButton";
+import { useAuth } from "../../context/AuthContext";
 
 interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  superadminOnly?: boolean;
 }
 
 const navigation: NavItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: Layout },
+  { name: "Dashboard", href: "/dashboard", icon: Layout, adminOnly: true },
   { name: "My Profile", href: "/dashboard/profile", icon: Settings },
   { name: "My Referrals", href: "/dashboard/referrals", icon: Share2 },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
-  { name: "Admin", href: "/dashboard/admin", icon: Shield },
+  {
+    name: "Admin",
+    href: "/dashboard/admin",
+    icon: Shield,
+    superadminOnly: true,
+  },
+  {
+    name: "Admin Test",
+    href: "/dashboard/admin-test",
+    icon: Shield,
+    adminOnly: true,
+  },
+  {
+    name: "Superadmin Test",
+    href: "/dashboard/superadmin-test",
+    icon: Shield,
+    superadminOnly: true,
+  },
+  {
+    name: "Role Manager",
+    href: "/dashboard/role-manager",
+    icon: Users,
+    adminOnly: true,
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  const handleLogout = () => {
-    // Here you would typically clear authentication tokens/cookies
-    // For now, just redirect to main page
-    router.push("/main");
-  };
+  const { userProfile } = useAuth();
 
   return (
     <div
@@ -66,11 +87,29 @@ export default function Sidebar() {
             }`}
           />
         </button>
-      </div>
-
+      </div>{" "}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
+          {" "}
           {navigation.map((item) => {
+            // Skip admin-only items if user is not an admin or superadmin
+            if (
+              item.adminOnly &&
+              (!userProfile ||
+                (userProfile.role !== "admin" &&
+                  userProfile.role !== "superadmin"))
+            ) {
+              return null;
+            }
+
+            // Skip superadmin-only items if user is not a superadmin
+            if (
+              item.superadminOnly &&
+              (!userProfile || userProfile.role !== "superadmin")
+            ) {
+              return null;
+            }
+
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
@@ -92,7 +131,6 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
-
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center justify-between">
           <div
@@ -104,14 +142,14 @@ export default function Sidebar() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-900">Miron Vitold</p>
               <p className="text-xs text-gray-500">View Profile</p>
-            </div>
+            </div>{" "}
           </div>
-          <button
-            onClick={handleLogout}
+          <LogoutButton
+            variant="text"
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
           >
             <LogOut className="h-5 w-5" />
-          </button>
+          </LogoutButton>
         </div>
       </div>
     </div>

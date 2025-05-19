@@ -134,17 +134,7 @@ export default function InventoryPage() {
     setSearchQuery(e.target.value);
     setCurrentPage(1); // Reset to first page when searching
   };
-
-  // Handle stock quantity change
-  const handleStockChange = (id: number, newStock: number) => {
-    if (newStock < 0) return; // Prevent negative stock
-
-    setProducts(
-      products.map((product) =>
-        product.id === id ? { ...product, stock: newStock } : product
-      )
-    );
-  };
+  // Stock can only be modified through purchases, not manually
 
   // Open sell modal for a product
   const openSellModal = (product: Product) => {
@@ -453,29 +443,12 @@ export default function InventoryPage() {
                     </td>
                     <td className="py-4 px-6 text-gray-800">
                       {product.description}
-                    </td>
+                    </td>{" "}
                     <td className="py-4 px-6 text-gray-900">
                       <div className="flex items-center">
-                        <button
-                          onClick={() =>
-                            handleStockChange(product.id, product.stock - 1)
-                          }
-                          className="px-2 py-0.5 bg-gray-200 rounded-l-md"
-                          disabled={product.stock <= 0}
-                        >
-                          -
-                        </button>
-                        <span className="px-4 py-0.5 bg-gray-100">
+                        <span className="px-4 py-1 bg-gray-100 rounded-md">
                           {product.stock}
                         </span>
-                        <button
-                          onClick={() =>
-                            handleStockChange(product.id, product.stock + 1)
-                          }
-                          className="px-2 py-0.5 bg-gray-200 rounded-r-md"
-                        >
-                          +
-                        </button>
                         <span className="ml-2">pcs</span>
                       </div>
                     </td>

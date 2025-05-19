@@ -8,6 +8,7 @@ import { useUserBalance } from "./UserBalanceContext";
 import { useCart } from "./CartContext";
 import CartDrawer from "./CartDrawer";
 import AnimatedCartIcon from "./AnimatedCartIcon";
+import LogoutButton from "./LogoutButton";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -18,14 +19,8 @@ export default function Navbar() {
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
   const { cartCount, isCartOpen, setIsCartOpen } = useCart();
-
-  // Add logout handler
-  const handleLogout = () => {
-    if (confirm("Are you sure you want to log out?")) {
-      // In a real app, clear auth tokens/cookies here
-      router.push("/login");
-    }
-  };
+  // We will use the LogoutButton component instead of this function
+  // which correctly handles all logout logic
 
   useEffect(() => {
     const handleScroll = () => {
@@ -143,15 +138,15 @@ export default function Navbar() {
                 className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700"
               >
                 Profile
-              </Link>
+              </Link>{" "}
               {/* New Logout Button */}
-              <button
-                onClick={handleLogout}
+              <LogoutButton
+                variant="secondary"
                 className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
-              </button>
+              </LogoutButton>
             </div>
           ) : (
             <div className="hidden md:flex md:items-center md:space-x-6">
@@ -252,15 +247,15 @@ export default function Navbar() {
                 className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md"
               >
                 Profile
-              </Link>
+              </Link>{" "}
               {/* New Logout Button for mobile */}
-              <button
-                onClick={handleLogout}
+              <LogoutButton
+                variant="text"
                 className="flex w-full items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
               >
                 <LogOut className="h-5 w-5 mr-2" />
                 Logout
-              </button>
+              </LogoutButton>
             </>
           ) : (
             <>

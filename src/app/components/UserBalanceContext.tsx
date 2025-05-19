@@ -7,12 +7,16 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { doc, updateDoc } from "firebase/firestore";
+import { firestore } from "../../lib/firebase/firebase";
 
 interface UserBalanceContextType {
   balance: number;
   setBalance: (newBalance: number) => void;
-  addToBalance: (amount: number) => void;
-  deductFromBalance: (amount: number) => boolean; // Returns false if insufficient funds
+  addToBalance: (amount: number) => Promise<void>;
+  deductFromBalance: (amount: number) => Promise<boolean>; // Returns false if insufficient funds
+  loading: boolean;
 }
 
 const UserBalanceContext = createContext<UserBalanceContextType | undefined>(
@@ -33,45 +37,100 @@ const setStoredBalance = (balance: number): void => {
 
 export function UserBalanceProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(5000); // Default starting balance
+  const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const { user, userProfile } = useAuth?.() || {
+    user: null,
+    userProfile: null,
+  };
 
   // Set isClient flag on mount
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Load balance from localStorage on client-side only
+  // Load balance from Firestore when user is authenticated
+  // Or from localStorage when not authenticated
   useEffect(() => {
-    if (isClient) {
-      const savedBalance = getStoredBalance();
-      if (savedBalance !== null) {
-        setBalance(savedBalance);
+    const fetchBalance = async () => {
+      setLoading(true);
+      try {
+        if (user && userProfile) {
+          // User is logged in, use Firestore balance
+          setBalance(userProfile.balance);
+        } else if (isClient) {
+          // User is not logged in, use localStorage balance
+          const savedBalance = getStoredBalance();
+          if (savedBalance !== null) {
+            setBalance(savedBalance);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [isClient]);
+    };
 
-  // Save balance to localStorage whenever it changes (client-side only)
+    fetchBalance();
+  }, [user, userProfile, isClient]);
+
+  // Save balance to localStorage when not authenticated
   useEffect(() => {
-    if (isClient) {
+    if (isClient && !user) {
       setStoredBalance(balance);
     }
-  }, [balance, isClient]);
+  }, [balance, isClient, user]);
 
-  const addToBalance = (amount: number) => {
-    setBalance((prevBalance) => prevBalance + amount);
+  const addToBalance = async (amount: number) => {
+    try {
+      if (user) {
+        // User is logged in, update in Firestore
+        const newBalance = balance + amount;
+        const userRef = doc(firestore, "users", user.uid);
+        await updateDoc(userRef, {
+          balance: newBalance,
+          updatedAt: new Date(),
+        });
+        setBalance(newBalance);
+      } else {
+        // User is not logged in, update locally
+        setBalance((prevBalance) => prevBalance + amount);
+      }
+    } catch (error) {
+      console.error("Error adding to balance:", error);
+    }
   };
 
-  const deductFromBalance = (amount: number) => {
-    if (balance >= amount) {
-      setBalance((prevBalance) => prevBalance - amount);
-      return true; // Sufficient funds, deduction successful
+  const deductFromBalance = async (amount: number) => {
+    if (balance < amount) {
+      return false; // Insufficient funds
     }
-    return false; // Insufficient funds
+
+    try {
+      if (user) {
+        // User is logged in, update in Firestore
+        const newBalance = balance - amount;
+        const userRef = doc(firestore, "users", user.uid);
+        await updateDoc(userRef, {
+          balance: newBalance,
+          updatedAt: new Date(),
+        });
+        setBalance(newBalance);
+      } else {
+        // User is not logged in, update locally
+        setBalance((prevBalance) => prevBalance - amount);
+      }
+      return true; // Deduction successful
+    } catch (error) {
+      console.error("Error deducting from balance:", error);
+      return false; // Deduction failed
+    }
   };
 
   return (
     <UserBalanceContext.Provider
-      value={{ balance, setBalance, addToBalance, deductFromBalance }}
+      value={{ balance, setBalance, addToBalance, deductFromBalance, loading }}
     >
       {children}
     </UserBalanceContext.Provider>

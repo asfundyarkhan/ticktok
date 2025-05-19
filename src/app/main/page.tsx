@@ -150,7 +150,7 @@ export default function MainPage() {
             TikTok Shop
           </h1>
           <h2
-            className={`text-6xl font-bold mb-8 leading-tight ${styles.textVisible}`}
+            className={`text-5xl text-white font-bold mb-8 leading-tight ${styles.textVisible}`}
           >
             Create joy and
             <br />

@@ -5,7 +5,10 @@ import Link from "next/link";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { LoadingSpinner } from "@/app/components/Loading";
+import AuthRedirect from "@/app/components/AuthRedirect";
 
 const registerSchema = Yup.object().shape({
   name: Yup.string().min(2, "Name is too short").required("Name is required"),
@@ -34,18 +37,37 @@ interface RegisterFormValues {
   terms: boolean;
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { signUp } = useAuth();
   const handleRegister = async (values: RegisterFormValues) => {
     try {
-      // Here you would typically make an API call to register
-      console.log("Register values:", values);
-      router.push("/login");
-    } catch (error) {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      // Register with Firebase Auth and create Firestore profile
+      await signUp(values.email, values.password, values.name);
+
+      // Redirect to the email verification page after successful registration
+      router.push("/verify-email");
+    } catch (error: any) {
       console.error("Registration failed:", error);
+      const errorCode = error.code || "";
+      if (errorCode === "auth/email-already-in-use") {
+        setErrorMessage(
+          "An account with this email already exists. Please sign in instead."
+        );
+      } else {
+        setErrorMessage(
+          error.message || "Registration failed. Please try again."
+        );
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,8 +87,22 @@ export default function RegisterPage() {
               Sign in
             </Link>
           </p>
-        </div>
-
+        </div>{" "}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            <p>{errorMessage}</p>
+            {errorMessage.includes("already exists") && (
+              <p className="mt-2">
+                <Link
+                  href="/login"
+                  className="font-medium text-pink-600 hover:text-pink-500"
+                >
+                  Go to sign in page
+                </Link>
+              </p>
+            )}
+          </div>
+        )}
         <Formik
           initialValues={{
             name: "",
@@ -237,9 +273,20 @@ export default function RegisterPage() {
               <div>
                 <button
                   type="submit"
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500"
+                  disabled={isLoading}
+                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:bg-pink-400"
                 >
-                  Create Account
+                  {" "}
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <span className="mr-2">
+                        <LoadingSpinner size="sm" />
+                      </span>{" "}
+                      Creating account...
+                    </span>
+                  ) : (
+                    "Create Account"
+                  )}
                 </button>
               </div>
             </Form>
@@ -247,5 +294,21 @@ export default function RegisterPage() {
         </Formik>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <LoadingSpinner size="lg" />
+        </div>
+      }
+    >
+      {/* Redirect authenticated users based on their role */}
+      <AuthRedirect />
+      <RegisterForm />
+    </Suspense>
   );
 }
