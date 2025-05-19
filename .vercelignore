@@ -1,0 +1,30 @@
+# Firebase credentials and secrets
+src/lib/firebase/credentials/
+*firebase-adminsdk*.json
+*service-account*.json
+
+# Environment files
+.env*
+!.env.example
+
+# Development files
+*.log
+.git
+.github
+.vscode
+node_modules
+.DS_Store
+npm-debug.log*
+
+# Testing
+/coverage
+/test
+*.test.ts
+*.test.tsx
+
+# Documentation and examples
+docs/
+*.md
+LICENSE
+README.md
+!VERCEL_DEPLOYMENT.md

@@ -16,13 +16,33 @@ export function getFromLocalStorage<T>(key: string, defaultValue: T): T {
     const item = window.localStorage.getItem(key);
     if (!item) return defaultValue;
     
-    // Handle raw string case
+    // For primitive default types (string, number, boolean), or when default is null
+    // return the raw value or converted value
     if (typeof defaultValue === 'string') {
       return item as unknown as T;
     }
     
-    // Parse the item
-    return JSON.parse(item);
+    if (defaultValue === null) {
+      return item as unknown as T;
+    }
+    
+    if (typeof defaultValue === 'number') {
+      const num = Number(item);
+      return (isNaN(num) ? defaultValue : num) as unknown as T;
+    }
+    
+    if (typeof defaultValue === 'boolean') {
+      return (item === 'true') as unknown as T;
+    }
+    
+    // For objects and arrays, parse as JSON
+    try {
+      return JSON.parse(item);
+    } catch (jsonError) {
+      // If JSON parsing fails, return the raw value as a fallback
+      console.warn(`Failed to parse JSON for key ${key}, returning as string:`, jsonError);
+      return item as unknown as T;
+    }
   } catch (error) {
     console.error(`Error reading ${key} from localStorage:`, error);
     return defaultValue;

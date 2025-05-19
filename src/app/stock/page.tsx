@@ -75,46 +75,60 @@ export default function StockPage() {
       productCode: "CAP-NIKE-001",
     },
   ];
-
   useEffect(() => {
     // Load admin stock products with safe method
-    const storedAdminProducts = getFromLocalStorage("adminStockProducts", []);
+    let productsToUse = defaultAdminProducts;
+    
+    try {
+      const storedAdminProducts = getFromLocalStorage<Product[]>("adminStockProducts", []);
 
-    if (storedAdminProducts.length > 0) {
-      setAdminProducts(storedAdminProducts);
-    } else {
-      // Use default admin stock if none exists
+      if (Array.isArray(storedAdminProducts) && storedAdminProducts.length > 0) {
+        setAdminProducts(storedAdminProducts);
+        productsToUse = storedAdminProducts;
+      } else {
+        // Use default admin stock if none exists or invalid data
+        setAdminProducts(defaultAdminProducts);
+        setToLocalStorage("adminStockProducts", defaultAdminProducts);
+      }
+    } catch (error) {
+      console.error("Error loading admin products:", error);
+      // Fallback to defaults on error
       setAdminProducts(defaultAdminProducts);
       setToLocalStorage("adminStockProducts", defaultAdminProducts);
     }
 
     // Initialize quantities safely
     const initialQuantities: Record<number, number> = {};
-    (storedAdminProducts.length > 0
-      ? storedAdminProducts
-      : defaultAdminProducts
-    ).forEach((product: Product) => {
+    productsToUse.forEach((product: Product) => {
       initialQuantities[product.id] = 0;
     });
-    setSelectedQuantities(initialQuantities);
-
-    // Check if there's a product to highlight (coming from restock button)
-    const productToRestock = getFromLocalStorage("productToRestock", null);
-    if (productToRestock) {
-      setHighlightedProductCode(productToRestock);
-      // Remove it after use
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.removeItem("productToRestock");
-        } catch (error) {
-          console.error(
-            "Error removing productToRestock from localStorage:",
-            error
-          );
+    setSelectedQuantities(initialQuantities);// Check if there's a product to highlight (coming from restock button)
+    try {
+      const productToRestock = getFromLocalStorage<string | null>("productToRestock", null);
+      if (productToRestock) {
+        // Validate that it's a string
+        if (typeof productToRestock === 'string') {
+          setHighlightedProductCode(productToRestock);
+        } else {
+          console.warn("Invalid productToRestock format:", productToRestock);
+        }
+        
+        // Remove it after use
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.removeItem("productToRestock");
+          } catch (error) {
+            console.error(
+              "Error removing productToRestock from localStorage:",
+              error
+            );
+          }
         }
       }
+    } catch (error) {
+      console.error("Error processing productToRestock:", error);
     }
-  }, []);
+  }, [defaultAdminProducts]);
   // Filter products based on search query
   const filteredProducts = adminProducts.filter(
     (product) =>
