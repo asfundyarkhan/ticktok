@@ -31,13 +31,49 @@ else {
 }
 
 # Check for environment variable in PowerShell
-Write-Host "🔍 Checking environment variables..." -ForegroundColor Yellow
+Write-Host "🔍 Checking client environment variables..." -ForegroundColor Yellow
 if (-not (Test-Path env:NEXT_PUBLIC_FIREBASE_API_KEY)) {
     Write-Host "⚠️ Warning: NEXT_PUBLIC_FIREBASE_API_KEY not found in environment" -ForegroundColor Yellow
     Write-Host "📝 Make sure to add Firebase environment variables to your Vercel project" -ForegroundColor Yellow
 }
 else {
-    Write-Host "✅ Firebase environment variables found" -ForegroundColor Green
+    Write-Host "✅ Firebase client environment variables found" -ForegroundColor Green
+}
+
+# Check Firebase Admin variables
+Write-Host "🔍 Checking Firebase Admin environment variables..." -ForegroundColor Yellow
+$firebaseAdminMissing = $false
+
+if (-not (Test-Path env:FIREBASE_ADMIN_PROJECT_ID)) {
+    Write-Host "⚠️ Warning: FIREBASE_ADMIN_PROJECT_ID not found in environment" -ForegroundColor Yellow
+    $firebaseAdminMissing = $true
+}
+
+if (-not (Test-Path env:FIREBASE_ADMIN_CLIENT_EMAIL)) {
+    Write-Host "⚠️ Warning: FIREBASE_ADMIN_CLIENT_EMAIL not found in environment" -ForegroundColor Yellow
+    $firebaseAdminMissing = $true
+}
+
+if (-not (Test-Path env:FIREBASE_ADMIN_PRIVATE_KEY)) {
+    Write-Host "⚠️ Warning: FIREBASE_ADMIN_PRIVATE_KEY not found in environment" -ForegroundColor Yellow
+    $firebaseAdminMissing = $true
+}
+
+if ($firebaseAdminMissing) {
+    Write-Host "⚠️ Some Firebase Admin environment variables are missing" -ForegroundColor Yellow
+    Write-Host "📝 Server-side authentication features will not work correctly" -ForegroundColor Yellow
+    Write-Host "📝 Run 'npm run setup:firebase-admin:win' to set up Firebase Admin" -ForegroundColor Yellow
+    
+    # Ask if the user wants to continue without Firebase Admin
+    $continueDeploy = Read-Host "Do you want to continue with deployment anyway? (y/n)"
+    if ($continueDeploy -ne "y" -and $continueDeploy -ne "Y") {
+        Write-Host "❌ Deployment cancelled" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "⚠️ Continuing deployment with limited functionality..." -ForegroundColor Yellow
+}
+else {
+    Write-Host "✅ Firebase Admin environment variables found" -ForegroundColor Green
 }
 
 # Show deployment info

@@ -7,8 +7,10 @@
     "build:vercel": "node -e \"require('fs').existsSync('.env.production') || require('fs').copyFileSync('.env.production.example', '.env.production')\" && next build",
     "start": "next start",
     "lint": "next lint",    "prepare:vercel": "bash scripts/prepare-vercel-deploy.sh",
-    "prepare:vercel:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\prepare-vercel-deploy.ps1",
+    "prepare:vercel:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\prepare-vercel-deploy.ps1",    "setup:firebase-admin": "bash scripts/setup-firebase-admin-vercel.sh",
+    "setup:firebase-admin:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\setup-firebase-admin-vercel.ps1",
     "verify:csp": "node scripts/verify-csp.js",
+    "verify:firebase-admin": "node scripts/verify-firebase-admin.js",
     "deploy:full": "bash scripts/deploy-and-verify.sh",
     "deploy:full:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\deploy-and-verify.ps1"
   },
