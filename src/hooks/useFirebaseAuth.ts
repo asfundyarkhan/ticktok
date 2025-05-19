@@ -1,0 +1,335 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { 
+  User, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  sendEmailVerification, 
+  reload 
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { auth, firestore } from '@/lib/firebase/firebase';
+import { UserProfile } from '@/context/AuthContext';
+
+interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  userProfile: UserProfile | null;
+}
+
+interface UseFirebaseAuthReturn extends AuthState {
+  signIn: (email: string, password: string) => Promise<User>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  logout: () => Promise<void>;
+  verifyUserInFirestore: (uid: string) => Promise<boolean>;
+  sendVerificationEmail: () => Promise<void>;
+  checkEmailVerified: () => Promise<boolean>;
+}
+
+/**
+ * Custom hook for Firebase authentication that ensures users have Firestore records
+ */
+export default function useFirebaseAuth(): UseFirebaseAuthReturn {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    loading: true,
+    error: null,
+    userProfile: null
+  });
+
+  // Verify that a user exists in Firestore
+  const verifyUserInFirestore = async (uid: string): Promise<boolean> => {
+    const userRef = doc(firestore, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    return userSnap.exists();
+  };
+  // Fetch user profile from Firestore
+  const fetchUserProfile = async (uid: string) => {
+    try {
+      const userRef = doc(firestore, 'users', uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const data = userSnap.data();
+        // Ensure timestamps are converted to JavaScript Date objects
+        const userData = {
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+        } as UserProfile;
+        return userData;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return null;
+    }
+  };
+
+  // Sign in function with Firestore verification
+  const signIn = async (email: string, password: string): Promise<User> => {
+    try {
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Authenticate with Firebase Auth
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Verify if user exists in Firestore
+      const exists = await verifyUserInFirestore(result.user.uid);
+      
+      if (!exists) {
+        await signOut(auth);
+        throw new Error('User account not found in our database. Please register first.');
+      }
+      
+      // Fetch user profile
+      const userProfile = await fetchUserProfile(result.user.uid);
+      
+      // Create or refresh the session cookie
+      const idToken = await result.user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      
+      setAuthState({
+        user: result.user,
+        loading: false,
+        error: null,
+        userProfile
+      });
+      
+      return result.user;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to sign in';
+      setAuthState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: errorMessage,
+        user: null,
+        userProfile: null
+      }));
+      throw error;
+    }
+  };
+
+  // Sign up function with Firestore record creation
+  const signUp = async (email: string, password: string, displayName: string): Promise<void> => {
+    let createdUser = null;
+    
+    try {
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Create user in Firebase Auth
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      createdUser = result.user;
+      
+      // Create user profile in Firestore
+      const userProfile: UserProfile = {
+        uid: result.user.uid,
+        email: result.user.email || email,
+        displayName,
+        balance: 5000, // Default starting balance
+        role: 'user',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Only add photoURL if it exists to avoid undefined values
+      if (result.user.photoURL) {
+        userProfile.photoURL = result.user.photoURL;
+      }
+      
+      // Store in Firestore (convert Date objects to Firestore Timestamps)
+      await setDoc(doc(firestore, 'users', result.user.uid), {
+        ...userProfile,
+        createdAt: Timestamp.fromDate(userProfile.createdAt),
+        updatedAt: Timestamp.fromDate(userProfile.updatedAt)
+      });
+      
+      // Send verification email
+      try {
+        await sendEmailVerification(result.user);
+      } catch (verifyError) {
+        console.error("Error sending verification email:", verifyError);
+        // Continue with registration even if sending email fails
+      }
+
+      // Create or refresh the session cookie
+      const idToken = await result.user.getIdToken();
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      
+      setAuthState({
+        user: result.user,
+        loading: false,
+        error: null,
+        userProfile
+      });
+    } catch (error: any) {
+      // Clean up: If Auth account was created but Firestore failed
+      if (createdUser) {
+        try {
+          await createdUser.delete();
+        } catch (deleteError) {
+          console.error("Error cleaning up partial registration:", deleteError);
+        }
+      }
+      
+      const errorMessage = error.message || 'Failed to sign up';
+      setAuthState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: errorMessage,
+        user: null,
+        userProfile: null
+      }));
+      throw error;
+    }
+  };
+  // Log out the user
+  const logout = async (): Promise<void> => {
+    try {
+      setAuthState(prev => ({ ...prev, loading: true }));
+      
+      // First clear the session cookie on the backend
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure cookies are included
+      });
+      
+      // Then sign out from Firebase Authentication
+      await signOut(auth);
+      
+      // Clear state
+      setAuthState({
+        user: null,
+        loading: false,
+        error: null,
+        userProfile: null
+      });
+      
+      // Clear any local storage items that might contain auth state
+      if (typeof window !== 'undefined') {
+        // Clear potentially cached auth data
+        localStorage.removeItem('firebase:authUser');
+        localStorage.removeItem('firebase:session');
+        localStorage.removeItem('userProfile');
+        
+        // Remove any application-specific state
+        localStorage.removeItem('cart');
+        localStorage.removeItem('savedItems');
+        localStorage.removeItem('userBalance');
+      }
+      
+      // Force a page reload to clear any cached authentication states
+      window.location.href = "/login";
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to log out';
+      setAuthState(prev => ({ ...prev, loading: false, error: errorMessage }));
+      throw error;
+    }
+  };
+
+  // Auth state observer
+  useEffect(() => {
+    setAuthState(prev => ({ ...prev, loading: true }));
+    
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      try {
+        if (user) {
+          // Verify user exists in Firestore
+          const exists = await verifyUserInFirestore(user.uid);
+          
+          if (!exists) {
+            console.warn("User authenticated but not in Firestore. Logging out.");
+            await signOut(auth);
+            
+            setAuthState({
+              user: null,
+              loading: false,
+              error: 'User account not found in our database.',
+              userProfile: null
+            });
+            return;
+          }
+          
+          // Fetch user profile
+          const userProfile = await fetchUserProfile(user.uid);
+          
+          setAuthState({
+            user,
+            loading: false,
+            error: null,
+            userProfile
+          });
+        } else {
+          setAuthState({
+            user: null,
+            loading: false,
+            error: null,
+            userProfile: null
+          });
+        }
+      } catch (error: any) {
+        console.error("Auth state change error:", error);
+        setAuthState({
+          user: null,
+          loading: false,
+          error: error.message || 'Authentication error',
+          userProfile: null
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Send email verification
+  const sendVerificationEmail = async (): Promise<void> => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user found');
+    }
+    
+    try {
+      await sendEmailVerification(auth.currentUser);
+    } catch (error: any) {
+      console.error("Error sending verification email:", error);
+      throw error;
+    }
+  };
+
+  // Check if email is verified (refreshes user to get latest status)
+  const checkEmailVerified = async (): Promise<boolean> => {
+    if (!auth.currentUser) {
+      return false;
+    }
+    
+    try {
+      // Reload the user to get fresh token and verification status
+      await reload(auth.currentUser);
+      return auth.currentUser.emailVerified;
+    } catch (error: any) {
+      console.error("Error checking email verified status:", error);
+      return false;
+    }
+  };
+
+  return {
+    ...authState,
+    signIn,
+    signUp,
+    logout,
+    verifyUserInFirestore,
+    sendVerificationEmail,
+    checkEmailVerified
+  };
+}

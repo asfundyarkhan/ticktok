@@ -6,7 +6,8 @@
   "regions": ["iad1"],
   "github": {
     "silent": true,
-    "autoAlias": true
+    "autoAlias": true,
+    "enabled": true
   },
   "cleanUrls": true,
   "trailingSlash": false,
@@ -16,6 +17,12 @@
       "destination": "/" 
     }
   ],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",

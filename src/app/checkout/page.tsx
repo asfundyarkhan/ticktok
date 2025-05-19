@@ -6,8 +6,17 @@ import Link from "next/link";
 import { useCart } from "../components/CartContext";
 import CheckoutButton from "../components/CheckoutButton";
 import { CartItem } from "@/types/product";
+import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CheckoutPage() {
+  return (
+    <ProtectedRoute>
+      <CheckoutContent />
+    </ProtectedRoute>
+  );
+}
+
+function CheckoutContent() {
   const { cartItems, cartTotal } = useCart();
   const [formData, setFormData] = useState({
     firstName: "",

@@ -12,16 +12,33 @@ const nextConfig = {
     scrollRestoration: true,
     serverMinification: true,
   },
+  webpack: (config, { isServer }) => {
+    // Handle node: protocol imports for client-side
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+        crypto: false,
+        process: false,
+        util: false,
+        buffer: false,
+        stream: false,
+        zlib: false,
+      };
+    }
+    return config;
+  },
   eslint: {
     // Disabling for deployment - in production you would want to fix these warnings
     ignoreDuringBuilds: true,
   },
   typescript: {
     // Disabling for deployment - in production you would want to fix type errors
-    ignoreBuildErrors: true,  },
-  poweredByHeader: false,
+    ignoreBuildErrors: true,  },  poweredByHeader: false,
   compress: true,
-  swcMinify: true,  crossOrigin: 'anonymous',
+  crossOrigin: 'anonymous',
   // Add production-specific optimizations
   productionBrowserSourceMaps: false,
   // Configure image optimization for production

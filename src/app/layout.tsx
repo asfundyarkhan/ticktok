@@ -7,6 +7,7 @@ import { UserBalanceProvider } from "./components/UserBalanceContext";
 import { CartProvider } from "./components/CartContext";
 import CartNotification from "./components/CartNotification";
 import { Toaster } from "react-hot-toast";
+import { AuthProvider } from "../context/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,30 +33,32 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body suppressHydrationWarning className={`${inter.className} h-full`}>
-        <UserBalanceProvider>
-          <CartProvider>
-            <Navbar />
-            <main className="min-h-full">{children}</main>
-            <Footer />
-            <CartNotification />
-            <Toaster
-              position="top-center"
-              toastOptions={{
-                duration: 3000,
-                style: {
-                  background: "#363636",
-                  color: "#fff",
-                },
-                success: {
-                  iconTheme: {
-                    primary: "#FF0059",
-                    secondary: "#fff",
+        <AuthProvider>
+          <UserBalanceProvider>
+            <CartProvider>
+              <Navbar />
+              <main className="min-h-full">{children}</main>
+              <Footer />
+              <CartNotification />
+              <Toaster
+                position="top-center"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: "#363636",
+                    color: "#fff",
                   },
-                },
-              }}
-            />
-          </CartProvider>
-        </UserBalanceProvider>
+                  success: {
+                    iconTheme: {
+                      primary: "#FF0059",
+                      secondary: "#fff",
+                    },
+                  },
+                }}
+              />
+            </CartProvider>
+          </UserBalanceProvider>
+        </AuthProvider>
       </body>
     </html>
   );

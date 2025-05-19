@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Search } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
+import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 
 interface User {
   name: string;
@@ -17,7 +19,9 @@ interface CreditInput {
   amount: string;
 }
 
-export default function AdminPage() {
+// Wrap the content in the AdminPage component
+function AdminPageContent() {
+  const { userProfile } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [creditInput, setCreditInput] = useState<CreditInput>({
     sellerId: "",
@@ -25,6 +29,9 @@ export default function AdminPage() {
   });
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // SuperAdminRoute component will handle the role check, redirect, and loading state
+  // so we can remove those checks here
   const [users, setUsers] = useState<User[]>([
     {
       name: "Carson Darrin",
@@ -282,5 +289,14 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Export a wrapper component that applies the SuperAdminRoute protection
+export default function AdminPage() {
+  return (
+    <SuperAdminRoute>
+      <AdminPageContent />
+    </SuperAdminRoute>
   );
 }

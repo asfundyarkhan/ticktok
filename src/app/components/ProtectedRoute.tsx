@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
+import { LoadingSpinner } from "./Loading";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedRoles?: Array<"user" | "seller" | "admin">;
 }
 
 export function ProtectedRoute({
@@ -14,68 +16,46 @@ export function ProtectedRoute({
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { user, userProfile, loading } = useAuth();
 
   useEffect(() => {
-    // Check authentication status from localStorage
-    const checkAuth = () => {
-      // In a real application, you would validate the token
-      // and possibly make an API call to verify the session
-      const token = localStorage.getItem("userToken");
-      const role = localStorage.getItem("userRole");
-
-      setIsAuthenticated(!!token);
-      setUserRole(role);
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    // Only run this effect after authentication check is complete
-    if (isLoading) return;
-
-    // Check if user is authenticated
-    if (!isAuthenticated) {
-      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
+    // Only run this effect after authentication check is complete    if (loading) return;    // Check if user is authenticated
+    if (!user) {
+      // Use replace instead of push to avoid history issues after logout
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
 
-    // Check if user has required role
+    // Check if user has required role (if roles were specified)
     if (
       allowedRoles.length > 0 &&
-      userRole &&
-      !allowedRoles.includes(userRole)
+      userProfile?.role &&
+      !allowedRoles.includes(userProfile.role)
     ) {
       // Redirect based on role
-      if (userRole === "seller") {
-        router.push("/dashboard/profile"); // Seller's default page
-      } else if (userRole === "admin") {
+      if (userProfile.role === "admin") {
         router.push("/dashboard/admin"); // Admin's default page
       } else {
-        router.push("/store"); // Regular user's default page
+        // Redirect both sellers and regular users to store page
+        router.push("/store");
       }
       return;
     }
-  }, [isAuthenticated, userRole, pathname, router, allowedRoles, isLoading]);
-
+  }, [user, userProfile, pathname, router, allowedRoles, loading]);
   // Show loading state while checking authentication
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   // If not authenticated, also show loading while redirecting
-  if (!isAuthenticated) {
+  if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-500"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }

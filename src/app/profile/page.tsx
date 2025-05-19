@@ -1,333 +1,388 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useUserBalance } from "../components/UserBalanceContext";
+import { useAuth } from "@/context/AuthContext";
+import { LoadingSpinner } from "../components/Loading";
+import { ProtectedRoute } from "../components/ProtectedRoute";
+import EmailVerificationCheck from "../components/EmailVerificationCheck";
+import { Camera, Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
-  const { balance } = useUserBalance();
+  return (
+    <ProtectedRoute>
+      <EmailVerificationCheck enforceVerification={false}>
+        <UserProfileContent />
+      </EmailVerificationCheck>
+    </ProtectedRoute>
+  );
+}
+
+function UserProfileContent() {
+  const { user, userProfile, loading, updateUserProfile } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [profileData, setProfileData] = useState({
-    fullName: "Anika Visser",
-    email: "anika.visser@devias.io",
-    sellerId: "SEL001",
+    displayName: "",
+    email: "",
+    phone: "",
+    address: {
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
+      country: "",
+    },
   });
 
-  const recentActivity = [
-    { date: "01/04/2025", activity: "Order: SHIRT-NIKE-001", quantity: 2 },
-    { date: "01/04/2025", activity: "Order: SHIRT-NIKE-001", quantity: 10 },
-  ];
+  // Initialize form data from user profile
+  useEffect(() => {
+    if (userProfile) {
+      setProfileData({
+        displayName: userProfile.displayName || "",
+        email: userProfile.email || "",
+        phone: userProfile.phone || "",
+        address: {
+          street: userProfile.address?.street || "",
+          city: userProfile.address?.city || "",
+          state: userProfile.address?.state || "",
+          zip: userProfile.address?.zip || "",
+          country: userProfile.address?.country || "",
+        },
+      });
+    }
+  }, [userProfile]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    // Handle nested address fields
+    if (name.startsWith("address.")) {
+      const addressField = name.split(".")[1];
+      setProfileData({
+        ...profileData,
+        address: {
+          ...profileData.address,
+          [addressField]: value,
+        },
+      });
+    } else {
+      setProfileData({
+        ...profileData,
+        [name]: value,
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user || !userProfile) return;
+
+    try {
+      setIsSaving(true);
+
+      // Update the user profile in Firestore and Auth
+      await updateUserProfile({
+        displayName: profileData.displayName,
+        phone: profileData.phone,
+        address: profileData.address,
+        updatedAt: new Date(),
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (loading || !userProfile) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with TikTok Shop and search */}
-      <div className="bg-white py-4 px-6 border-b flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-bold text-black">TikTok Shop</h1>
-          <div className="relative">
-            <button className="px-3 py-1 border rounded-md text-sm flex items-center text-black">
-              Category <span className="ml-1">▼</span>
-            </button>
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search for products..."
-              className="pl-10 pr-4 py-2 rounded-full bg-gray-100 w-96 text-black placeholder-gray-500 border border-gray-300"
-            />
-            <div className="absolute left-3 top-2.5 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Link href="/cart" className="flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-          </Link>
-          <div className="text-sm font-medium text-gray-700">
-            Balance: ${balance.toFixed(2)}
-          </div>
-          <div className="flex items-center space-x-1 text-sm">
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-gray-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </div>
-            <span className="text-gray-700 font-medium">Your Name</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-6">
-        <h1 className="text-xl font-medium text-gray-900 mb-6">Account</h1>
-
-        <div className="flex space-x-8 border-b border-gray-200 mb-6">
-          <Link
-            href="/profile"
-            className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold"
-          >
-            General
-          </Link>
-          <Link
-            href="/wallet"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
-            Wallet
-          </Link>
-          <Link
-            href="/stock"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
-            Buy stock
-          </Link>
-          <Link
-            href="/stock/inventory"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
-            Inventory
-          </Link>
-        </div>
-
-        {/* Basic Details */}
-        <div className="bg-white p-6 rounded-md shadow-sm mb-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-6">
-            Basic details
-          </h2>
-          <div className="flex mb-4">
-            <div className="mr-6">
-              <div className="relative">
-                <div className="w-14 h-14 bg-purple-100 rounded-full overflow-hidden flex items-center justify-center">
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          {/* Profile header */}
+          <div className="relative h-48 bg-gradient-to-r from-pink-500 to-purple-600">
+            <div className="absolute bottom-0 left-0 transform translate-y-1/2 ml-6">
+              <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white">
+                {userProfile.photoURL ? (
                   <Image
-                    src="/images/placeholders/avatar.jpg"
-                    alt="Profile"
-                    width={56}
-                    height={56}
+                    src={userProfile.photoURL}
+                    alt={userProfile.displayName || "User"}
+                    width={128}
+                    height={128}
                     className="object-cover"
                   />
-                </div>
-                <button className="absolute -right-1 -bottom-1 bg-white text-xs px-2 py-1 rounded-md border text-[#FF0059] font-semibold">
-                  Change
-                </button>
+                ) : (
+                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <span className="text-4xl font-bold text-gray-500">
+                      {userProfile.displayName?.[0]?.toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex-1">
-              <div className="mb-4">
-                <label className="block text-sm text-gray-800 font-medium mb-1">
-                  Full Name
-                </label>
-                <div className="flex justify-between items-center">
+          </div>
+
+          {/* Profile content */}
+          <div className="pt-20 pb-6 px-6">
+            {/* User info */}
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {userProfile.displayName || "User Profile"}
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Member since {userProfile.createdAt.toLocaleDateString()}
+                </p>
+                <div className="mt-1 flex items-center">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      userProfile.role === "admin"
+                        ? "bg-purple-100 text-purple-800"
+                        : userProfile.role === "seller"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {userProfile.role.charAt(0).toUpperCase() +
+                      userProfile.role.slice(1)}
+                  </span>
+
+                  {user.emailVerified ? (
+                    <span className="ml-2 inline-flex items-center text-xs text-green-600">
+                      <CheckCircle className="h-3 w-3 mr-1" /> Verified
+                    </span>
+                  ) : (
+                    <span className="ml-2 inline-flex items-center text-xs text-amber-600">
+                      <AlertCircle className="h-3 w-3 mr-1" />{" "}
+                      <Link href="/verify-email" className="hover:underline">
+                        Verify email
+                      </Link>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                >
+                  {isEditing ? "Cancel" : "Edit Profile"}
+                </button>
+
+                {isEditing && (
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none disabled:bg-pink-300"
+                  >
+                    {isSaving ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">
+                          <LoadingSpinner size="sm" />
+                        </span>
+                        Saving...
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <Save className="h-4 w-4 mr-1" /> Save
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Profile form */}
+            <div className="mt-6 border-t border-gray-200 pt-6">
+              <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-6">
+                <div>
+                  <label
+                    htmlFor="displayName"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Display Name
+                  </label>
                   <input
                     type="text"
-                    value={profileData.fullName}
-                    onChange={(e) =>
-                      setProfileData({
-                        ...profileData,
-                        fullName: e.target.value,
-                      })
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    name="displayName"
+                    id="displayName"
+                    value={profileData.displayName}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
                   />
-                  <button className="ml-2 px-4 py-1.5 text-sm bg-[#FF0059] text-white rounded-md font-semibold">
-                    Save
-                  </button>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-800 font-medium mb-1">
-                  Email Address *
-                </label>
-                <div className="flex justify-between items-center">
+
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Email Address
+                  </label>
                   <input
                     type="email"
+                    name="email"
+                    id="email"
                     value={profileData.email}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, email: e.target.value })
-                    }
-                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    disabled={true} // Email can't be changed
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
                   />
-                  <button className="ml-2 px-4 py-1.5 text-sm text-gray-800 hover:bg-gray-100 rounded-md font-medium">
-                    Edit
-                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Seller ID */}
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-800 mb-1">
-              Your Seller ID
-            </label>
-            <div className="flex">
-              <span className="p-2 border border-gray-300 rounded-l-md bg-gray-50 text-gray-800 font-medium">
-                SEL001
-              </span>
-              <button className="px-4 py-2 bg-[#FF0059] border border-l-0 rounded-r-md text-sm text-white font-semibold">
-                Copy ID
-              </button>
-            </div>
-          </div>
-        </div>
+                <div>
+                  <label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    id="phone"
+                    value={profileData.phone}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
 
-        {/* Total Balance */}
-        <div className="bg-white p-6 rounded-md shadow-sm mb-6">
-          <h2 className="text-sm font-semibold text-gray-800 uppercase mb-2">
-            Total Balance
-          </h2>
-          <div className="text-3xl font-bold text-gray-900 mb-4">
-            ${balance.toFixed(2)}
-          </div>
-          <Link
-            href="/wallet"
-            className="flex items-center text-sm text-[#FF0059] font-semibold"
-          >
-            Deposit funds
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 ml-1"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </Link>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white p-6 rounded-md shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900 mb-6">
-            Recent Activity
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 text-xs text-gray-800 font-semibold uppercase">
-                    Date
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-800 font-semibold uppercase">
-                    Activity
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-800 font-semibold uppercase">
-                    Quantity
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentActivity.map((item, index) => (
-                  <tr key={index} className="border-b">
-                    <td className="py-3 px-4 text-gray-900">{item.date}</td>
-                    <td className="py-3 px-4 text-gray-900">{item.activity}</td>
-                    <td className="py-3 px-4 text-gray-900">{item.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>{" "}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 text-sm text-gray-800 gap-4">
-              <div className="flex items-center font-medium">
-                <span className="whitespace-nowrap">Rows per page:</span>
-                <div className="relative ml-2">
-                  <select className="appearance-none pl-3 pr-8 py-1 border border-gray-300 rounded text-gray-900 bg-white">
-                    <option>5</option>
-                    <option>10</option>
-                    <option>25</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                    <svg
-                      className="h-4 w-4 text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
+                <div>
+                  <label
+                    htmlFor="balance"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Account Balance
+                  </label>
+                  <div className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-gray-50 rounded-md shadow-sm text-sm text-gray-700">
+                    ${userProfile.balance.toFixed(2)}
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-4 font-medium">
-                <span className="whitespace-nowrap">1-2 of 2</span>
-                <div className="flex space-x-2">
-                  <button
-                    className="p-1 rounded-full hover:bg-gray-100"
-                    disabled
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-gray-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  <button
-                    className="p-1 rounded-full hover:bg-gray-100"
-                    disabled
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 text-gray-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
+
+                {/* Address fields */}
+                <div className="sm:col-span-2 border-t border-gray-200 pt-6 mt-4">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Shipping Address
+                  </h3>
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label
+                    htmlFor="address.street"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    name="address.street"
+                    id="address.street"
+                    value={profileData.address.street}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="address.city"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="address.city"
+                    id="address.city"
+                    value={profileData.address.city}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="address.state"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    State / Province
+                  </label>
+                  <input
+                    type="text"
+                    name="address.state"
+                    id="address.state"
+                    value={profileData.address.state}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="address.zip"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    ZIP / Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    name="address.zip"
+                    id="address.zip"
+                    value={profileData.address.zip}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="address.country"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    name="address.country"
+                    id="address.country"
+                    value={profileData.address.country}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Security section */}
+            <div className="mt-10 border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Shield className="h-5 w-5 mr-2 text-gray-500" /> Security
+              </h3>
+
+              <div className="mt-4 space-y-4">
+                <Link
+                  href="/auth/reset-password"
+                  className="text-sm text-pink-600 hover:text-pink-500"
+                >
+                  Change password
+                </Link>
               </div>
             </div>
           </div>

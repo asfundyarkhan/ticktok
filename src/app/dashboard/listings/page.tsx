@@ -1,52 +1,64 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../../context/AuthContext";
+import { ProductService, Product } from "../../../services/productService";
+import { LoadingSpinner } from "../../components/Loading";
 import { useUserBalance } from "../../components/UserBalanceContext";
-
-interface StoreProduct {
-  id: number;
-  productCode: string;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  image: string;
-  sellerName: string;
-  rating: number;
-  reviews: number;
-}
+import Link from "next/link";
+import Image from "next/image";
+import toast from "react-hot-toast";
 
 export default function MyListingsPage() {
-  const [myListings, setMyListings] = useState<StoreProduct[]>([]);
+  const [myListings, setMyListings] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [loading, setLoading] = useState(true);
   const { balance } = useUserBalance();
+  const { user, userProfile } = useAuth();
+  const router = useRouter();
 
-  // Load seller's listings from localStorage
+  // Load seller's listings from Firestore
   useEffect(() => {
-    const storeProducts = JSON.parse(
-      localStorage.getItem("storeProducts") || "[]"
-    );
+    const loadSellerProducts = async () => {
+      if (!user) {
+        router.push("/login?redirect=/dashboard/listings");
+        return;
+      }
 
-    // Filter for only the current seller's products
-    // In a real app, this would use actual authentication
-    const currentSellerId = "current-user-id"; // This should match the ID used when creating listings
-    const sellerProducts = storeProducts.filter(
-      (product) => product.sellerId === currentSellerId
-    );
+      if (!userProfile) {
+        return; // Wait for userProfile to load
+      }
 
-    setMyListings(sellerProducts);
-  }, []);
+      if (userProfile.role !== "seller" && userProfile.role !== "admin") {
+        toast.error("You do not have permission to access this page");
+        router.push("/dashboard");
+        return;
+      }
 
+      try {
+        setLoading(true);
+        const products = await ProductService.getProductsBySeller(user.uid);
+        setMyListings(products);
+      } catch (error) {
+        console.error("Error loading products:", error);
+        toast.error("Failed to load your product listings");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSellerProducts();
+  }, [user, userProfile, router]);
   // Filter products based on search query
   const filteredListings = myListings.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
+      (product.productCode &&
+        product.productCode.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Pagination calculations
@@ -70,28 +82,65 @@ export default function MyListingsPage() {
   };
 
   // Remove a listing
-  const handleRemoveListing = (productId: number) => {
-    const updatedListings = myListings.filter(
-      (product) => product.id !== productId
-    );
-    setMyListings(updatedListings);
-    localStorage.setItem("storeProducts", JSON.stringify(updatedListings));
+  const handleRemoveListing = async (productId: string) => {
+    if (!confirm("Are you sure you want to delete this product?")) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await ProductService.deleteProduct(productId);
+      toast.success("Product deleted successfully");
+
+      // Update local state
+      const updatedListings = myListings.filter(
+        (product) => product.id !== productId
+      );
+      setMyListings(updatedListings);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Failed to delete product");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Edit a listing (price or stock)
-  const handleEditListing = (
-    productId: number,
+  const handleEditListing = async (
+    productId: string,
     newPrice: number,
     newStock: number
   ) => {
-    const updatedListings = myListings.map((product) =>
-      product.id === productId
-        ? { ...product, price: newPrice, stock: newStock }
-        : product
-    );
-    setMyListings(updatedListings);
-    localStorage.setItem("storeProducts", JSON.stringify(updatedListings));
+    try {
+      setLoading(true);
+      await ProductService.updateProduct(productId, {
+        price: newPrice,
+        stock: newStock,
+      });
+
+      // Update local state
+      const updatedListings = myListings.map((product) =>
+        product.id === productId
+          ? { ...product, price: newPrice, stock: newStock }
+          : product
+      );
+      setMyListings(updatedListings);
+
+      toast.success("Product updated successfully");
+    } catch (error) {
+      console.error("Error updating product:", error);
+      toast.error("Failed to update product");
+    } finally {
+      setLoading(false);
+    }
   };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -109,11 +158,11 @@ export default function MyListingsPage() {
             CURRENT BALANCE
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            ${balance.toFixed(2)}
+            ${userProfile?.balance?.toFixed(2) || "0.00"}
           </p>
         </div>
         <Link
-          href="/dashboard/stock/add"
+          href="/dashboard/listings/create"
           className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
         >
           Add New Product
@@ -174,51 +223,58 @@ export default function MyListingsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
+                {" "}
                 {currentListings.map((product) => (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 bg-gray-100">
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={40}
-                            height={40}
-                            className="object-cover"
-                          />
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              width={40}
+                              height={40}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs">
+                              No image
+                            </div>
+                          )}
                         </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">
                             {product.name}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {product.productCode}
+                            {product.productCode || "No SKU"}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        ${product.price.toFixed(2)}
+                        ${product.price?.toFixed(2) || "0.00"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          product.stock > 10
+                          (product.stock || 0) > 10
                             ? "bg-green-100 text-green-800"
-                            : product.stock > 0
+                            : (product.stock || 0) > 0
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-red-100 text-red-800"
                         }`}
                       >
-                        {product.stock} units
+                        {product.stock || 0} units
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="text-sm text-gray-500">
-                          {product.rating.toFixed(1)}
+                          {product.rating?.toFixed(1) || "0.0"}
                         </div>
                         <div className="ml-1 text-yellow-400">
                           <svg
@@ -231,38 +287,21 @@ export default function MyListingsPage() {
                           </svg>
                         </div>
                         <div className="ml-2 text-sm text-gray-500">
-                          {product.reviews} reviews
+                          {product.reviews || 0} reviews
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => {
-                          const newPrice = parseFloat(
-                            prompt(
-                              "Enter new price:",
-                              product.price.toString()
-                            ) || product.price.toString()
-                          );
-                          const newStock = parseInt(
-                            prompt(
-                              "Enter new stock quantity:",
-                              product.stock.toString()
-                            ) || product.stock.toString()
-                          );
-                          handleEditListing(product.id, newPrice, newStock);
-                        }}
+                      {" "}
+                      <Link
+                        href={`/dashboard/listings/edit/${product.id}`}
                         className="text-indigo-600 hover:text-indigo-900 mr-4"
                       >
                         Edit
-                      </button>
+                      </Link>
                       <button
                         onClick={() => {
-                          if (
-                            confirm(
-                              "Are you sure you want to remove this listing?"
-                            )
-                          ) {
+                          if (product.id) {
                             handleRemoveListing(product.id);
                           }
                         }}
@@ -274,8 +313,7 @@ export default function MyListingsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-
+            </table>{" "}
             {/* Pagination */}
             <div className="flex items-center justify-between px-6 py-3 bg-white border-t border-gray-200">
               <div className="flex items-center">
@@ -290,9 +328,9 @@ export default function MyListingsPage() {
                   }}
                   className="border border-gray-300 rounded px-2 py-1 text-sm"
                 >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
                 </select>
               </div>
 
@@ -332,10 +370,10 @@ export default function MyListingsPage() {
               You don't have any product listings yet
             </div>
             <Link
-              href="/stock/inventory"
+              href="/dashboard/listings/create"
               className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
             >
-              List Products for Sale
+              Add Your First Product
             </Link>
           </div>
         )}
