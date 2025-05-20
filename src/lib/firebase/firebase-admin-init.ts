@@ -72,8 +72,15 @@ function initializeFirebaseAdmin() {
           console.warn('Firebase Admin SDK initialized in preview mode with limited functionality');
           console.warn('Some server-side authentication features may not work properly');
           console.warn('For full functionality, add Firebase Admin credentials to environment variables');
-          return;
-        } else {
+          return;        } else {
+          // More detailed error message with instructions
+          console.error('Firebase Admin SDK: Service account credentials required for production.');
+          console.error('To fix this issue:');
+          console.error('1. Run the script: setup-firebase-admin-vercel.sh (Linux/Mac) or setup-firebase-admin-vercel.ps1 (Windows)');
+          console.error('2. Or manually add FIREBASE_ADMIN_* environment variables in the Vercel dashboard');
+          console.error('3. Deploy again after adding the environment variables');
+          
+          // Throw error with detailed message
           throw new Error('Firebase Admin SDK: Service account credentials are required for production. Please set FIREBASE_ADMIN_* environment variables in Vercel.');
         }
       }
@@ -82,10 +89,10 @@ function initializeFirebaseAdmin() {
     // Initialize the app with the credential
     admin.initializeApp({
       credential,
-      storageBucket: "ticktokshop-5f1e9.firebasestorage.app"
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.appspot.com"
     });
-    
-    console.log('Firebase Admin SDK initialized successfully');  } catch (error) {
+      console.log('Firebase Admin SDK initialized successfully');  
+  } catch (error) {
     // Enhanced error logging for better debugging in production
     const errorMessage = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : 'No stack trace available';
@@ -101,7 +108,8 @@ function initializeFirebaseAdmin() {
         privateKey: Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY)
       }
     });
-      // In production, we might want to initialize with a restricted app rather than crashing
+    
+    // In production, we might want to initialize with a restricted app rather than crashing
     if (process.env.NODE_ENV === 'production') {
       console.warn('Attempting to initialize Firebase Admin with limited functionality for production');
       try {
@@ -111,7 +119,7 @@ function initializeFirebaseAdmin() {
         // Initialize with best available configuration
         admin.initializeApp({
           projectId,
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
           // On Vercel, we can initialize with databaseURL for better fallback functionality
           ...(isVercel ? { 
             databaseURL: `https://${projectId}.firebaseio.com`
@@ -120,7 +128,11 @@ function initializeFirebaseAdmin() {
         
         console.warn('Firebase Admin SDK initialized with limited functionality');
         console.warn('Authentication operations will not work correctly until proper credentials are provided');
-        console.warn('Please add FIREBASE_ADMIN_* environment variables in your production environment');
+        console.warn('-------------------------------------------------------------------');
+        console.warn('IMPORTANT: To fix this issue, run:');
+        console.warn('  npm run setup:firebase-admin');
+        console.warn('Or manually add Firebase Admin credentials to Vercel environment variables');
+        console.warn('-------------------------------------------------------------------');
       } catch (fallbackError) {
         console.error('Fatal: Even fallback initialization failed:', fallbackError);
       }

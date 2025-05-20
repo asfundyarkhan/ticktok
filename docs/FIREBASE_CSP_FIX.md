@@ -32,6 +32,7 @@ The solution was to update the Content Security Policy (CSP) in `security-header
 The following domains were added to the CSP:
 
 #### In the `connect-src` directive:
+
 - `*.firebaseio.com` - For Realtime Database connections
 - `*.googleapis.com` - For Google APIs
 - `*.firebase.googleapis.com` - For Firebase API calls
@@ -44,6 +45,7 @@ The following domains were added to the CSP:
 - Custom domains: `tiktokshophub.co`, `www.tiktokshophub.co`, and Vercel preview URLs
 
 #### In the `script-src` directive:
+
 - `*.googleapis.com` - For Google APIs scripts
 - `*.googletagmanager.com` - For Google Analytics
 - `*.google-analytics.com` - For Google Analytics
@@ -51,11 +53,13 @@ The following domains were added to the CSP:
 - Custom domains: `tiktokshophub.co`, `www.tiktokshophub.co`
 
 #### In the `frame-src` directive:
+
 - `*.firebaseapp.com` - For Firebase Authentication
 - `*.web.app` - For Firebase Hosting
 - Custom domains: `tiktokshophub.co`, `www.tiktokshophub.co`, and Vercel preview URLs
 
 #### In the `img-src` directive:
+
 - `*.googleapis.com` - For Google APIs images
 - `*.gstatic.com` - For Google Static Content
 - Custom domains: `tiktokshophub.co`, `www.tiktokshophub.co`

@@ -32,11 +32,48 @@ fi
 
 # Check for secrets in Vercel environment
 echo "🔍 Checking Vercel environment variables..."
+
+# Check client-side Firebase variables
 if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then
   echo "⚠️ Warning: NEXT_PUBLIC_FIREBASE_API_KEY not found in Vercel environment"
   echo "📝 Make sure to add Firebase environment variables to your Vercel project"
 else
-  echo "✅ Firebase environment variables found"
+  echo "✅ Firebase client environment variables found"
+fi
+
+# Check Firebase Admin variables
+echo "🔍 Checking Firebase Admin environment variables..."
+FIREBASE_ADMIN_MISSING=false
+
+if [ -z "$FIREBASE_ADMIN_PROJECT_ID" ]; then
+  echo "⚠️ Warning: FIREBASE_ADMIN_PROJECT_ID not found in Vercel environment"
+  FIREBASE_ADMIN_MISSING=true
+fi
+
+if [ -z "$FIREBASE_ADMIN_CLIENT_EMAIL" ]; then
+  echo "⚠️ Warning: FIREBASE_ADMIN_CLIENT_EMAIL not found in Vercel environment"
+  FIREBASE_ADMIN_MISSING=true
+fi
+
+if [ -z "$FIREBASE_ADMIN_PRIVATE_KEY" ]; then
+  echo "⚠️ Warning: FIREBASE_ADMIN_PRIVATE_KEY not found in Vercel environment"
+  FIREBASE_ADMIN_MISSING=true
+fi
+
+if [ "$FIREBASE_ADMIN_MISSING" = true ]; then
+  echo "⚠️ Some Firebase Admin environment variables are missing"
+  echo "📝 Server-side authentication features will not work correctly"
+  echo "📝 Run 'npm run setup:firebase-admin' to set up Firebase Admin"
+  
+  # Ask if the user wants to continue without Firebase Admin
+  read -p "Do you want to continue with deployment anyway? (y/n): " continue_deploy
+  if [[ $continue_deploy != "y" && $continue_deploy != "Y" ]]; then
+    echo "❌ Deployment cancelled"
+    exit 1
+  fi
+  echo "⚠️ Continuing deployment with limited functionality..."
+else
+  echo "✅ Firebase Admin environment variables found"
 fi
 
 # Show deployment info

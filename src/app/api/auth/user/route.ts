@@ -21,7 +21,16 @@ export async function GET(request: NextRequest) {
     // Get the user profile from Firestore
     const userProfile = await getFirestoreUser(user.uid);
     
-    // Return user info
+    // Return user info    // Check if user is suspended
+    if (userProfile?.suspended) {
+      const response = NextResponse.json({ 
+        user: null,
+        error: 'Your account has been suspended. Please contact support for assistance.'
+      }, { status: 403 });
+      response.cookies.delete('firebase_auth');
+      return response;
+    }
+
     return NextResponse.json({ 
       user: {
         uid: user.uid,
@@ -30,7 +39,7 @@ export async function GET(request: NextRequest) {
         photoURL: user.photoURL,
         ...userProfile
       } 
-    }, { status: 200 });  } catch (error) {
+    }, { status: 200 });} catch (error) {
     console.error('Error getting user:', error);
     
     // Create a response and clear the invalid cookie

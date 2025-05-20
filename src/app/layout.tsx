@@ -8,6 +8,7 @@ import { CartProvider } from "./components/CartContext";
 import CartNotification from "./components/CartNotification";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../context/AuthContext";
+import SuperadminStoreRedirect from "./components/SuperadminStoreRedirect";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -35,7 +36,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className={`${inter.className} h-full`}>
         <AuthProvider>
           <UserBalanceProvider>
-            <CartProvider>
+            <CartProvider>              <SuperadminStoreRedirect />
               <Navbar />
               <main className="min-h-full">{children}</main>
               <Footer />

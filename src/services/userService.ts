@@ -33,6 +33,7 @@ export interface UserProfile {
     country?: string;
   };
   phone?: string;
+  suspended?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,6 +87,34 @@ export class UserService {
       }
     } catch (error) {
       console.error('Error getting user by email:', error);
+      throw error;
+    }
+  }
+
+  // Get users by role
+  static async getUsersByRole(role: 'user' | 'seller' | 'admin' | 'superadmin'): Promise<UserProfile[]> {
+    try {
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where('role', '==', role)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const users: UserProfile[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        users.push({ 
+          uid: doc.id, 
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date() 
+        } as UserProfile);
+      });
+      
+      return users;
+    } catch (error) {
+      console.error('Error getting users by role:', error);
       throw error;
     }
   }

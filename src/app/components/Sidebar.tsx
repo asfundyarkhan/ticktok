@@ -49,12 +49,11 @@ const navigation: NavItem[] = [
     href: "/dashboard/superadmin-test",
     icon: Shield,
     superadminOnly: true,
-  },
-  {
+  },  {
     name: "Role Manager",
     href: "/dashboard/role-manager",
     icon: Users,
-    adminOnly: true,
+    superadminOnly: true,
   },
 ];
 

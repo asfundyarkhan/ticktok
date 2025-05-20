@@ -1,7 +1,6 @@
 // API route for creating a session with Firebase Auth
 import { NextRequest, NextResponse } from 'next/server';
-import { createSessionCookie } from '@/lib/firebase/firebase-admin.server';
-import { cookies } from 'next/headers';
+import { createSessionCookie, adminAuth, adminDb } from '@/lib/firebase/firebase-admin';
 
 export async function POST(request: NextRequest) {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -34,6 +33,32 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
+    // Verify the ID token first
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+    
+    // Get the user to check email verification
+    const userRecord = await adminAuth.getUser(decodedToken.uid);
+    
+    // Check if email is verified (if required)
+    if (!userRecord.emailVerified) {
+      return NextResponse.json({ 
+        error: 'Email not verified',
+        message: 'Please verify your email address before continuing.',
+        code: 'auth/email-not-verified'
+      }, { status: 403 });
+    }
+
+    // Get user from Firestore to check suspension status
+    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+    const userData = userDoc.data();
+    
+    if (userData?.suspended) {
+      return NextResponse.json({ 
+        error: 'Account suspended',
+        message: 'Your account has been suspended. Please contact support for assistance.'
+      }, { status: 403 });
+    }
+
     // Set session expiration to 5 days
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days in milliseconds
     
@@ -51,9 +76,12 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
     
+    // Create success response with cookie
+    const response = NextResponse.json({ success: true }, { status: 200 });
+
     // Set the cookie
     console.log('Setting session cookie');
-    cookies().set({
+    response.cookies.set({
       name: 'firebase_auth',
       value: sessionCookie,
       maxAge: expiresIn / 1000, // Convert to seconds
@@ -64,12 +92,18 @@ export async function POST(request: NextRequest) {
     });
     
     console.log('Session cookie set successfully');
-    return NextResponse.json({ success: true }, { status: 200 });  } catch (error: unknown) {
+    return response;
+
+  } catch (error: unknown) {
     // Enhanced error logging for better debugging
+    interface FirebaseError extends Error {
+      code?: string;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = error instanceof Error && 'code' in (error as {code?: string}) ? 
-      (error as {code: string}).code : 'unknown';
-    
+    const errorCode = error instanceof Error && (error as FirebaseError).code ? 
+      (error as FirebaseError).code : 'unknown';
+
     console.error('Error creating session:', {
       message: errorMessage,
       code: errorCode,

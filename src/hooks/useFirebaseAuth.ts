@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { auth, firestore } from '@/lib/firebase/firebase';
-import { UserProfile } from '@/context/AuthContext';
+import { UserProfile } from '@/services/userService'; // Import from services for proper typechecking
 
 interface AuthState {
   user: User | null;
@@ -88,13 +88,35 @@ export default function useFirebaseAuth(): UseFirebaseAuthReturn {
       // Fetch user profile
       const userProfile = await fetchUserProfile(result.user.uid);
       
-      // Create or refresh the session cookie
+      // Check if user is suspended
+      if (userProfile?.suspended) {
+        await signOut(auth);
+        throw new Error('Your account has been suspended. Please contact support for assistance.');
+      }
+
+      // Get the ID token and create a session
       const idToken = await result.user.getIdToken();
-      await fetch('/api/auth/session', {
+      const sessionResponse = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
       });
+
+      if (!sessionResponse.ok) {
+        const errorData = await sessionResponse.json();
+        
+        if (errorData.error === 'Email not verified') {
+          await signOut(auth);
+          throw new Error('Please verify your email address before signing in.');
+        }
+        
+        if (errorData.error === 'Account suspended') {
+          await signOut(auth);
+          throw new Error('Your account has been suspended. Please contact support for assistance.');
+        }
+        
+        throw new Error(errorData.message || 'Failed to create session');
+      }
       
       setAuthState({
         user: result.user,
@@ -105,6 +127,7 @@ export default function useFirebaseAuth(): UseFirebaseAuthReturn {
       
       return result.user;
     } catch (error: any) {
+      console.error('Sign in error:', error);
       const errorMessage = error.message || 'Failed to sign in';
       setAuthState(prev => ({ 
         ...prev, 
@@ -127,14 +150,13 @@ export default function useFirebaseAuth(): UseFirebaseAuthReturn {
       // Create user in Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password);
       createdUser = result.user;
-      
-      // Create user profile in Firestore
+        // Create user profile in Firestore
       const userProfile: UserProfile = {
         uid: result.user.uid,
         email: result.user.email || email,
         displayName,
-        balance: 5000, // Default starting balance
-        role: 'user',
+        balance: 0, // Start with zero credit
+        role: 'seller', // Default role is now seller
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -264,6 +286,28 @@ export default function useFirebaseAuth(): UseFirebaseAuthReturn {
           
           // Fetch user profile
           const userProfile = await fetchUserProfile(user.uid);
+          
+          // Check if user is suspended and log them out if they are
+          if (userProfile?.suspended) {
+            console.warn("Suspended user attempted to access the app. Logging out.");
+            await signOut(auth);
+            
+            // Clear session cookies
+            await fetch('/api/auth/logout', {
+              method: 'POST',
+              credentials: 'include'
+            });
+              setAuthState({
+              user: null,
+              loading: false,
+              error: 'Your account has been suspended. Please contact support for assistance.',
+              userProfile: null
+            });
+            
+            // Instead of redirecting, throw a properly formatted error
+            throw new Error('Your account has been suspended. Please contact support for assistance.');
+            return;
+          }
           
           setAuthState({
             user,
