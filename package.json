@@ -4,7 +4,8 @@
   "private": true,  "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:vercel": "node -e \"require('fs').existsSync('.env.production') || require('fs').copyFileSync('.env.production.example', '.env.production')\" && next build",
+    "build:vercel": "node scripts/prepare-vercel-deploy.js && next build",
+    "vercel-build": "node scripts/prepare-vercel-deploy.js && next build",
     "start": "next start",
     "lint": "next lint",    "prepare:vercel": "bash scripts/prepare-vercel-deploy.sh",
     "prepare:vercel:win": "powershell -ExecutionPolicy Bypass -File .\\scripts\\prepare-vercel-deploy.ps1",    "setup:firebase-admin": "bash scripts/setup-firebase-admin-vercel.sh",
