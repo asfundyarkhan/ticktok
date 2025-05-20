@@ -91,8 +91,8 @@ function initializeFirebaseAdmin() {
       credential,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.appspot.com"
     });
-    
-    console.log('Firebase Admin SDK initialized successfully');  } catch (error) {
+      console.log('Firebase Admin SDK initialized successfully');  
+  } catch (error) {
     // Enhanced error logging for better debugging in production
     const errorMessage = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : 'No stack trace available';
@@ -108,7 +108,9 @@ function initializeFirebaseAdmin() {
         privateKey: Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY)
       }
     });
-      // In production, we might want to initialize with a restricted app rather than crashing    if (process.env.NODE_ENV === 'production') {
+    
+    // In production, we might want to initialize with a restricted app rather than crashing
+    if (process.env.NODE_ENV === 'production') {
       console.warn('Attempting to initialize Firebase Admin with limited functionality for production');
       try {
         const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_ADMIN_PROJECT_ID || "ticktokshop-5f1e9";
