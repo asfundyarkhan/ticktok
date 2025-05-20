@@ -9,6 +9,7 @@ import { useState, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "@/app/components/Loading";
 import AuthRedirect from "@/app/components/AuthRedirect";
+import { FirebaseError } from 'firebase/app';
 
 const loginSchema = Yup.object().shape({
   email: Yup.string()
@@ -30,8 +31,9 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { signIn, userProfile } = useAuth();
+  const { signIn } = useAuth();
   const redirectParam = searchParams.get("redirect");
+
   const handleLogin = async (values: LoginFormValues) => {
     try {
       setIsLoading(true);
@@ -49,37 +51,47 @@ function LoginForm() {
       }
 
       console.log("Attempting to sign in with Firebase");
-
-      // Authenticate with Firebase and verify in Firestore
       await signIn(values.email, values.password);
       
-      console.log("Sign in successful, handling redirect");
-
-      // If there's a specific redirect URL in the params, use that
+      // Only redirect on successful login
       if (redirectParam) {
         router.replace(redirectParam);
-        return;
       }
-
-      // Otherwise, redirect based on user role
-      // The auth state will be processed by useEffect in AuthRedirect component
-      // which will redirect users based on their role
-      // No need to manually redirect here
+      
     } catch (error) {
       console.error("Login failed:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
       
-      // Handle specific error cases
-      if (errorMessage.includes("invalid-credential") || errorMessage.includes("wrong password")) {
-        setErrorMessage("Invalid email or password. Please check your credentials and try again.");
-      } else if (errorMessage.includes("user-not-found") || errorMessage.includes("not found")) {
-        setErrorMessage("No account exists with this email. Please create an account first.");
-      } else if (errorMessage.includes("too-many-requests")) {
-        setErrorMessage("Too many login attempts. Please try again later or reset your password.");
-      } else if (errorMessage.includes("network")) {
-        setErrorMessage("Network error. Please check your internet connection and try again.");
+      if (error instanceof FirebaseError) {
+        // Handle specific Firebase error codes
+        switch (error.code) {
+          case "auth/account-suspended":
+          case "auth/user-disabled":
+            // Show error message without redirecting for suspended/disabled accounts
+            setErrorMessage("Your account has been suspended or disabled. Please contact support for assistance.");
+            break;
+          case "auth/invalid-email":
+            setErrorMessage("Invalid email format. Please check your email address.");
+            break;
+          case "auth/user-not-found":
+            setErrorMessage("No account exists with this email. Please create an account first.");
+            break;
+          case "auth/wrong-password":
+          case "auth/invalid-credential":
+            setErrorMessage("Invalid email or password. Please check your credentials and try again.");
+            break;
+          case "auth/too-many-requests":
+            setErrorMessage("Too many login attempts. Please try again later or reset your password.");
+            break;
+          case "auth/network-request-failed":
+            setErrorMessage("Network error. Please check your internet connection and try again.");
+            break;
+          default:
+            setErrorMessage(error.message || "Failed to login. Please check your credentials.");
+        }
+      } else if (error instanceof Error) {
+        setErrorMessage(error.message || "An unexpected error occurred. Please try again.");
       } else {
-        setErrorMessage(errorMessage || "Failed to login. Please check your credentials.");
+        setErrorMessage("An unexpected error occurred. Please try again.");
       }
     } finally {
       setIsLoading(false);

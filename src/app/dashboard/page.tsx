@@ -21,14 +21,14 @@ export default function DashboardPage() {
     if (!authLoading && !user) {
       router.push("/login?redirect=/dashboard");
       return;
-    }
-    // Check if user is an admin or superadmin, redirect to store page if not
+    }    // Check if user is an admin or superadmin, redirect to store page if they're a seller or regular user
     if (
       !authLoading &&
       userProfile &&
       userProfile.role !== "admin" &&
       userProfile.role !== "superadmin"
     ) {
+      // Non-admin/superadmin users should be redirected to store
       router.replace("/store");
       return;
     }

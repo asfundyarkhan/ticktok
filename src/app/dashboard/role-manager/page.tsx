@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { UserService } from "../../../services/userService";
 import { useAuth } from "../../../context/AuthContext";
-import { AdminRoute } from "../../components/AdminRoute";
+import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { LoadingSpinner } from "../../components/Loading";
 
 function RoleManagerContent() {
@@ -130,8 +130,8 @@ function RoleManagerContent() {
 
 export default function RoleManager() {
   return (
-    <AdminRoute>
+    <SuperAdminRoute>
       <RoleManagerContent />
-    </AdminRoute>
+    </SuperAdminRoute>
   );
 }

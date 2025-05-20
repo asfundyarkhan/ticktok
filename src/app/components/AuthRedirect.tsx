@@ -16,13 +16,17 @@ export default function AuthRedirect({
 }) {
   const router = useRouter();
   const { user, userProfile, loading } = useAuth();
-
   useEffect(() => {
     // Only redirect after auth state is determined
     if (!loading && user && userProfile) {
       let targetPath = redirectTo; // If no specific redirect provided, use role-based redirect
+      
       if (!redirectTo) {
         switch (userProfile.role) {
+          case "superadmin":
+            // Always redirect superadmins to dashboard, never to store
+            targetPath = "/dashboard"; 
+            break;
           case "admin":
             targetPath = "/dashboard/admin";
             break;

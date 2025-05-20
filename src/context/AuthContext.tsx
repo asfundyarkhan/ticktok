@@ -9,8 +9,8 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
-  UserCredential,
 } from "firebase/auth";
+import { FirebaseError } from 'firebase/app';
 import { auth, firestore } from "../lib/firebase/firebase";
 import { doc, getDoc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
 
@@ -54,14 +54,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper function to format authentication errors
-const formatAuthError = (error: any): string => {
-  const errorCode = error?.code || "";
+const formatAuthError = (error: FirebaseError | Error): string => {
+  // Try to cast to FirebaseError if it matches the pattern
+  const firebaseError = error as FirebaseError;
+  const errorCode = firebaseError.code || "";
 
   // Custom error messages based on Firebase Auth error codes
   switch (errorCode) {
     case "auth/user-not-found":
-      return "No account exists with this email. Please register first.";
-    case "auth/email-already-in-use":
+      return "No account exists with this email. Please register first.";    case "auth/email-already-in-use":
       return "An account with this email already exists. Please use the sign in page instead.";
     case "auth/wrong-password":
       return "Incorrect password. Please try again.";
@@ -75,8 +76,12 @@ const formatAuthError = (error: any): string => {
       return "Network error. Please check your connection.";
     case "auth/invalid-credential":
       return "Invalid email or password. Please check your credentials and try again.";
+    case "auth/account-suspended":
+      return "Your account has been suspended. Please contact support for assistance.";
+    case "auth/email-not-verified":
+      return "Please verify your email address before signing in. Check your inbox for a verification link.";
     default:
-      return error?.message || "An unknown error occurred";
+      return error.message || "An unknown error occurred";
   }
 };
 
@@ -109,9 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } else {
         setUserProfile(null);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching user profile:", error);
-      setUserProfile(null);
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred while fetching user profile");
     }
   };
   // Listen for authentication state changes
@@ -124,14 +132,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const userDoc = await getDoc(userRef);
 
           if (!userDoc.exists()) {
-            console.warn(
-              "Authenticated user doesn't have a Firestore profile. Logging out."
-            );
+            console.warn("Authenticated user doesn't have a Firestore profile. Logging out.");
             await signOut(auth);
             setUser(null);
             setUserProfile(null);
           } else {
-            // User has a valid Firestore profile
+            // Check if user is suspended
+            const userData = userDoc.data();
+            if (userData?.suspended) {
+              console.warn("Suspended user detected during auth state change");
+              // Sign out and clean up
+              await signOut(auth);
+              // Clear any session cookies
+              await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include",
+              });
+              setUser(null);
+              setUserProfile(null);
+              throw new FirebaseError(
+                "auth/account-suspended",
+                "Your account has been suspended. Please contact support for assistance."
+              );
+              return;
+            }
+            
+            // Check email verification unless user is admin/superadmin
+            if (!currentUser.emailVerified && 
+                (!userData?.role || (userData.role !== "admin" && userData.role !== "superadmin"))) {
+              console.warn("Unverified user detected during auth state change");
+              await signOut(auth);
+              await fetch("/api/auth/logout", {
+                method: "POST",
+                credentials: "include",
+              });
+              setUser(null);
+              setUserProfile(null);
+              throw new Error("Please verify your email address before signing in. Check your inbox for a verification link.");
+              return;
+            }
+
+            // User has a valid Firestore profile and is not suspended
             setUser(currentUser);
             await fetchUserProfile(currentUser.uid);
           }
@@ -151,7 +192,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Clean up the listener when the component unmounts
     return () => unsubscribe();
-  }, []);  // Sign in function
+  }, []);
+
+  // Sign in function  
   const signIn = async (email: string, password: string): Promise<User> => {
     try {
       console.log("Attempting to sign in with email:", email);
@@ -172,7 +215,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         );
       }
 
-      console.log("User exists in Firestore, fetching ID token");
+      // Check if user is suspended
+      const userData = userDoc.data();
+      if (userData?.suspended) {
+        console.warn("Suspended user attempted to log in");
+        // Sign out and clean up
+        await signOut(auth);
+        // Clear any session cookies
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+        // Clear local state
+        setUser(null);
+        setUserProfile(null);
+        // Create a custom error that matches FirebaseError structure
+        const customError = new FirebaseError(
+          "auth/account-suspended",
+          "Your account has been suspended. Please contact support for assistance."
+        );
+        throw customError;
+      }      // Check if email is verified
+      if (!result.user.emailVerified && userData?.role !== "admin" && userData?.role !== "superadmin") {
+        console.warn("Unverified user attempted to log in");
+        await signOut(auth);
+        const customError = new FirebaseError(
+          "auth/email-not-verified",
+          "Please verify your email address before signing in. Check your inbox for a verification link."
+        );
+        throw customError;
+      }
+
+      console.log("User exists in Firestore and is active, fetching ID token");
 
       try {
         // Get the ID token from Firebase
@@ -201,17 +275,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       await fetchUserProfile(result.user.uid);
       return result.user;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Sign in error:", error);
       
-      // Check if this is specifically an invalid credential error
-      if (error && typeof error === 'object' && 'code' in error && 
-          (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found')) {
-        console.warn("Invalid credentials or user not found");
+      // Handle Firebase and other errors
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
       }
-      
-      // Re-throw with formatted error message
-      throw new Error(formatAuthError(error));
+      throw new Error("An unknown error occurred");
     }
   };
   // Sign up function
@@ -228,16 +299,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password
       );
-      createdUser = result.user;
-
-      // Step 2: Update profile with display name
-      await updateProfile(result.user, { displayName }); // Step 3: Create user profile in Firestore
+      createdUser = result.user;      // Step 2: Update profile with display name
+      await updateProfile(result.user, { displayName });
+      
+      // Step 3: Create user profile in Firestore
       const userProfile: UserProfile = {
         uid: result.user.uid,
         email: result.user.email || email,
         displayName,
-        balance: 5000, // Default starting balance
-        role: "user",
+        balance: 0, // Start with zero credit as required
+        role: "seller", // Default role is now seller
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -262,7 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Sign up error:", error);
 
       // Clean up: If Firebase Auth account was created but Firestore failed,
@@ -278,7 +349,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      throw new Error(formatAuthError(error));
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred during sign up");
     }
   }; // Logout function
   const logout = async (): Promise<void> => {
@@ -314,9 +388,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Force a full page reload to clear any cached authentication states
       window.location.href = "/login";
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Logout error:", error);
-      throw new Error(formatAuthError(error));
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred during logout");
     }
   };
 
@@ -324,9 +401,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const resetPassword = async (email: string): Promise<void> => {
     try {
       await sendPasswordResetEmail(auth, email);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Reset password error:", error);
-      throw new Error(formatAuthError(error));
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred during password reset");
     }
   };
 
@@ -362,9 +442,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         ...data,
         updatedAt: new Date(),
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error updating profile:", error);
-      throw new Error(formatAuthError(error));
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred while updating profile");
     }
   };
 

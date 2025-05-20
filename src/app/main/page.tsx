@@ -4,13 +4,34 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import styles from "./main.module.css";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 
 export default function MainPage() {
   // Mock authentication state - in a real app, this would come from context/cookies
   const [isAuthenticated] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const suspended = searchParams.get("suspended");
+
+  // Show suspended message if applicable
+  useEffect(() => {
+    if (suspended === "true") {
+      toast.error(
+        "Your account has been suspended. Please contact support for assistance.",
+        {
+          duration: 10000,
+          position: "top-center",
+          style: {
+            border: "1px solid #FF0000",
+            padding: "16px",
+            color: "#FF0000",
+            maxWidth: "500px",
+          },
+        }
+      );
+    }
+  }, [suspended]);
 
   // State to track if navbar should be visible
   const [showNavbar, setShowNavbar] = useState(false);

@@ -7,7 +7,7 @@ import { LoadingSpinner } from "./Loading";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: Array<"user" | "seller" | "admin">;
+  allowedRoles?: Array<"user" | "seller" | "admin" | "superadmin">;
 }
 
 export function ProtectedRoute({
@@ -24,16 +24,16 @@ export function ProtectedRoute({
       // Use replace instead of push to avoid history issues after logout
       router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
-    }
-
-    // Check if user has required role (if roles were specified)
+    }    // Check if user has required role (if roles were specified)
     if (
       allowedRoles.length > 0 &&
       userProfile?.role &&
       !allowedRoles.includes(userProfile.role)
     ) {
       // Redirect based on role
-      if (userProfile.role === "admin") {
+      if (userProfile.role === "superadmin") {
+        router.push("/dashboard"); // Superadmins go to main dashboard
+      } else if (userProfile.role === "admin") {
         router.push("/dashboard/admin"); // Admin's default page
       } else {
         // Redirect both sellers and regular users to store page

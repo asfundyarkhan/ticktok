@@ -1,8 +1,8 @@
 // API route for logging out and clearing the session cookie
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const isProduction = process.env.NODE_ENV === 'production';
   const isVercel = Boolean(process.env.VERCEL);
   
@@ -14,10 +14,11 @@ export async function POST(request: NextRequest) {
     // Clear all potential auth cookies
     const cookiesToClear = ['firebase_auth', 'session', 'auth_token', '__session'];
     
-    cookiesToClear.forEach(cookieName => {
+    for (const cookieName of cookiesToClear) {
       // Log the cookie clearing
       console.log(`Clearing ${cookieName} cookie`);
       
+      // Set expired cookie in response
       response.cookies.set(cookieName, '', { 
         expires: new Date(0),
         path: '/',
@@ -26,25 +27,18 @@ export async function POST(request: NextRequest) {
         sameSite: 'strict'
       });
       
-      // Also try with Next.js cookies API as a backup method
+      // Also try with Next.js cookies API
       try {
-        cookies().set({
-          name: cookieName,
-          value: '',
-          expires: new Date(0),
-          path: '/',
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: 'strict'
-        });
+        // The cookies() function returns a promise in newer versions of Next.js
+        const cookieStore = await cookies();
+        if (cookieStore.has(cookieName)) {
+          cookieStore.delete(cookieName);
+        }
       } catch (cookieError) {
-        console.warn(`Could not clear ${cookieName} with cookies() API:`, cookieError);
+        console.warn(`Could not clear ${cookieName} with cookies API:`, cookieError);
         // Continue with the response.cookies method which should still work
       }
-    });
-    
-    // Also clear any localStorage items via client-side script
-    response.headers.set('Set-Cookie', 'firebase_auth=deleted; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT');
+    }
     
     console.log('Logout completed successfully');
     return response;
