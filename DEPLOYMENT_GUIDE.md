@@ -11,6 +11,7 @@ This guide explains how to deploy the TikTok Shop application to Vercel or other
 ## Environment Setup
 
 1. **Prepare Environment Variables**:
+
    - Copy `.env.production.example` to `.env.production`
    - Update the values with your Firebase project details
 
@@ -23,8 +24,9 @@ This guide explains how to deploy the TikTok Shop application to Vercel or other
    ```
 
 2. **Configure Firebase Environment**:
+
    - Run the Firebase environment setup script:
-   
+
    ```bash
    # For Windows:
    ./scripts/setup-firebase-env.ps1
@@ -42,20 +44,23 @@ This guide explains how to deploy the TikTok Shop application to Vercel or other
 ### Vercel Deployment (Recommended)
 
 1. **Prepare for Vercel Deployment**:
+
    ```bash
    # For Windows:
-   npm run prepare:vercel:win 
+   npm run prepare:vercel:win
 
    # For Linux/Mac:
    npm run prepare:vercel
    ```
 
 2. **Deploy to Vercel**:
+
    - Option 1: Using Vercel CLI
+
      ```bash
      vercel
      ```
-   
+
    - Option 2: Using GitHub Integration
      - Connect your GitHub repository to Vercel
      - Vercel will use the configuration from `vercel.json`
@@ -67,6 +72,7 @@ This guide explains how to deploy the TikTok Shop application to Vercel or other
 ### Production Build for Other Providers
 
 1. **Create Production Build**:
+
    ```bash
    npm run build:vercel
    ```

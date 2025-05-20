@@ -5,10 +5,12 @@ This document provides a comprehensive overview of the Firebase deployment fixes
 ## Issues Addressed
 
 1. **Content Security Policy (CSP) for Firebase Connection**
+
    - Fixed CSP headers to allow connections to Firebase domains
    - Added support for Firebase Authentication, Firestore, Storage, and Analytics
 
 2. **Firebase Admin SDK Initialization in Vercel**
+
    - Created tools to set up Firebase Admin credentials in Vercel
    - Enhanced error handling for missing credentials
    - Added verification scripts for troubleshooting
@@ -67,11 +69,13 @@ The CSP headers in `security-headers.js` are now properly configured to allow Fi
 After deployment, verify everything is working:
 
 1. **Check Firebase Admin Setup:**
+
    ```
    npm run verify:firebase-admin
    ```
 
 2. **Verify CSP Headers:**
+
    ```
    npm run verify:csp
    ```
@@ -84,14 +88,14 @@ After deployment, verify everything is working:
 
 ## Complete Scripts and Tools
 
-| Script | Purpose |
-|--------|---------|
-| `npm run setup:firebase-admin` | Configure Firebase Admin in Vercel |
-| `npm run setup:firebase-admin:win` | Windows version of setup script |
-| `npm run verify:firebase-admin` | Check Firebase Admin configuration |
-| `npm run verify:csp` | Verify CSP headers |
-| `npm run deploy:full` | Deploy with verification |
-| `npm run prepare:vercel` | Prepare environment for Vercel deployment |
+| Script                             | Purpose                                   |
+| ---------------------------------- | ----------------------------------------- |
+| `npm run setup:firebase-admin`     | Configure Firebase Admin in Vercel        |
+| `npm run setup:firebase-admin:win` | Windows version of setup script           |
+| `npm run verify:firebase-admin`    | Check Firebase Admin configuration        |
+| `npm run verify:csp`               | Verify CSP headers                        |
+| `npm run deploy:full`              | Deploy with verification                  |
+| `npm run prepare:vercel`           | Prepare environment for Vercel deployment |
 
 ## Troubleshooting
 
@@ -100,11 +104,9 @@ If you encounter issues after deployment:
 1. **CSP Errors in Console:**
    - Check the browser console for CSP errors
    - Update `security-headers.js` to include any missing domains
-   
 2. **Firebase Admin Initialization:**
    - Ensure the environment variables are correctly set in Vercel
    - Verify the private key format preserves newlines
-   
 3. **Authentication Issues:**
    - Check that your domain is added to Firebase Auth authorized domains
    - Verify CSP headers include Firebase authorization domains

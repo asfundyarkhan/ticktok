@@ -11,7 +11,7 @@ if (Test-Path $serviceAccountPath) {
     
     # Read and parse JSON file
     $serviceAccount = Get-Content $serviceAccountPath -Raw | ConvertFrom-Json
-      # Extract values
+    # Extract values
     $projectId = $serviceAccount.project_id
     $clientEmail = $serviceAccount.client_email
     $privateKey = $serviceAccount.private_key
@@ -25,7 +25,8 @@ if (Test-Path $serviceAccountPath) {
     
     if ($privateKeyValid) {
         Write-Host "PRIVATE_KEY: [Valid key found with BEGIN/END markers]" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "PRIVATE_KEY: [Warning: Key found but may be missing BEGIN/END markers]" -ForegroundColor Red
         Write-Host "  The private key MUST include the BEGIN/END markers for Firebase Admin to work correctly" -ForegroundColor Yellow
     }
@@ -52,7 +53,8 @@ if (Test-Path $serviceAccountPath) {
         Write-Host "     Value: The private key has been copied to your clipboard" -ForegroundColor Green
         Write-Host "            (Includes BEGIN/END markers and proper formatting)" -ForegroundColor Green
         Write-Host "            Just paste directly into Vercel's environment variable input" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "     Value: Open the service account JSON file and copy the entire private_key value" -ForegroundColor Yellow
         Write-Host "            Make sure it includes the BEGIN/END markers!" -ForegroundColor Red
     }
@@ -63,7 +65,8 @@ if (Test-Path $serviceAccountPath) {
     Write-Host "3. For Preview environments, check 'Preview' if you want auth to work in PR previews" -ForegroundColor White
     Write-Host "4. For Development environment, local .env files are used instead" -ForegroundColor White
     
-} else {
+}
+else {
     Write-Host "No service account file found at $serviceAccountPath" -ForegroundColor Red
     Write-Host "Please download your service account key from Firebase and place it at the path above."
     Write-Host "Or manually set the environment variables in your Vercel dashboard."
@@ -104,7 +107,8 @@ if (Test-Path $webConfigFile) {
     Write-Host "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: $messagingSenderId" -ForegroundColor Green
     Write-Host "NEXT_PUBLIC_FIREBASE_APP_ID: $appId" -ForegroundColor Green
     Write-Host "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: $measurementId" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "`nNo Firebase web config found at $webConfigFile" -ForegroundColor Red
 }
 

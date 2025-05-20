@@ -24,6 +24,7 @@ These domains must be listed in the Firebase Authentication console under "Authe
 The Content Security Policy has been configured in `security-headers.js` to include all necessary domains for Firebase services. Here's a breakdown of the domains included:
 
 ### Script Sources (script-src)
+
 - `'self'` (the origin itself)
 - `'unsafe-inline'` and `'unsafe-eval'` (required for some Firebase operations)
 - `*.vercel.app` (for Vercel deployments)
@@ -34,6 +35,7 @@ The Content Security Policy has been configured in `security-headers.js` to incl
 - `tiktokshophub.co` and `www.tiktokshophub.co` (main domain)
 
 ### Connect Sources (connect-src)
+
 - `'self'` (the origin itself)
 - `*.vercel.app` (for Vercel deployments)
 - `*.firebaseio.com` (Firebase Realtime Database)
@@ -48,6 +50,7 @@ The Content Security Policy has been configured in `security-headers.js` to incl
 - All custom authorized domains
 
 ### Frame Sources (frame-src)
+
 - `'self'` (the origin itself)
 - `*.firebaseapp.com` (Firebase hosting)
 - `*.web.app` (Firebase hosting)
@@ -68,12 +71,15 @@ node scripts/verify-csp.js
 ## Common Issues and Troubleshooting
 
 ### Authentication Failures
+
 If Firebase Authentication isn't working, check your browser console for CSP errors. You may need to add additional domains to the CSP header.
 
 ### Storage Access Problems
+
 For Firebase Storage operations, ensure that both `*.firebasestorage.googleapis.com` and `*.appspot.com` are included in your connect-src directive.
 
 ### Google Analytics Not Working
+
 If Google Analytics isn't recording events, ensure `*.google-analytics.com` is included in both script-src and connect-src directives.
 
 ## Adding New Domains

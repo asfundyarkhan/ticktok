@@ -39,6 +39,7 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-5BRMHTMXHR
 ### 2. Deployment Commands
 
 For local testing of the production build:
+
 ```bash
 # On Linux/Mac
 npm run prepare:vercel && npm run build:vercel
@@ -50,11 +51,13 @@ npm run prepare:vercel:win && npm run build:vercel
 ### 3. Vercel Integration
 
 If using GitHub integration:
+
 1. Connect your GitHub repository to Vercel
 2. Vercel will use the custom build command from `vercel.json`
 3. The environment variables will be used during build and runtime
 
 If deploying manually:
+
 ```bash
 vercel deploy
 ```
@@ -84,6 +87,7 @@ Add this test page to verify Firebase connection:
 ## Notes for Custom Domains
 
 When using a custom domain:
+
 1. Add your domain to authorized domains in Firebase Auth console
 2. Update `NEXT_PUBLIC_APP_URL` to match your custom domain
 3. Configure proper security headers for Firebase in `security-headers.js`

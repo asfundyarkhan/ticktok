@@ -23,16 +23,19 @@ This occurs because the Firebase Admin SDK requires service account credentials 
 We've created scripts that will automatically set up Firebase Admin SDK credentials in your Vercel project:
 
 #### For Linux/Mac users:
+
 ```bash
 npm run setup:firebase-admin
 ```
 
 #### For Windows users:
+
 ```powershell
 npm run setup:firebase-admin:win
 ```
 
 This script will:
+
 1. Check if you have a service account file at `src/lib/firebase/credentials/service-account.json`
 2. Extract the necessary credentials from this file
 3. Set up the required environment variables in your Vercel project:
@@ -46,6 +49,7 @@ This script will:
 If you prefer to set up the environment variables manually:
 
 1. **Get your service account key:**
+
    - Go to the [Firebase Console](https://console.firebase.google.com/)
    - Select your project
    - Navigate to "Project settings" > "Service accounts"
@@ -53,11 +57,13 @@ If you prefer to set up the environment variables manually:
    - Save the JSON file
 
 2. **Extract the required values from the JSON file:**
+
    - `project_id` → `FIREBASE_ADMIN_PROJECT_ID`
    - `client_email` → `FIREBASE_ADMIN_CLIENT_EMAIL`
    - `private_key` → `FIREBASE_ADMIN_PRIVATE_KEY` (keep all newlines and formatting)
 
 3. **Add these to your Vercel project:**
+
    - Go to your Vercel project dashboard
    - Navigate to Settings > Environment Variables
    - Add each of the variables above
