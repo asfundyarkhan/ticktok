@@ -16,36 +16,45 @@ export default function AuthRedirect({
 }) {
   const router = useRouter();
   const { user, userProfile, loading } = useAuth();
+
   useEffect(() => {
-    // Only redirect after auth state is determined
-    if (!loading && user && userProfile) {
-      let targetPath = redirectTo; // If no specific redirect provided, use role-based redirect
-      
+    // Only run after auth state is determined
+    if (loading || !user || !userProfile) {
+      return; // Don't redirect if still loading or not authenticated
+    }
+
+    if (
+      user.emailVerified ||
+      userProfile.role === "admin" ||
+      userProfile.role === "superadmin"
+    ) {
+      // Determine target path based on role if no specific redirect provided
+      let targetPath = redirectTo;
       if (!redirectTo) {
         switch (userProfile.role) {
           case "superadmin":
-            // Always redirect superadmins to dashboard, never to store
-            targetPath = "/dashboard"; 
+            targetPath = "/dashboard"; // Always redirect superadmins to dashboard
             break;
           case "admin":
             targetPath = "/dashboard/admin";
             break;
           case "seller":
-            // Redirect sellers to store page instead of dashboard
             targetPath = "/store";
             break;
           default:
-            targetPath = "/store";
+            targetPath = "/store"; // Regular users go to store
         }
       }
 
-      // Check if email verification is required
-      if (!user.emailVerified && userProfile.role !== "admin") {
-        // Admin users bypass email verification requirement
-        router.replace("/verify-email");
-      } else {
-        router.replace(targetPath);
-      }
+      // Use replace to avoid having the auth page in history
+      console.log(
+        `Redirecting authenticated ${userProfile.role} to ${targetPath}`
+      );
+      router.replace(targetPath);
+    } else {
+      // User needs to verify email
+      console.log("Redirecting to email verification page");
+      router.replace("/verify-email");
     }
   }, [user, userProfile, loading, router, redirectTo]);
 
