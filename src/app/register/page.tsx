@@ -9,6 +9,7 @@ import { useState, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "@/app/components/Loading";
 import AuthRedirect from "@/app/components/AuthRedirect";
+import { UserService } from "@/services/userService";
 
 const registerSchema = Yup.object().shape({
   name: Yup.string().min(2, "Name is too short").required("Name is required"),
@@ -23,6 +24,8 @@ const registerSchema = Yup.object().shape({
   confirmPassword: Yup.string()
     .oneOf([Yup.ref("password")], "Passwords must match")
     .required("Confirm password is required"),
+  referralCode: Yup.string()
+    .required('Referral code is required for registration'),
   terms: Yup.boolean().oneOf(
     [true],
     "You must accept the terms and conditions"
@@ -34,6 +37,7 @@ interface RegisterFormValues {
   email: string;
   password: string;
   confirmPassword: string;
+  referralCode: string;
   terms: boolean;
 }
 
@@ -43,27 +47,75 @@ function RegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [referralCodeValid, setReferralCodeValid] = useState<boolean | null>(null);
+  const [validatingReferral, setValidatingReferral] = useState(false);
   const { signUp } = useAuth();
+    
+  // Function to validate referral code
+  const validateReferralCode = async (code: string) => {
+    if (!code) {
+      setErrorMessage("Referral code is required for registration");
+      setReferralCodeValid(false);
+      return false;
+    }
+    
+    setValidatingReferral(true);
+    try {
+      // Skip the format check - allow any format that admin users have created
+      // This makes the system more flexible for different referral code formats
+      console.log("Validating referral code:", code);
+      
+      const validation = await UserService.validateReferralCode(code);
+      console.log("Validation result:", validation);
+      
+      if (!validation.isValid) {
+        setErrorMessage("Invalid admin referral code. Please contact an administrator for a valid code.");
+        setReferralCodeValid(false);
+        return false;
+      }
+      
+      setReferralCodeValid(validation.isValid);
+      return validation.isValid;
+    } catch (error) {
+      console.error("Error validating referral code:", error);
+      setErrorMessage("Error validating referral code. Please try again.");
+      setReferralCodeValid(false);
+      return false;
+    } finally {
+      setValidatingReferral(false);
+    }
+  };
   const handleRegister = async (values: RegisterFormValues) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
 
+      // Validate the referral code
+      console.log("Starting referral code validation");
+      const isReferralValid = await validateReferralCode(values.referralCode);
+      if (!isReferralValid) {
+        setErrorMessage("Invalid referral code. Please enter a valid code from an admin user.");
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Referral code valid, proceeding with registration");
       // Register with Firebase Auth and create Firestore profile
-      await signUp(values.email, values.password, values.name);
+      await signUp(values.email, values.password, values.name, values.referralCode);
 
       // Redirect to the email verification page after successful registration
       router.push("/verify-email");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Registration failed:", error);
-      const errorCode = error.code || "";
+      const errorObj = error as { code?: string; message?: string };
+      const errorCode = errorObj.code || "";
       if (errorCode === "auth/email-already-in-use") {
         setErrorMessage(
           "An account with this email already exists. Please sign in instead."
         );
       } else {
         setErrorMessage(
-          error.message || "Registration failed. Please try again."
+          errorObj.message || "Registration failed. Please try again."
         );
       }
     } finally {
@@ -102,13 +154,13 @@ function RegisterForm() {
               </p>
             )}
           </div>
-        )}
-        <Formik
+        )}        <Formik
           initialValues={{
             name: "",
             email: "",
             password: "",
             confirmPassword: "",
+            referralCode: "",
             terms: false,
           }}
           validationSchema={registerSchema}
@@ -241,6 +293,45 @@ function RegisterForm() {
                   {errors.confirmPassword && touched.confirmPassword && (
                     <p className="mt-1 text-sm text-red-500">
                       {errors.confirmPassword}
+                    </p>
+                  )}
+                </div>                <div>
+                  <label
+                    htmlFor="referralCode"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Admin Referral Code <span className="text-red-500">*</span>
+                  </label>                  <Field
+                    id="referralCode"
+                    name="referralCode"
+                    type="text"
+                    autoComplete="off"
+                    required
+                    className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
+                      errors.referralCode && touched.referralCode
+                        ? "border-red-500"
+                        : "border-gray-300"
+                    } rounded-md focus:outline-none focus:ring-pink-500 focus:border-pink-500 focus:z-10 sm:text-sm`}
+                    placeholder="Enter admin referral code (required)"
+                  />
+                  {errors.referralCode && touched.referralCode && (
+                    <p className="mt-1 text-sm text-red-500">
+                      {errors.referralCode}
+                    </p>
+                  )}
+                  {validatingReferral && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      Validating referral code...
+                    </p>
+                  )}
+                  {referralCodeValid === false && (
+                    <p className="mt-1 text-sm text-red-500">
+                      Invalid referral code. Please enter a valid code from an admin user.
+                    </p>
+                  )}
+                  {referralCodeValid === true && (
+                    <p className="mt-1 text-sm text-green-500">
+                      Referral code valid!
                     </p>
                   )}
                 </div>

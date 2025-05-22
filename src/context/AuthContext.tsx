@@ -9,10 +9,12 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
 } from "firebase/auth";
 import { FirebaseError } from 'firebase/app';
 import { auth, firestore } from "../lib/firebase/firebase";
 import { doc, getDoc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
+import { UserService } from "../services/userService";
 
 // Define User Profile interface
 export interface UserProfile {
@@ -30,6 +32,8 @@ export interface UserProfile {
     country?: string;
   };
   phone?: string;
+  referralCode?: string;
+  referredBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,11 +43,11 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<User>;
-  signUp: (
+  signIn: (email: string, password: string) => Promise<User>;  signUp: (
     email: string,
     password: string,
-    displayName: string
+    displayName: string,
+    referralCode: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -284,12 +288,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       throw new Error("An unknown error occurred");
     }
-  };
-  // Sign up function
+  };  // Sign up function
   const signUp = async (
     email: string,
     password: string,
-    displayName: string
+    displayName: string,
+    referralCode: string
   ): Promise<void> => {
     let createdUser = null;
     try {
@@ -298,8 +302,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         auth,
         email,
         password
-      );
-      createdUser = result.user;      // Step 2: Update profile with display name
+      );      createdUser = result.user;
+      
+      // Step 2: Update profile with display name
       await updateProfile(result.user, { displayName });
       
       // Step 3: Create user profile in Firestore
@@ -308,23 +313,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email: result.user.email || email,
         displayName,
         balance: 0, // Start with zero credit as required
-        role: "seller", // Default role is now seller
+        role: "seller", // All accounts start as seller, can be upgraded by admin later
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+        // Validate referral code and get admin ID
+      console.log("Auth Context: Validating referral code", referralCode);
+      const validation = await UserService.validateReferralCode(referralCode);
+      console.log("Auth Context: Validation result", validation);
+      
+      if (validation.isValid && validation.adminUid) {
+        userProfile.referredBy = validation.adminUid;
+        // Store the referral code that was used
+        userProfile.referralCode = referralCode;
+      } else {
+        // Log the validation failure but continue (the validation should have happened already)
+        console.warn("Failed referral code validation during account creation", referralCode);
+        throw new Error("Invalid referral code. Registration cannot proceed.");
+      }
 
       // Only add photoURL if it exists to avoid undefined values
       if (result.user.photoURL) {
         userProfile.photoURL = result.user.photoURL;
-      }
-
-      await setDoc(doc(firestore, "users", result.user.uid), {
+      }      await setDoc(doc(firestore, "users", result.user.uid), {
         ...userProfile,
         createdAt: Timestamp.fromDate(userProfile.createdAt),
         updatedAt: Timestamp.fromDate(userProfile.updatedAt),
       });
 
       setUserProfile(userProfile);
+
+      // Send verification email
+      try {
+        console.log("Sending verification email to user");
+        await sendEmailVerification(result.user);
+        console.log("Verification email sent successfully");
+      } catch (verificationError) {
+        console.error("Error sending verification email:", verificationError);
+        // Continue with the signup process even if sending verification email fails
+      }
 
       // Step 4: Get the ID token and create a session
       const idToken = await result.user.getIdToken();

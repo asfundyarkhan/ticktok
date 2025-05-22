@@ -50,15 +50,23 @@ function LoginForm() {
         return;
       }
 
-      console.log("Attempting to sign in with Firebase");
-      await signIn(values.email, values.password);
+      console.log("Attempting to sign in with Firebase");      const user = await signIn(values.email, values.password);
+      
+      // Check if the user's email is verified
+      if (user && !user.emailVerified) {
+        console.log("User email not verified, redirecting to verify-email page");
+        setErrorMessage("Your email is not verified. Redirecting to verification page...");
+        setTimeout(() => {
+          router.push("/verify-email");
+        }, 2000);
+        return;
+      }
       
       // Only redirect on successful login
       if (redirectParam) {
         router.replace(redirectParam);
       }
-      
-    } catch (error) {
+        } catch (error) {
       console.error("Login failed:", error);
       
       if (error instanceof FirebaseError) {
@@ -85,11 +93,27 @@ function LoginForm() {
           case "auth/network-request-failed":
             setErrorMessage("Network error. Please check your internet connection and try again.");
             break;
+          case "auth/email-not-verified":
+            setErrorMessage("Your email is not verified. Please verify your email before signing in.");
+            // Redirect to verify email page after a short delay
+            setTimeout(() => {
+              router.push("/verify-email");
+            }, 2000);
+            break;
           default:
             setErrorMessage(error.message || "Failed to login. Please check your credentials.");
         }
       } else if (error instanceof Error) {
-        setErrorMessage(error.message || "An unexpected error occurred. Please try again.");
+        // Check if this is an unverified email error from our custom error handling
+        if (error.message.includes("verify your email")) {
+          setErrorMessage("Your email is not verified. Please verify your email before signing in.");
+          // Redirect to verify email page after a short delay
+          setTimeout(() => {
+            router.push("/verify-email");
+          }, 2000);
+        } else {
+          setErrorMessage(error.message || "An unexpected error occurred. Please try again.");
+        }
       } else {
         setErrorMessage("An unexpected error occurred. Please try again.");
       }

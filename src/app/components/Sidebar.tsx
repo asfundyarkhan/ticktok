@@ -30,29 +30,30 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Layout, adminOnly: true },
   { name: "My Profile", href: "/dashboard/profile", icon: Settings },
-  { name: "My Referrals", href: "/dashboard/referrals", icon: Share2 },
+  { name: "My Referrals", href: "/dashboard/admin/referrals", icon: Share2, adminOnly: true },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
   {
-    name: "Admin",
+    name: "Seller Credit",
     href: "/dashboard/admin",
-    icon: Shield,
-    superadminOnly: true,
-  },
-  {
-    name: "Admin Test",
-    href: "/dashboard/admin-test",
-    icon: Shield,
+    icon: CreditCard,
     adminOnly: true,
   },
   {
-    name: "Superadmin Test",
-    href: "/dashboard/superadmin-test",
-    icon: Shield,
+    name: "Referral Codes",
+    href: "/dashboard/referral-manager",
+    icon: Share2,
     superadminOnly: true,
-  },  {
+  },
+  {
+    name: "All Referrals",
+    href: "/dashboard/admin/all-referrals",
+    icon: Users,
+    superadminOnly: true,
+  },
+  {
     name: "Role Manager",
     href: "/dashboard/role-manager",
-    icon: Users,
+    icon: Shield,
     superadminOnly: true,
   },
 ];

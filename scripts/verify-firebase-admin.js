@@ -37,7 +37,7 @@ console.log(
 console.log("\nAttempting to initialize Firebase Admin SDK...");
 
 try {
-  const admin = require("../src/lib/firebase/firebase-admin-init");
+  const admin = require("../src/lib/firebase/firebase-admin-init.ts");
 
   console.log("✅ Firebase Admin SDK initialized successfully");
 

@@ -5,10 +5,11 @@ This is a common issue when deploying to Vercel using environment variables that
 ## Quick Solution
 
 1. **Use our quick-deploy script**:
+
    ```bash
    # For Windows:
    .\scripts\quick-deploy.cmd
-   
+
    # For Linux/Mac:
    bash scripts/quick-deploy.sh
    ```
@@ -23,6 +24,7 @@ This is a common issue when deploying to Vercel using environment variables that
 ## Required Environment Variables
 
 ### Firebase Web SDK (Client-side)
+
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
@@ -33,6 +35,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
 ### Firebase Admin SDK (Server-side)
+
 ```
 FIREBASE_ADMIN_PROJECT_ID=your_project_id
 FIREBASE_ADMIN_CLIENT_EMAIL=your_service_account_email
@@ -42,6 +45,7 @@ FIREBASE_ADMIN_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KE
 ## Getting Firebase Credentials
 
 1. **For Web SDK variables**:
+
    - Go to [Firebase Console](https://console.firebase.google.com/)
    - Select your project
    - Go to Project Settings (gear icon) > General tab
