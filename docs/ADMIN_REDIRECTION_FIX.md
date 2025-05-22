@@ -51,6 +51,7 @@ After deploying the changes, follow these steps to verify the fix:
 2. Log in with an admin user account
 3. Check if you're automatically redirected to `/dashboard/admin`
 4. If not redirected, run the verification script in the browser console:
+
    - Open the browser console (F12)
    - Paste the contents of `scripts/verify-admin-redirect.js`
    - Press Enter to run the script

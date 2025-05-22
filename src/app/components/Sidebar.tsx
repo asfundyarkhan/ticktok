@@ -27,8 +27,7 @@ interface NavItem {
   superadminOnly?: boolean;
 }
 
-const navigation: NavItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: Layout, adminOnly: true },
+const navigation: NavItem[] = [  { name: "Dashboard", href: "/dashboard", icon: Layout, adminOnly: true },
   { name: "My Profile", href: "/dashboard/profile", icon: Settings },
   { name: "My Referrals", href: "/dashboard/admin/referrals", icon: Share2, adminOnly: true },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
@@ -36,7 +35,7 @@ const navigation: NavItem[] = [
     name: "Seller Credit",
     href: "/dashboard/admin",
     icon: CreditCard,
-    adminOnly: true,
+    superadminOnly: true, // Changed from adminOnly to superadminOnly to restrict access
   },
   {
     name: "Referral Codes",
@@ -60,8 +59,8 @@ const navigation: NavItem[] = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user, userProfile } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { userProfile } = useAuth();
 
   return (
     <div
@@ -137,11 +136,17 @@ export default function Sidebar() {
             className={`flex items-center ${isCollapsed ? "hidden" : "block"}`}
           >
             <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-gray-600">MV</span>
+              <span className="text-sm font-medium text-gray-600">
+                {userProfile?.displayName?.charAt(0) || user?.email?.charAt(0) || '?'}
+              </span>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Miron Vitold</p>
-              <p className="text-xs text-gray-500">View Profile</p>
+              <p className="text-sm font-medium text-gray-900">
+                {userProfile?.displayName || user?.email?.split('@')[0] || 'User'}
+              </p>
+              <Link href="/dashboard/profile" className="text-xs text-pink-600 hover:text-pink-700">
+                View Profile
+              </Link>
             </div>{" "}
           </div>
           <LogoutButton

@@ -13,24 +13,53 @@ export function AdminRoute({ children }: AdminRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userProfile, loading } = useAuth();
-  useEffect(() => {
+    useEffect(() => {
     // Only run this effect after authentication check is complete
-    if (loading) return;
+    if (loading) {
+      console.log('AdminRoute: Auth state loading, waiting...');
+      return;
+    }
+
+    // Log path for debugging
+    console.log(`AdminRoute: Checking access to ${pathname}`);
+    
+    // Store the current path name to debug issues
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('last_admin_route_path', pathname);
+    }
 
     // Check if user is authenticated
     if (!user) {
-      // Use direct navigation for more reliable redirects in production
-      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+      console.log('AdminRoute: No authenticated user, redirecting to login');
+      // Add a small delay to avoid redirect race conditions
+      setTimeout(() => {
+        window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
+      }, 100);
       return;
-    } // Check if user has admin or superadmin role
-    if (
-      !userProfile ||
-      (userProfile.role !== "admin" && userProfile.role !== "superadmin")
-    ) {
-      // Use direct navigation for more reliable redirects in production
-      window.location.href = "/store"; // Redirect non-admin/non-superadmin users to store page
+    } 
+    
+    // Check if user has admin or superadmin role
+    if (!userProfile) {
+      console.log('AdminRoute: No user profile available yet, waiting...');
+      // Wait for profile to load instead of immediately redirecting
       return;
     }
+    
+    if (userProfile.role !== "admin" && userProfile.role !== "superadmin") {
+      console.log('AdminRoute: User is not admin or superadmin, redirecting to store');
+      // Add a small delay to avoid redirect race conditions
+      setTimeout(() => {
+        window.location.href = "/store"; // Redirect non-admin/non-superadmin users to store page
+      }, 100);
+      return;
+    }
+    
+    // Store role in localStorage for quick access
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userRole', userProfile.role);
+    }
+    
+    console.log(`AdminRoute: User is ${userProfile.role}, access granted to ${pathname}`);
   }, [user, userProfile, pathname, router, loading]);
 
   // Show loading state while checking authentication

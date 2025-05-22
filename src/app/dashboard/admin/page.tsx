@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
-import { AdminRoute } from "../../components/AdminRoute";
+import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { UserService } from "../../../services/userService";
 import { LoadingSpinner } from "../../components/Loading";
 import Link from "next/link";
@@ -341,10 +341,9 @@ function AdminPageContent() {
                           )}
                         </button>
                       )}
-                    </td>
-                    <td className="px-6 py-4">
+                    </td>                    <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <div className="relative flex-1">
+                        <div className="relative flex-1" style={{ minWidth: "120px", width: "100%" }}>
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                             $
                           </span>
@@ -354,6 +353,7 @@ function AdminPageContent() {
                             min="0"
                             placeholder="Amount"
                             className="pl-8 pr-4 py-1 border border-gray-300 rounded-md w-full focus:outline-none focus:border-pink-500"
+                            style={{ minWidth: "120px" }}
                             value={
                               creditInput.uid === user.uid
                                 ? creditInput.amount
@@ -507,11 +507,20 @@ function AdminPageContent() {
   );
 }
 
-// Export a wrapper component that applies the AdminRoute protection
+// Export a wrapper component that applies the SuperAdminRoute protection
 export default function AdminPage() {
+  // Add debugging to help identify when admin page renders
+  console.log('Admin page component mounted');
+  
+  // Store in localStorage that we reached the admin page component
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('admin_page_loaded', 'true');
+    localStorage.setItem('admin_page_loaded_time', new Date().toString());
+  }
+  
   return (
-    <AdminRoute>
+    <SuperAdminRoute>
       <AdminPageContent />
-    </AdminRoute>
+    </SuperAdminRoute>
   );
 }
