@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
-import { SuperAdminRoute } from "../../components/SuperAdminRoute";
+import { AdminRoute } from "../../components/AdminRoute";
 import { UserService } from "../../../services/userService";
 import { LoadingSpinner } from "../../components/Loading";
 import Link from "next/link";
@@ -507,11 +507,11 @@ function AdminPageContent() {
   );
 }
 
-// Export a wrapper component that applies the SuperAdminRoute protection
+// Export a wrapper component that applies the AdminRoute protection
 export default function AdminPage() {
   return (
-    <SuperAdminRoute>
+    <AdminRoute>
       <AdminPageContent />
-    </SuperAdminRoute>
+    </AdminRoute>
   );
 }

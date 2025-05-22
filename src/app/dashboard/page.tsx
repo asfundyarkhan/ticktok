@@ -19,7 +19,7 @@ export default function DashboardPage() {
   useEffect(() => {
     // Redirect if not authenticated
     if (!authLoading && !user) {
-      router.push("/login?redirect=/dashboard");
+      window.location.href = "/login?redirect=/dashboard";
       return;
     }    // Check if user is an admin or superadmin, redirect to store page if they're a seller or regular user
     if (
@@ -28,8 +28,7 @@ export default function DashboardPage() {
       userProfile.role !== "admin" &&
       userProfile.role !== "superadmin"
     ) {
-      // Non-admin/superadmin users should be redirected to store
-      router.replace("/store");
+      // Non-admin/superadmin users should be redirected to store      window.location.href = "/store";
       return;
     }
 

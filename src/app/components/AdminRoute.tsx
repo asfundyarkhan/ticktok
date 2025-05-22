@@ -13,21 +13,22 @@ export function AdminRoute({ children }: AdminRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userProfile, loading } = useAuth();
-
   useEffect(() => {
     // Only run this effect after authentication check is complete
     if (loading) return;
 
     // Check if user is authenticated
     if (!user) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      // Use direct navigation for more reliable redirects in production
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
       return;
     } // Check if user has admin or superadmin role
     if (
       !userProfile ||
       (userProfile.role !== "admin" && userProfile.role !== "superadmin")
     ) {
-      router.replace("/store"); // Redirect non-admin/non-superadmin users to store page
+      // Use direct navigation for more reliable redirects in production
+      window.location.href = "/store"; // Redirect non-admin/non-superadmin users to store page
       return;
     }
   }, [user, userProfile, pathname, router, loading]);

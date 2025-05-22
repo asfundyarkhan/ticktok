@@ -20,24 +20,22 @@ export function ProtectedRoute({
 
   useEffect(() => {
     // Only run this effect after authentication check is complete    if (loading) return;    // Check if user is authenticated
-    if (!user) {
-      // Use replace instead of push to avoid history issues after logout
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+    if (!user) {      // Use direct navigation to avoid history issues after logout
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
       return;
     }    // Check if user has required role (if roles were specified)
     if (
       allowedRoles.length > 0 &&
       userProfile?.role &&
       !allowedRoles.includes(userProfile.role)
-    ) {
-      // Redirect based on role
+    ) {      // Redirect based on role using direct navigation
       if (userProfile.role === "superadmin") {
-        router.push("/dashboard"); // Superadmins go to main dashboard
+        window.location.href = "/dashboard"; // Superadmins go to main dashboard
       } else if (userProfile.role === "admin") {
-        router.push("/dashboard/admin"); // Admin's default page
+        window.location.href = "/dashboard/admin"; // Admin's default page
       } else {
         // Redirect both sellers and regular users to store page
-        router.push("/store");
+        window.location.href = "/store";
       }
       return;
     }

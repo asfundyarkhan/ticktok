@@ -44,12 +44,12 @@ export function middleware(request: NextRequest) {
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
-  
-  // If session cookie exists (user is logged in)
+    // If session cookie exists (user is logged in)
   if (sessionCookie) {
     // If trying to access auth-only pages like login when already logged in
     if (isAuthOnlyPath) {
-      // Let the AuthRedirect component handle the role-based redirection
+      // Redirect to dashboard and let client-side AuthRedirect handle the role-based redirection
+      // This ensures that the full authentication context is available
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   } else if (!isPublicStorePath && !isAuthOnlyPath) {

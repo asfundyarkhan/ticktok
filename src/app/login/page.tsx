@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Formik, Form, Field } from "formik";
 import * as Yup from "yup";
@@ -26,14 +26,12 @@ interface LoginFormValues {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { signIn } = useAuth();
   const redirectParam = searchParams.get("redirect");
-
   const handleLogin = async (values: LoginFormValues) => {
     try {
       setIsLoading(true);
@@ -48,23 +46,26 @@ function LoginForm() {
       if (!values.password || values.password.length < 6) {
         setErrorMessage("Password must be at least 6 characters");
         return;
-      }
-
-      console.log("Attempting to sign in with Firebase");      const user = await signIn(values.email, values.password);
-      
-      // Check if the user's email is verified
+      }      console.log("Attempting to sign in with Firebase");
+      const user = await signIn(values.email, values.password);
+        // Check if the user's email is verified
       if (user && !user.emailVerified) {
         console.log("User email not verified, redirecting to verify-email page");
         setErrorMessage("Your email is not verified. Redirecting to verification page...");
         setTimeout(() => {
-          router.push("/verify-email");
+          window.location.href = "/verify-email";
         }, 2000);
         return;
       }
       
-      // Only redirect on successful login
+      // For redirect handling, we'll use a full page reload to ensure that any role-based
+      // redirections are properly applied in all environments including production
       if (redirectParam) {
-        router.replace(redirectParam);
+        // If there's a specific redirect parameter, use it
+        window.location.href = redirectParam;
+      } else {
+        // Otherwise, redirect to dashboard and let AuthRedirect handle the proper routing
+        window.location.href = "/dashboard";
       }
         } catch (error) {
       console.error("Login failed:", error);
@@ -92,12 +93,11 @@ function LoginForm() {
             break;
           case "auth/network-request-failed":
             setErrorMessage("Network error. Please check your internet connection and try again.");
-            break;
-          case "auth/email-not-verified":
+            break;          case "auth/email-not-verified":
             setErrorMessage("Your email is not verified. Please verify your email before signing in.");
             // Redirect to verify email page after a short delay
             setTimeout(() => {
-              router.push("/verify-email");
+              window.location.href = "/verify-email";
             }, 2000);
             break;
           default:
@@ -105,11 +105,10 @@ function LoginForm() {
         }
       } else if (error instanceof Error) {
         // Check if this is an unverified email error from our custom error handling
-        if (error.message.includes("verify your email")) {
-          setErrorMessage("Your email is not verified. Please verify your email before signing in.");
+        if (error.message.includes("verify your email")) {          setErrorMessage("Your email is not verified. Please verify your email before signing in.");
           // Redirect to verify email page after a short delay
           setTimeout(() => {
-            router.push("/verify-email");
+            window.location.href = "/verify-email";
           }, 2000);
         } else {
           setErrorMessage(error.message || "An unexpected error occurred. Please try again.");

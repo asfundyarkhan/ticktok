@@ -13,14 +13,14 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userProfile, loading } = useAuth();
-
   useEffect(() => {
     // Only run this effect after authentication check is complete
     if (loading) return;
 
     // Check if user is authenticated
     if (!user) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      // Use direct navigation for more reliable redirects in production
+      window.location.href = `/login?redirect=${encodeURIComponent(pathname)}`;
       return;
     }
 
@@ -28,9 +28,10 @@ export function SuperAdminRoute({ children }: SuperAdminRouteProps) {
     if (!userProfile || userProfile.role !== "superadmin") {
       // Redirect non-superadmins to dashboard or store
       if (userProfile?.role === "admin") {
-        router.replace("/dashboard"); // Regular admins go to main dashboard
+        // Use direct navigation here too - admin should go to admin dashboard
+        window.location.href = "/dashboard/admin";
       } else {
-        router.replace("/store"); // Others go to store
+        window.location.href = "/store"; // Others go to store
       }
       return;
     }

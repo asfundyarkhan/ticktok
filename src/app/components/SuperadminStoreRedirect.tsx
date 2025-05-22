@@ -35,7 +35,7 @@ export default function SuperadminStoreRedirect() {
     // Redirect superadmins to dashboard if they try to access store pages
     if (isStorePath) {
       console.log("Superadmin attempted to access store page. Redirecting to dashboard.");
-      router.replace("/dashboard");
+      window.location.href = "/dashboard";
     }
   }, [pathname, userProfile, loading, router]);
 

@@ -16,7 +16,6 @@ export default function AuthRedirect({
 }) {
   const router = useRouter();
   const { user, userProfile, loading } = useAuth();
-
   useEffect(() => {
     // Only run after auth state is determined
     if (loading || !user || !userProfile) {
@@ -36,6 +35,7 @@ export default function AuthRedirect({
             targetPath = "/dashboard"; // Always redirect superadmins to dashboard
             break;
           case "admin":
+            // Force admin redirect to admin dashboard in both dev and production
             targetPath = "/dashboard/admin";
             break;
           case "seller":
@@ -50,11 +50,13 @@ export default function AuthRedirect({
       console.log(
         `Redirecting authenticated ${userProfile.role} to ${targetPath}`
       );
-      router.replace(targetPath);
+      // Force immediate redirect to prevent any execution delay
+      window.location.href = targetPath;
+      return;
     } else {
       // User needs to verify email
       console.log("Redirecting to email verification page");
-      router.replace("/verify-email");
+      window.location.href = "/verify-email";
     }
   }, [user, userProfile, loading, router, redirectTo]);
 
