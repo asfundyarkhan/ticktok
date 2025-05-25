@@ -12,33 +12,47 @@ import { ProductService } from "../../services/productService";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const router = useRouter();  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [referralCount, setReferralCount] = useState(0);
+  const [referralBalance, setReferralBalance] = useState(0);
   const [productCount, setProductCount] = useState(0);
+
   useEffect(() => {
     // Redirect if not authenticated
     if (!authLoading && !user) {
       window.location.href = "/login?redirect=/dashboard";
       return;
-    }    // Check if user is an admin or superadmin, redirect to store page if they're a seller or regular user
+    }
+
+    // Check if user is an admin or superadmin, redirect to store page if they're a seller or regular user
     if (
       !authLoading &&
       userProfile &&
       userProfile.role !== "admin" &&
       userProfile.role !== "superadmin"
     ) {
-      // Non-admin/superadmin users should be redirected to store      window.location.href = "/store";
+      // Non-admin/superadmin users should be redirected to store
+      window.location.href = "/store";
       return;
     }
 
     // Load dashboard data
     const loadDashboardData = async () => {
-      if (!user) return;      try {
+      if (!user) return;
+      
+      try {
         setLoading(true);
 
-        // Get referral users count
+        // Get referral users and calculate total balance
         const referredUsers = await UserService.getUsersReferredByAdmin(user.uid);
-        setReferralCount(referredUsers.length); // If user is a seller, admin or superadmin, get their products
+        setReferralCount(referredUsers.length);
+        
+        // Calculate total balance from all referred users
+        const totalBalance = referredUsers.reduce((total, user) => total + (user.balance || 0), 0);
+        setReferralBalance(totalBalance);
+
+        // If user is a seller, admin or superadmin, get their products
         if (
           userProfile &&
           (userProfile.role === "seller" ||
@@ -59,6 +73,7 @@ export default function DashboardPage() {
       loadDashboardData();
     }
   }, [user, userProfile, authLoading, router]);
+
   // Stats to display on the dashboard
   const stats = [
     {
@@ -67,14 +82,21 @@ export default function DashboardPage() {
       icon: Users,
     },
     {
-      title: "Referrals",
+      title: "Referred Sellers",
       value: referralCount.toString(),
       icon: Users,
     },
     {
-      title: "Balance",
+      title: "Total Referral Balance",
+      value: `$${referralBalance.toFixed(2)}`,
+      icon: CreditCard,
+      description: "Combined balance of referred sellers",
+    },
+    {
+      title: "My Balance", 
       value: `$${userProfile?.balance?.toFixed(2) || "0.00"}`,
       icon: CreditCard,
+      description: "Your current balance including commissions",
     },
   ];
 

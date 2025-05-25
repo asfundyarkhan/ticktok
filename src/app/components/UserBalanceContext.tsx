@@ -11,11 +11,12 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
+import { TransactionService } from "../../services/transactionService";
 
 interface UserBalanceContextType {
   balance: number;
   setBalance: (newBalance: number) => void;
-  addToBalance: (amount: number) => Promise<void>;
+  addToBalance: (amount: number, description?: string) => Promise<{ success: boolean; message: string }>;
   deductFromBalance: (amount: number) => Promise<boolean>; // Returns false if insufficient funds
   loading: boolean;
 }
@@ -84,24 +85,33 @@ export function UserBalanceProvider({ children }: { children: ReactNode }) {
       prevBalanceRef.current = balance;
     }
   }, [balance, isClient, user]);
-
-  const addToBalance = async (amount: number) => {
+  const addToBalance = async (amount: number, description?: string) => {
     try {
       if (user) {
-        // User is logged in, update in Firestore
-        const newBalance = balance + amount;
-        const userRef = doc(firestore, "users", user.uid);
-        await updateDoc(userRef, {
-          balance: newBalance,
-          updatedAt: new Date(),
-        });
-        setBalance(newBalance);
+        // User is logged in, process through TransactionService
+        const result = await TransactionService.processTopUp(
+          user.uid, 
+          amount,
+          description || "Balance top-up"
+        );
+
+        if (result.success) {
+          // TransactionService already updated the balance in Firestore
+          // We just need to update our local state
+          setBalance(prevBalance => prevBalance + amount);
+        }
+        return result;
       } else {
         // User is not logged in, update locally
         setBalance((prevBalance) => prevBalance + amount);
+        return { success: true, message: "Balance updated locally" };
       }
     } catch (error) {
       console.error("Error adding to balance:", error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : "Failed to process top-up" 
+      };
     }
   };
 

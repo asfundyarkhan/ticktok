@@ -96,9 +96,7 @@ service cloud.firestore {
         request.resource.data.sellerId == request.auth.uid;
       allow delete: if isAuthenticated() &&
         resource.data.sellerId == request.auth.uid;
-    }
-
-    // Stock purchases collection
+    }    // Stock purchases collection
     match /purchases/{purchaseId} {
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
@@ -109,6 +107,28 @@ service cloud.firestore {
         isSeller() &&
         hasBalance(request.resource.data.totalPrice);
       allow update, delete: if isAdmin();
+    }
+
+    // Credit transactions collection
+    match /credit_transactions/{transactionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.referrerId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      allow create: if isAuthenticated() && (
+        // User can only create transactions for themselves
+        request.resource.data.userId == request.auth.uid &&
+        // Commission calculation must be correct (10%)
+        (
+          !request.resource.data.referrerId ||
+          request.resource.data.commission == request.resource.data.amount * 0.10
+        )
+      );
+      
+      allow update: if false; // Transactions are immutable
+      allow delete: if false; // Transactions cannot be deleted
     }
   }
 }

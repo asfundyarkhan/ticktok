@@ -123,7 +123,8 @@ export default function ReferralsTable({
             <p>No referrals found.</p>
           </div>
         ) : (
-          <table className="min-w-full">            <thead>
+          <table className="min-w-full">
+            <thead>
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
