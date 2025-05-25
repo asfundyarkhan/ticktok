@@ -7,14 +7,13 @@ import ActivityTable from "../components/ActivityTable";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
-import { OrderService } from "../../services/orderService";
+import { UserService } from "../../services/userService";
 import { ProductService } from "../../services/productService";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [orderCount, setOrderCount] = useState(0);
+  const router = useRouter();  const [loading, setLoading] = useState(true);
+  const [referralCount, setReferralCount] = useState(0);
   const [productCount, setProductCount] = useState(0);
   useEffect(() => {
     // Redirect if not authenticated
@@ -34,14 +33,12 @@ export default function DashboardPage() {
 
     // Load dashboard data
     const loadDashboardData = async () => {
-      if (!user) return;
-
-      try {
+      if (!user) return;      try {
         setLoading(true);
 
-        // Get user orders
-        const orders = await OrderService.getUserOrders(user.uid);
-        setOrderCount(orders.length); // If user is a seller, admin or superadmin, get their products
+        // Get referral users count
+        const referredUsers = await UserService.getUsersReferredByAdmin(user.uid);
+        setReferralCount(referredUsers.length); // If user is a seller, admin or superadmin, get their products
         if (
           userProfile &&
           (userProfile.role === "seller" ||
@@ -62,7 +59,6 @@ export default function DashboardPage() {
       loadDashboardData();
     }
   }, [user, userProfile, authLoading, router]);
-
   // Stats to display on the dashboard
   const stats = [
     {
@@ -71,9 +67,9 @@ export default function DashboardPage() {
       icon: Users,
     },
     {
-      title: "My Orders",
-      value: orderCount.toString(),
-      icon: ShoppingBag,
+      title: "Referrals",
+      value: referralCount.toString(),
+      icon: Users,
     },
     {
       title: "Balance",

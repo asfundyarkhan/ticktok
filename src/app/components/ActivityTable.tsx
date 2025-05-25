@@ -24,11 +24,18 @@ export default function ActivityTable({ title }: ActivityTableProps) {
         <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full">          <thead>
+        <table className="w-full">
+          <thead>
             <tr className="bg-gray-50">
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">DATE</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">ACTIVITY</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">STATUS</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                DATE
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                ACTIVITY
+              </th>
+              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">
+                STATUS
+              </th>
             </tr>
           </thead>
           <tbody>

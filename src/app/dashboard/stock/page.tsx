@@ -8,9 +8,11 @@ import toast from "react-hot-toast";
 import { StockService } from "../../../services/stockService";
 import { StockItem } from "../../../types/marketplace";
 import { useAuth } from "../../../context/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function StockPage() {
   const { user, userProfile } = useAuth();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
@@ -76,15 +78,20 @@ export default function StockPage() {
     }
   };
 
+  const handleEdit = (productId: string) => {
+    router.push(`/dashboard/stock/edit/${productId}`);
+  };
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">      {/* Header */}
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
           <h1 className="text-2xl font-semibold">
-            {userProfile?.displayName || user?.email?.split('@')[0] || 'User'}
+            {userProfile?.displayName || user?.email?.split("@")[0] || "User"}
           </h1>
           <span className="px-2 py-1 text-sm bg-gray-200 rounded">
-            {userProfile?.uid?.slice(-6) || 'ref000'}
+            {userProfile?.uid?.slice(-6) || "ref000"}
           </span>
         </div>
       </div>
@@ -124,14 +131,27 @@ export default function StockPage() {
 
       {/* Products Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table className="w-full">          <thead>
+        <table className="w-full">
+          <thead>
             <tr className="border-b">
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">PRODUCT IMAGE</th>
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">PRODUCT NAME</th>
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">DESCRIPTION</th>
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">PRICES</th>
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">UNITS</th>
-              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">ACTIONS</th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                PRODUCT IMAGE
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                PRODUCT NAME
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                DESCRIPTION
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                PRICES
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                UNITS
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">
+                ACTIONS
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -143,7 +163,8 @@ export default function StockPage() {
               </tr>
             ) : filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
-                <tr key={product.id} className="border-b last:border-b-0">                  <td className="px-6 py-4">
+                <tr key={product.id} className="border-b last:border-b-0">
+                  <td className="px-6 py-4">
                     <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden">
                       <Image
                         src={product.image}
@@ -157,7 +178,9 @@ export default function StockPage() {
                   <td className="px-6 py-4">
                     <span className="font-medium">{product.name}</span>
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{product.description}</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {product.description}
+                  </td>
                   <td className="px-6 py-4">${product.price.toFixed(2)}</td>
                   <td className="px-6 py-4">{product.stock}pcs</td>
                   <td className="px-6 py-4">
@@ -168,7 +191,10 @@ export default function StockPage() {
                       >
                         Delete
                       </button>
-                      <button className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">
+                      <button
+                        onClick={() => handleEdit(product.id!)}
+                        className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                      >
                         Edit
                       </button>
                     </div>
