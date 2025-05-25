@@ -16,15 +16,14 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError("");
     setSuccess(false);
-    setLoading(true);
-
-    try {
+    setLoading(true);    try {
       await resetPassword(email);
       setSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Reset password error:", error);
       // Handle specific Firebase auth errors
-      switch (error.code) {
+      const firebaseError = error as { code?: string; message?: string };
+      switch (firebaseError.code) {
         case "auth/user-not-found":
           setError("No user found with this email");
           break;

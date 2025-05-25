@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "../../../context/AuthContext";
 import { LoadingSpinner } from "../../components/Loading";
 import useFirebaseAuth from "@/hooks/useFirebaseAuth";
 
@@ -35,11 +34,11 @@ export default function RegisterPage() {
 
     try {
       await signUp(email, password, displayName);
-      router.push("/dashboard");
-    } catch (error: any) {
+      router.push("/dashboard");    } catch (error: unknown) {
       console.error("Registration error:", error);
       // Handle specific Firebase auth errors
-      switch (error.code) {
+      const firebaseError = error as { code?: string; message?: string };
+      switch (firebaseError.code) {
         case "auth/email-already-in-use":
           setError("Email already in use");
           break;
@@ -48,9 +47,8 @@ export default function RegisterPage() {
           break;
         case "auth/weak-password":
           setError("Password is too weak");
-          break;
-        default:
-          setError(error.message || "Failed to register. Please try again");
+          break;        default:
+          setError(firebaseError.message || "Failed to register. Please try again");
       }
     }
   };

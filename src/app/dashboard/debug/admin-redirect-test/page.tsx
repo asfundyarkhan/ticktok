@@ -13,10 +13,8 @@ export default function AdminRedirectTest() {
   const [isVercel, setIsVercel] = useState<boolean>(false);
   const [currentPath, setCurrentPath] = useState<string>("");
   const [redirectHistory, setRedirectHistory] = useState<string[]>([]);
-
   // Check environment on client side
   useEffect(() => {
-    const isProduction = process.env.NODE_ENV === "production";
     setEnvironment(process.env.NODE_ENV || "unknown");
     setIsVercel(window.location.hostname.includes('vercel.app'));
     setCurrentPath(window.location.pathname);

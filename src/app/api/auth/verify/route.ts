@@ -1,7 +1,6 @@
 // API route for verifying a session token
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/firebase/firebase-admin.server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,36 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUserBalance } from "../../components/UserBalanceContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  stock: number;
-  productCode: string;
-  image: string;
-  price: number;
-  listed: boolean;
-}
-
-interface StoreProduct {
-  productCode: string;
-  stock: number;
-  price: number;
-  id: number;
-  name: string;
-  description: string;
-  image: string;
-  sellerName: string;
-  sellerId: string; // Add sellerId to StoreProduct
-  rating: number;
-  reviews: number;
-}
+import { StockService } from "../../../services/stockService";
+import { StockItem } from "../../../types/marketplace";
+import { toast } from "react-hot-toast";
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -38,234 +16,153 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<StockItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showSellModal, setShowSellModal] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentProduct, setCurrentProduct] = useState<StockItem | null>(null);
   const [sellQuantity, setSellQuantity] = useState(0);
   const [sellPrice, setSellPrice] = useState(0);
-  useEffect(() => {
-    // Get inventory products from localStorage or initialize with default data
-    if (typeof window === "undefined") return;
+  const [processingListing, setProcessingListing] = useState(false);
 
-    const storedProducts = window.localStorage.getItem("inventoryProducts");
-    if (storedProducts) {
-      setProducts(JSON.parse(storedProducts));
-    } else {
-      // Initial product data
-      const initialProducts: Product[] = [
-        {
-          id: 1,
-          name: "T-Shirt Nike",
-          description: "100% cotton, unisex",
-          stock: 100,
-          productCode: "SHRT-NIKE-001",
-          image: "/images/placeholders/t-shirt.svg",
-          price: 30,
-          listed: false,
-        },
-        {
-          id: 2,
-          name: "Long Pants Nike",
-          description: "100% cotton, unisex",
-          stock: 100,
-          productCode: "PNT-NIKE-001",
-          image: "/images/placeholders/t-shirt.svg",
-          price: 50,
-          listed: false,
-        },
-        {
-          id: 3,
-          name: "Long Pants Nike",
-          description: "100% cotton, unisex",
-          stock: 0,
-          productCode: "PNT-NIKE-002",
-          image: "/images/placeholders/t-shirt.svg",
-          price: 50,
-          listed: false,
-        },
-      ];
-      setProducts(initialProducts);
-      window.localStorage.setItem(
-        "inventoryProducts",
-        JSON.stringify(initialProducts)
-      );
-    }
-  }, []);  // Save changes to localStorage whenever products change, using ref to prevent infinite loops
-  const productsRef = useRef(products);
+  // Current user ID - in a real app, this would come from authentication
+  const currentUserId = "current-user-id";
+
   useEffect(() => {
-    // Only update localStorage if the products are different from previous render
-    if (products.length > 0 && 
-        typeof window !== "undefined" && 
-        JSON.stringify(productsRef.current) !== JSON.stringify(products)) {
-      window.localStorage.setItem(
-        "inventoryProducts",
-        JSON.stringify(products)
-      );
-      // Update the ref to current products
-      productsRef.current = products;
+    // Subscribe to real-time inventory updates
+    const unsubscribe = StockService.subscribeToInventory(
+      currentUserId,
+      (items) => {
+        setInventoryItems(items);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error loading inventory:", error);
+        toast.error("Failed to load inventory");
+        setLoading(false);
+      }
+    );
+
+    // Check if there's a product to highlight (coming from restock button)
+    const productToRestock = localStorage.getItem("productToRestock");
+    if (productToRestock) {
+      // Find and highlight the product in the list
+      setTimeout(() => {
+        const row = document.querySelector(`[data-product-code="${productToRestock}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+          row.classList.add("bg-yellow-100");
+          setTimeout(() => row.classList.remove("bg-yellow-100"), 3000);
+        }
+      }, 500);
+      localStorage.removeItem("productToRestock");
     }
-  }, [products]);
+
+    return () => unsubscribe();
+  }, [currentUserId]);
 
   // Filter products based on search query
-  const filteredProducts = products.filter(
+  const filteredProducts = inventoryItems.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
   const totalItems = filteredProducts.length;
-  // Ensure rowsPerPage is a valid number
-  const validRowsPerPage =
-    isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
+  const validRowsPerPage = isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
   const totalPages = Math.ceil(totalItems / validRowsPerPage);
   const startIndex = (currentPage - 1) * validRowsPerPage;
   const endIndex = Math.min(startIndex + validRowsPerPage, totalItems);
   const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
 
   // Reset to first page when search query changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   };
-  // Stock can only be modified through purchases, not manually
 
   // Open sell modal for a product
-  const openSellModal = (product: Product) => {
+  const openSellModal = (product: StockItem) => {
     setCurrentProduct(product);
-    setSellQuantity(Math.min(10, product.stock)); // Default to 10 or max available
+    // For inventory items, stock is now called 'quantity' in Firebase structure
+    const availableStock = product.stock || 0;
+    setSellQuantity(Math.min(10, availableStock));
     setSellPrice(product.price);
     setShowSellModal(true);
   };
-  // Handle listing a product for sale
-  const handleSellProduct = () => {
-    if (!currentProduct || sellQuantity <= 0) return;
 
-    // Create a store listing
-    const storeProducts: StoreProduct[] = JSON.parse(
-      window.localStorage.getItem("storeProducts") || "[]"
-    );
-
-    // Get seller information (in a real app, this would come from authentication)
-    const sellerInfo = {
-      id: "current-user-id", // This would be the actual user ID in a real app
-      name: "Your Store", // This would be the actual store name
-    };
-
-    // Create a unique ID that will be stable for this product
-    const stableId =
-      Date.now() + parseInt(currentProduct.productCode.replace(/\D/g, ""));
-
-    const listingExists = storeProducts.some(
-      (p: StoreProduct) =>
-        p.productCode === currentProduct.productCode &&
-        p.sellerId === sellerInfo.id
-    );
-    if (listingExists) {
-      // Update existing listing
-      const updatedStoreProducts = storeProducts.map((p: StoreProduct) =>
-        p.productCode === currentProduct.productCode &&
-        p.sellerId === sellerInfo.id
-          ? {
-              ...p,
-              stock: p.stock + sellQuantity,
-              price: sellPrice, // Update price if changed
-            }
-          : p
-      );
-      window.localStorage.setItem(
-        "storeProducts",
-        JSON.stringify(updatedStoreProducts)
-      );
-    } else {
-      // Create new listing
-      const newListing: StoreProduct = {
-        id: stableId, // Use stable ID
-        name: currentProduct.name,
-        description: currentProduct.description,
-        price: sellPrice,
-        stock: sellQuantity,
-        image: currentProduct.image,
-        productCode: currentProduct.productCode,
-        sellerName: sellerInfo.name,
-        sellerId: sellerInfo.id,
-        rating: 4.5,
-        reviews: 12,
-      }; // Force-update storeProducts array
-      const updatedStoreProducts = [...storeProducts, newListing];
-      window.localStorage.setItem(
-        "storeProducts",
-        JSON.stringify(updatedStoreProducts)
-      );
-
-      // Trigger a storage event for other components to detect
-      window.dispatchEvent(new Event("storage"));
+  // Handle listing a product for sale using Firebase
+  const handleSellProduct = async () => {
+    if (!currentProduct || sellQuantity <= 0 || !currentProduct.id) {
+      toast.error("Invalid product or quantity");
+      return;
     }
 
-    // Calculate the listing fee (10% of total value)
-    const listingValue = sellPrice * sellQuantity;
-    const listingFee = listingValue * 0.1;
+    setProcessingListing(true);
 
-    // Update balance - earn listing fee as income
-    addToBalance(listingFee);
+    try {
+      // Use Firebase transaction to create listing
+      const result = await StockService.createListing(
+        currentUserId,
+        currentProduct.id,
+        sellQuantity,
+        sellPrice
+      );
 
-    // Update inventory
-    const updatedProducts = products.map((p) =>
-      p.id === currentProduct.id
-        ? { ...p, stock: p.stock - sellQuantity, listed: true }
-        : p
-    );
-    setProducts(updatedProducts);
-    window.localStorage.setItem(
-      "inventoryProducts",
-      JSON.stringify(updatedProducts)
-    );
+      if (result.success) {
+        // Calculate the listing fee (10% of total value)
+        const listingValue = sellPrice * sellQuantity;
+        const listingFee = listingValue * 0.1;
 
-    setShowSellModal(false);
+        // Update balance - earn listing fee as income
+        addToBalance(listingFee);
 
-    // Show success notification
-    alert(
-      `${sellQuantity} units of ${
-        currentProduct.name
-      } listed for sale! Earned $${listingFee.toFixed(2)} in listing fees.`
-    );
+        setShowSellModal(false);
 
-    // Redirect to listings page
-    router.push("/stock/listings");
-  };
-  // Restock product
-  const handleRestock = (id: number) => {
-    // Save the product code in localStorage to highlight it on the Buy Stock page
-    const productToRestock = products.find((p) => p.id === id);
-    if (
-      productToRestock &&
-      productToRestock.productCode &&
-      typeof window !== "undefined"
-    ) {
-      try {
-        window.localStorage.setItem(
-          "productToRestock",
-          productToRestock.productCode
+        // Show success notification
+        toast.success(
+          `${sellQuantity} units of ${currentProduct.name} listed for sale! Earned $${listingFee.toFixed(2)} in listing fees.`
         );
-      } catch (error) {
-        console.error("Error setting productToRestock to localStorage:", error);
+
+        // Redirect to listings page
+        setTimeout(() => {
+          router.push("/stock/listings");
+        }, 1500);
+      } else {
+        toast.error(result.message || "Failed to create listing");
       }
+    } catch (error) {
+      console.error("Error creating listing:", error);
+      toast.error("Failed to create listing. Please try again.");
+    } finally {
+      setProcessingListing(false);
+    }
+  };
+
+  // Restock product
+  const handleRestock = (productCode: string) => {
+    // Save the product code in localStorage to highlight it on the Buy Stock page
+    try {
+      localStorage.setItem("productToRestock", productCode);
+    } catch (error) {
+      console.error("Error setting productToRestock to localStorage:", error);
     }
 
     // Redirect to the buy stock page
     router.push("/stock");
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF0059] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading inventory...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -363,6 +260,7 @@ export default function InventoryPage() {
             My Listings
           </Link>
         </div>
+
         {/* Current Balance Card */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
           <div className="flex justify-between items-center">
@@ -382,6 +280,7 @@ export default function InventoryPage() {
             </Link>
           </div>
         </div>
+
         {/* Search inventory */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-full max-w-md">
@@ -410,12 +309,12 @@ export default function InventoryPage() {
             </div>
           </div>
         </div>
+
         {/* Table */}
         <div className="mb-4">
           {filteredProducts.length > 0 ? (
             <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="text-gray-700 uppercase text-xs font-semibold">
+              <thead>                <tr className="text-gray-700 uppercase text-xs font-semibold">
                   <th className="py-3 text-left pl-2 pr-6">PRODUCT IMAGE</th>
                   <th className="py-3 text-left px-6">PRODUCT NAME</th>
                   <th className="py-3 text-left px-6">DESCRIPTION</th>
@@ -426,7 +325,11 @@ export default function InventoryPage() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {currentProducts.map((product) => (
-                  <tr key={product.id} className="text-sm">
+                  <tr 
+                    key={product.id} 
+                    className="text-sm"
+                    data-product-code={product.productCode}
+                  >
                     <td className="py-4 pl-2 pr-6">
                       <div className="w-16 h-16 bg-gray-200">
                         <Image
@@ -448,11 +351,11 @@ export default function InventoryPage() {
                     </td>
                     <td className="py-4 px-6 text-gray-800">
                       {product.description}
-                    </td>{" "}
+                    </td>
                     <td className="py-4 px-6 text-gray-900">
                       <div className="flex items-center">
                         <span className="px-4 py-1 bg-gray-100 rounded-md">
-                          {product.stock}
+                          {product.stock || 0}
                         </span>
                         <span className="ml-2">pcs</span>
                       </div>
@@ -461,9 +364,9 @@ export default function InventoryPage() {
                       {product.productCode}
                     </td>
                     <td className="py-4 px-6">
-                      {product.stock === 0 ? (
+                      {(product.stock || 0) === 0 ? (
                         <button
-                          onClick={() => handleRestock(product.id)}
+                          onClick={() => handleRestock(product.productCode)}
                           className="px-4 py-1.5 bg-gray-400 text-white rounded-md text-sm font-medium"
                         >
                           Restock
@@ -483,10 +386,14 @@ export default function InventoryPage() {
             </table>
           ) : (
             <div className="p-6 text-center text-gray-500 bg-white border rounded">
-              No products found matching your search.
+              {searchQuery ? 
+                "No products found matching your search." :
+                "No inventory items found. Purchase some stock to get started!"
+              }
             </div>
-          )}{" "}
-        </div>{" "}
+          )}
+        </div>
+
         {/* Pagination */}
         {filteredProducts.length > 0 && (
           <div className="mt-4">
@@ -500,11 +407,12 @@ export default function InventoryPage() {
               rowsPerPage={rowsPerPage}
               onRowsPerPageChange={(newRowsPerPage: number) => {
                 setRowsPerPage(newRowsPerPage);
-                setCurrentPage(1); // Reset to first page when changing rows per page
+                setCurrentPage(1);
               }}
             />
           </div>
         )}
+
         {/* Sell Modal */}
         {showSellModal && currentProduct && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -529,7 +437,7 @@ export default function InventoryPage() {
                     {currentProduct.description}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Available: {currentProduct.stock} pcs
+                    Available: {currentProduct.stock || 0} pcs
                   </p>
                 </div>
               </div>
@@ -552,22 +460,19 @@ export default function InventoryPage() {
                     value={sellQuantity}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      if (
-                        !isNaN(val) &&
-                        val >= 1 &&
-                        val <= currentProduct.stock
-                      ) {
+                      const maxStock = currentProduct.stock || 0;
+                      if (!isNaN(val) && val >= 1 && val <= maxStock) {
                         setSellQuantity(val);
                       }
                     }}
                     className="px-3 py-1 border-t border-b text-center w-20"
                     min={1}
-                    max={currentProduct.stock}
+                    max={currentProduct.stock || 0}
                   />
                   <button
                     onClick={() =>
                       setSellQuantity(
-                        Math.min(currentProduct.stock, sellQuantity + 1)
+                        Math.min(currentProduct.stock || 0, sellQuantity + 1)
                       )
                     }
                     className="px-3 py-1 bg-gray-200 rounded-r-md"
@@ -617,15 +522,20 @@ export default function InventoryPage() {
               <div className="flex justify-between">
                 <button
                   onClick={() => setShowSellModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium"
+                  disabled={processingListing}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSellProduct}
-                  className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
+                  disabled={processingListing}
+                  className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium disabled:opacity-50 flex items-center"
                 >
-                  List for Sale
+                  {processingListing && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  )}
+                  {processingListing ? "Creating..." : "List for Sale"}
                 </button>
               </div>
             </div>

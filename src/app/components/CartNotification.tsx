@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingBag, CheckCircle, ShoppingCart } from "lucide-react";
+import { CheckCircle, ShoppingCart } from "lucide-react";
 import { useCart } from "./CartContext";
-import Link from "next/link";
+import Image from "next/image";
 
 export default function CartNotification() {
   const [isVisible, setIsVisible] = useState(false);
@@ -41,11 +41,12 @@ export default function CartNotification() {
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="h-12 w-12 rounded-md overflow-hidden bg-gray-100"
-              >
-                <img
+                className="h-12 w-12 rounded-md overflow-hidden bg-gray-100"              >
+                <Image
                   src={lastAddedItem.image}
                   alt={lastAddedItem.name}
+                  width={48}
+                  height={48}
                   className="h-full w-full object-cover"
                 />
               </motion.div>

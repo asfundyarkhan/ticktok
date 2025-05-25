@@ -1,17 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useCart } from "../components/CartContext";
 import { Heart, ShoppingBag } from "lucide-react";
 import { toast } from "react-hot-toast";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  category?: string;
+  description?: string;
+  rating?: number;
+  reviews?: number;
+}
 
 export default function WishlistButton({
   productId,
   product,
 }: {
   productId: string;
-  product: any;
+  product: Product;
 }) {
   const [isInWishlist, setIsInWishlist] = useState(false);
   const { addToCart } = useCart();

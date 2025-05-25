@@ -1,18 +1,11 @@
 // Firestore service for cart operations
 import { 
-  collection, 
   doc, 
-  getDocs, 
   getDoc, 
   setDoc,
   updateDoc, 
-  deleteDoc, 
-  query, 
-  where,
   Timestamp,
   arrayUnion,
-  arrayRemove,
-  increment,
 } from 'firebase/firestore';
 import { firestore } from '../lib/firebase/firebase';
 import { CartItem } from '@/types/product';
@@ -97,11 +90,7 @@ export class CartService {
         productId: item.id,
         addedAt: new Date(),
         updatedAt: new Date(),
-      };
-      
-      // Remove id and savedForLater from Firestore item
-      delete (firestoreItem as any).id;
-      delete (firestoreItem as any).savedForLater;
+      };      // We'll keep the firestoreItem as is and use it directly
       
       if (!docSnap.exists()) {
         // Create new cart if it doesn't exist

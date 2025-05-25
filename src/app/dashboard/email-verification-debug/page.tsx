@@ -3,14 +3,12 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { SuperAdminRoute } from "../../components/SuperAdminRoute";
-import { LoadingSpinner } from "../../components/Loading";
 import { checkEmailVerificationConfig } from "@/utils/emailVerificationTest";
 import { sendEmailVerification } from "firebase/auth";
 
 function EmailVerificationDebugger() {
   const { user, userProfile } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const checkConfiguration = async () => {
@@ -119,10 +117,9 @@ function EmailVerificationDebugger() {
       
       <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <h3 className="text-lg font-medium mb-2">Troubleshooting Tips</h3>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Make sure your Firebase project has email/password authentication enabled</li>
+        <ul className="list-disc pl-5 space-y-1">          <li>Make sure your Firebase project has email/password authentication enabled</li>
           <li>Check that your Firebase auth domain is properly configured</li>
-          <li>Ensure that your project's email sending quota hasn't been exceeded</li>
+          <li>Ensure that your project&apos;s email sending quota hasn&apos;t been exceeded</li>
           <li>Verify the email templates in the Firebase Console are properly set up</li>
           <li>Check your spam folder if verification emails are not appearing in your inbox</li>
         </ul>

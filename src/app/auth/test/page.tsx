@@ -238,8 +238,7 @@ export default function TestAuthPage() {
         {dbUsers.length > 0 && (
           <div className="mt-4 overflow-auto">
             <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-gray-100">
+              <thead>                <tr className="bg-gray-100">
                   <th className="p-2 border">UID</th>
                   <th className="p-2 border">Email</th>
                   <th className="p-2 border">Display Name</th>

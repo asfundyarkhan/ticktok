@@ -1,11 +1,10 @@
 "use client";
 
 import React from "react";
-import { ShoppingCart } from "lucide-react";
 import { Product } from "@/types/product";
 import StarRating from "./StarRating";
-import QuickAddButton from "./QuickAddButton";
 import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 interface ProductGridProps {
@@ -33,10 +32,11 @@ export default function ProductGrid({
           <div
             className="relative aspect-square"
             onClick={() => handleProductClick(product.id)}
-          >
-            <img
+          >            <Image
               src={product.image}
               alt={product.name}
+              width={300}
+              height={300}
               className="w-full h-full object-cover"
             />
             {product.isSale && (

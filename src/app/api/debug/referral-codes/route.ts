@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { UserService } from '@/services/userService';
 
 // This API is only for development/debugging purposes
 // It should be disabled or protected in production
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const codes = await UserService.getAllReferralCodes();
     return NextResponse.json({ success: true, codes });

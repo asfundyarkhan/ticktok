@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import Image from "next/image";
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -67,14 +68,14 @@ export default function ReceiptModal({
                 <p className="text-sm text-gray-500">Amount</p>
                 <p className="font-medium">${receipt.amount.toFixed(2)}</p>
               </div>
-            </div>
-
-            <div className="mb-6">
+            </div>            <div className="mb-6">
               <p className="text-sm text-gray-500 mb-2">Receipt Image</p>
               <div className="border rounded-lg overflow-hidden">
-                <img
+                <Image
                   src={receipt.imageUrl}
                   alt="Receipt"
+                  width={500}
+                  height={600}
                   className="w-full h-auto"
                 />
               </div>

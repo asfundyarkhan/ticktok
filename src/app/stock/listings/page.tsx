@@ -5,136 +5,47 @@ import Image from "next/image";
 import Link from "next/link";
 import { useUserBalance } from "../../components/UserBalanceContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
-import {
-  getFromLocalStorage,
-  setToLocalStorage,
-} from "../../utils/localStorage";
-import { StoreProduct, InventoryProduct } from "../../types/marketplace";
+import { StockService } from "../../../services/stockService";
+import { StockListing } from "../../../types/marketplace";
+import { toast } from "react-hot-toast";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function MyListingsPage() {
-  const [myListings, setMyListings] = useState<StoreProduct[]>([]);
+  const [myListings, setMyListings] = useState<StockListing[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [loading, setLoading] = useState(true);  const [editingListing, setEditingListing] = useState<string | null>(null);
   const { balance } = useUserBalance();
-
-  // Load seller's listings from localStorage - using safe utility functions
+  const { user } = useAuth();
+  // Subscribe to Firebase real-time listings updates
   useEffect(() => {
-    // Direct function to load listings - guaranteed to work
-    function loadListingsDirectly() {
-      // First, get all store products
-      const allStoreProducts: StoreProduct[] = getFromLocalStorage(
-        "storeProducts",
-        []
-      );
+    if (!user?.uid) {
+      setLoading(false);
+      return;
+    }
 
-      // Get inventory to check for listed items
-      const inventoryProducts: InventoryProduct[] = getFromLocalStorage(
-        "inventoryProducts",
-        []
-      );
-      const listedInventoryItems: InventoryProduct[] = inventoryProducts.filter(
-        (product: InventoryProduct) => product.listed === true
-      );
-
-      // Filter for current seller's products
-      const currentSellerId = "current-user-id";
-      let sellerListings: StoreProduct[] = allStoreProducts.filter(
-        (product: StoreProduct) => product.sellerId === currentSellerId
-      );
-
-      // Check if we're missing any products that are marked as listed in inventory
-      if (listedInventoryItems.length > 0) {
-        // Get product codes that are already in listings
-        const existingListingsCodes = sellerListings.map(
-          (item: StoreProduct) => item.productCode
-        );
-
-        // Find inventory items that are not in listings
-        const missingListings = listedInventoryItems.filter(
-          (item: InventoryProduct) =>
-            !existingListingsCodes.includes(item.productCode)
-        );
-
-        // If we have missing items, add them to store products
-        if (missingListings.length > 0) {
-          const newListings = missingListings.map(
-            (item: InventoryProduct, index: number) => {
-              // Create a unique ID from:
-              // 1. Current timestamp
-              // 2. Index in the array
-              // 3. Numeric portion of product code
-              // 4. Random value
-              const numericCode = parseInt(
-                item.productCode.replace(/\D/g, "") || "0"
-              );
-              const uniqueId =
-                Date.now() +
-                index +
-                numericCode * 100 +
-                Math.floor(Math.random() * 10000);
-
-              return {
-                id: uniqueId,
-                name: item.name,
-                description: item.description,
-                price: item.price,
-                stock: item.stock,
-                image: item.image,
-                productCode: item.productCode,
-                sellerName: "Your Store",
-                sellerId: currentSellerId,
-                rating: 4.5,
-                reviews: 0,
-              };
-            }
-          );
-
-          // Add new listings to store products - using safe utility function
-          const updatedStoreProducts = [...allStoreProducts, ...newListings];
-          setToLocalStorage("storeProducts", updatedStoreProducts);
-
-          // Update our local state with all listings
-          sellerListings = [...sellerListings, ...newListings];
-        }
+    const unsubscribe = StockService.subscribeToSellerListings(
+      user.uid,
+      (listings) => {
+        setMyListings(listings);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error loading listings:", error);
+        toast.error("Failed to load listings");
+        setLoading(false);
       }
+    );
 
-      // Update state with final listings and ensure all IDs are unique
-      const seenIds = new Set();
-      const uniqueListings = sellerListings.filter((listing: StoreProduct) => {
-        // Convert the ID to a string to ensure consistent type handling
-        const idStr = String(listing.id);
-        if (seenIds.has(idStr)) {
-          // If we've seen this ID before, generate a new unique ID
-          listing.id = Date.now() + Math.random() * 10000;
-          seenIds.add(String(listing.id));
-          return true;
-        } else {
-          seenIds.add(idStr);
-          return true;
-        }
-      });
-
-      setMyListings(uniqueListings);
-    }    // Load listings immediately
-    loadListingsDirectly();
-
-    // Set up polling to refresh listings, but use a more reasonable interval (5 seconds instead of 1 second)
-    // This reduces the chance of update loops and performance issues
-    const intervalId = setInterval(loadListingsDirectly, 5000);
-
-    // Cleanup on component unmount
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
-
-  // Filter products based on search query
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [user?.uid]);// Filter products based on search query
   const filteredListings = myListings.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
+      product.productId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Pagination calculations
@@ -143,54 +54,78 @@ export default function MyListingsPage() {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentListings = filteredListings.slice(startIndex, endIndex);
-  // No need for separate pagination handlers as we're using PaginationWithCustomRows component
+  // Remove a listing using Firebase
+  const handleRemoveListing = async (listingId: string) => {
+    if (!user?.uid) {
+      toast.error("Authentication required");
+      return;
+    }
 
-  // Remove a listing
-  const handleRemoveListing = (productId: number) => {
-    // Get the product to be removed
-    const productToRemove = myListings.find(
-      (product) => product.id === productId
-    );
+    if (!confirm("Are you sure you want to remove this listing?")) {
+      return;
+    }
 
-    // Remove from listings
-    const updatedListings = myListings.filter(
-      (product) => product.id !== productId
-    );
-    setMyListings(updatedListings);
+    try {
+      const result = await StockService.deleteListing(listingId, user.uid);
+      
+      if (result.success) {
+        toast.success("Listing removed successfully. Stock returned to inventory.");
+      } else {
+        toast.error(result.message || "Failed to remove listing");
+      }
+    } catch (error) {
+      console.error("Error removing listing:", error);
+      toast.error("Failed to remove listing. Please try again.");
+    }  };
 
-    // Update localStorage safely
-    setToLocalStorage("storeProducts", updatedListings);
+  // Edit a listing using Firebase
+  const handleEditListing = async (
+    listingId: string,
+    newPrice: number,
+    newQuantity: number
+  ) => {
+    if (!user?.uid) {
+      toast.error("Authentication required");
+      return;
+    }
 
-    // Update inventory listed status
-    if (productToRemove) {
-      const inventoryProducts: InventoryProduct[] = getFromLocalStorage(
-        "inventoryProducts",
-        []
-      );
-      const updatedInventory = inventoryProducts.map(
-        (product: InventoryProduct) =>
-          product.productCode === productToRemove.productCode
-            ? { ...product, listed: false }
-            : product
-      );
-      setToLocalStorage("inventoryProducts", updatedInventory);
+    if (newPrice <= 0 || newQuantity <= 0) {
+      toast.error("Price and quantity must be greater than 0");
+      return;
+    }
+
+    try {
+      setEditingListing(listingId);
+      
+      const result = await StockService.updateListing(listingId, user.uid, {
+        price: newPrice,
+        quantity: newQuantity
+      });
+
+      if (result.success) {
+        toast.success("Listing updated successfully");
+      } else {
+        toast.error(result.message || "Failed to update listing");
+      }
+    } catch (error) {
+      console.error("Error updating listing:", error);
+      toast.error("Failed to update listing. Please try again.");
+    } finally {
+      setEditingListing(null);
     }
   };
 
-  // Edit a listing (price or stock)
-  const handleEditListing = (
-    productId: number,
-    newPrice: number,
-    newStock: number
-  ) => {
-    const updatedListings = myListings.map((product) =>
-      product.id === productId
-        ? { ...product, price: newPrice, stock: newStock }
-        : product
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF0059] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your listings...</p>
+        </div>
+      </div>
     );
-    setMyListings(updatedListings);
-    setToLocalStorage("storeProducts", updatedListings);
-  };
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -358,34 +293,23 @@ export default function MyListingsPage() {
           {myListings.length > 0 ? (
             <>
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stats
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                <thead className="bg-gray-50">                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listed Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentListings.map((product) => (
-                    <tr key={product.id}>
+                  {currentListings.map((listing) => (
+                    <tr key={listing.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-gray-100">
                             <Image
-                              src={product.image}
-                              alt={product.name}
+                              src={listing.image || "/images/placeholders/t-shirt.svg"}
+                              alt={listing.name}
                               width={40}
                               height={40}
                               className="object-cover"
@@ -393,49 +317,35 @@ export default function MyListingsPage() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {product.productCode}
+                              {listing.name}
+                            </div>                            <div className="text-sm text-gray-500">
+                              {listing.productId}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          ${product.price.toFixed(2)}
+                          ${listing.price.toFixed(2)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            product.stock > 10
+                            listing.quantity > 10
                               ? "bg-green-100 text-green-800"
-                              : product.stock > 0
+                              : listing.quantity > 0
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {product.stock} units
+                          {listing.quantity} units
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="text-sm text-gray-500">
-                            {product.rating.toFixed(1)}
-                          </div>
-                          <div className="ml-1 text-yellow-400">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          </div>
-                          <div className="ml-2 text-sm text-gray-500">
-                            {product.reviews} reviews
+                            Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
                           </div>
                         </div>
                       </td>
@@ -445,31 +355,24 @@ export default function MyListingsPage() {
                             const newPrice = parseFloat(
                               prompt(
                                 "Enter new price:",
-                                product.price.toString()
-                              ) || product.price.toString()
+                                listing.price.toString()
+                              ) || listing.price.toString()
                             );
-                            const newStock = parseInt(
+                            const newQuantity = parseInt(
                               prompt(
-                                "Enter new stock quantity:",
-                                product.stock.toString()
-                              ) || product.stock.toString()
+                                "Enter new quantity:",
+                                listing.quantity.toString()
+                              ) || listing.quantity.toString()
                             );
-                            handleEditListing(product.id, newPrice, newStock);
+                            handleEditListing(listing.id!, newPrice, newQuantity);
                           }}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          disabled={editingListing === listing.id}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
                         >
-                          Edit
+                          {editingListing === listing.id ? "Updating..." : "Edit"}
                         </button>
                         <button
-                          onClick={() => {
-                            if (
-                              confirm(
-                                "Are you sure you want to remove this listing?"
-                              )
-                            ) {
-                              handleRemoveListing(product.id);
-                            }
-                          }}
+                          onClick={() => handleRemoveListing(listing.id!)}
                           className="text-red-600 hover:text-red-900"
                         >
                           Remove
@@ -496,10 +399,9 @@ export default function MyListingsPage() {
                 />
               </div>
             </>
-          ) : (
-            <div className="py-20 text-center">
+          ) : (            <div className="py-20 text-center">
               <div className="text-gray-500 mb-4">
-                You don't have any product listings yet
+                You don&apos;t have any product listings yet
               </div>
               <Link
                 href="/stock/inventory"

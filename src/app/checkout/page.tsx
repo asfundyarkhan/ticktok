@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "../components/CartContext";
 import CheckoutButton from "../components/CheckoutButton";
-import { CartItem } from "@/types/product";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CheckoutPage() {
@@ -283,12 +283,13 @@ function CheckoutContent() {
 
               <div className="flow-root">
                 <ul role="list" className="divide-y divide-gray-200">
-                  {cartItems.map((item) => (
-                    <li key={item.id} className="py-4 flex">
+                  {cartItems.map((item) => (                    <li key={item.id} className="py-4 flex">
                       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                        <img
+                        <Image
                           src={item.image}
                           alt={item.name}
+                          width={80}
+                          height={80}
                           className="h-full w-full object-cover object-center"
                         />
                       </div>

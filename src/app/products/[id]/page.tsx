@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import { useUserBalance } from "../../components/UserBalanceContext";
-import { ProductService, Product } from "../../../services/productService";
+import { ProductService } from "../../../services/productService";
+import { Product } from "@/types/product";
 import { LoadingSpinner } from "../../components/Loading";
+import Image from "next/image";
 import AddToCartButton from "../../components/AddToCartButton";
 import StarRating from "../../components/StarRating";
 import toast from "react-hot-toast";
@@ -19,9 +21,9 @@ export default function ProductDetailPage({
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const router = useRouter();
-  const { user } = useAuth();
+  const [quantity, setQuantity] = useState(1);  const router = useRouter();
+  // User object is authenticated but not used in this component
+  const { /* user */ } = useAuth();
   const { balance, deductFromBalance } = useUserBalance();
 
   useEffect(() => {
@@ -90,11 +92,12 @@ export default function ProductDetailPage({
   return (
     <div className="container mx-auto py-10 px-4">
       <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/2">
-          <div className="aspect-square bg-white rounded-lg overflow-hidden border border-gray-200">
-            <img
+        <div className="md:w-1/2">          <div className="aspect-square bg-white rounded-lg overflow-hidden border border-gray-200">
+            <Image
               src={product.image || "/images/placeholders/t-shirt.svg"}
               alt={product.name}
+              width={500}
+              height={500}
               className="object-contain w-full h-full"
             />
           </div>

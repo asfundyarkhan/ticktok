@@ -5,139 +5,51 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUserBalance } from "../components/UserBalanceContext";
 import { toast } from "react-hot-toast";
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: string | number;
-  image: string;
-  productCode?: string;
-}
-
-// Define a proper type for inventory products
-interface InventoryProduct {
-  productCode: string;
-  stock: number;
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  listed: boolean;
-}
-
-import { getFromLocalStorage, setToLocalStorage } from "../utils/localStorage";
+import { StockService } from "../../services/stockService";
+import { StockItem } from "../../types/marketplace";
 
 export default function StockPage() {
   const { balance, deductFromBalance } = useUserBalance();
   const [searchQuery, setSearchQuery] = useState("");
-  const [adminProducts, setAdminProducts] = useState<Product[]>([]);
+  const [adminProducts, setAdminProducts] = useState<StockItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedQuantities, setSelectedQuantities] = useState<
-    Record<number, number>
+    Record<string, number>
   >({});
   const [highlightedProductCode, setHighlightedProductCode] = useState<
     string | null
   >(null);
 
-  // Default admin products  // Define default products outside of the component's render cycle
-  const getDefaultAdminProducts = (): Product[] => [
-    {
-      id: 1,
-      name: "T-Shirt Nike",
-      description: "100% cotton, unisex",
-      price: 300,
-      image: "/images/placeholders/t-shirt.svg",
-      productCode: "SHRT-NIKE-001",
-    },
-    {
-      id: 2,
-      name: "Long Pants Nike",
-      description: "100% cotton, unisex",
-      price: 500,
-      image: "/images/placeholders/t-shirt.svg",
-      productCode: "PNT-NIKE-001",
-    },
-    {
-      id: 3,
-      name: "Hoodie Adidas",
-      description: "Premium quality, unisex",
-      price: 450,
-      image: "/images/placeholders/t-shirt.svg",
-      productCode: "HOOD-ADIDAS-001",
-    },
-    {
-      id: 4,
-      name: "Cap Nike",
-      description: "Adjustable size",
-      price: 150,
-      image: "/images/placeholders/t-shirt.svg",
-      productCode: "CAP-NIKE-001",
-    },
-  ];
-  
   useEffect(() => {
-    // Load admin stock products with safe method
-    const defaultAdminProducts = getDefaultAdminProducts();
-    let productsToUse = defaultAdminProducts;
-    
-    try {
-      const storedAdminProducts = getFromLocalStorage<Product[]>("adminStockProducts", []);
-
-      if (Array.isArray(storedAdminProducts) && storedAdminProducts.length > 0) {
-        setAdminProducts(storedAdminProducts);
-        productsToUse = storedAdminProducts;
-      } else {
-        // Use default admin stock if none exists or invalid data
-        setAdminProducts(defaultAdminProducts);
-        setToLocalStorage("adminStockProducts", defaultAdminProducts);
-      }
-    } catch (error) {
-      console.error("Error loading admin products:", error);
-      // Fallback to defaults on error
-      setAdminProducts(defaultAdminProducts);
-      setToLocalStorage("adminStockProducts", defaultAdminProducts);
-    }
-
-    // Initialize quantities safely
-    const initialQuantities: Record<number, number> = {};
-    productsToUse.forEach((product: Product) => {
-      initialQuantities[product.id] = 0;
+    // Subscribe to real-time admin stock updates
+    const unsubscribe = StockService.subscribeToAdminStock((stockItems) => {
+      setAdminProducts(stockItems);
+      setLoading(false);
+      
+      // Initialize quantities
+      const initialQuantities: Record<string, number> = {};
+      stockItems.forEach((item) => {
+        initialQuantities[item.productId] = 0;
+      });
+      setSelectedQuantities(initialQuantities);
     });
-    setSelectedQuantities(initialQuantities);// Check if there's a product to highlight (coming from restock button)
-    try {
-      const productToRestock = getFromLocalStorage<string | null>("productToRestock", null);
-      if (productToRestock) {
-        // Validate that it's a string
-        if (typeof productToRestock === 'string') {
-          setHighlightedProductCode(productToRestock);
-        } else {
-          console.warn("Invalid productToRestock format:", productToRestock);
-        }
-        
-        // Remove it after use
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.removeItem("productToRestock");
-          } catch (error) {
-            console.error(
-              "Error removing productToRestock from localStorage:",
-              error
-            );
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error processing productToRestock:", error);
+
+    // Check if there's a product to highlight (coming from restock button)
+    const productToRestock = localStorage.getItem("productToRestock");
+    if (productToRestock) {
+      setHighlightedProductCode(productToRestock);
+      localStorage.removeItem("productToRestock");
     }
+
+    return () => unsubscribe();
   }, []);
+
   // Filter products based on search query
   const filteredProducts = adminProducts.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.productCode &&
-        product.productCode.toLowerCase().includes(searchQuery.toLowerCase()))
+      product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Pagination state
@@ -150,7 +62,8 @@ export default function StockPage() {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentProducts = filteredProducts.slice(startIndex, endIndex);
-  const handleQuantityChange = (productId: number, quantity: number) => {
+  
+  const handleQuantityChange = (productId: string, quantity: number) => {
     setSelectedQuantities({
       ...selectedQuantities,
       [productId]: quantity,
@@ -169,8 +82,9 @@ export default function StockPage() {
       setCurrentPage(currentPage + 1);
     }
   };
-  const handleBuyStock = (productId: number) => {
-    const product = adminProducts.find((p) => p.id === productId);
+
+  const handleBuyStock = async (productId: string) => {
+    const product = adminProducts.find((p) => p.productId === productId);
     const quantity = selectedQuantities[productId];
 
     if (!product || !quantity) {
@@ -178,73 +92,38 @@ export default function StockPage() {
       return;
     }
 
-    const price =
-      typeof product.price === "string"
-        ? parseFloat(product.price.replace(/[^0-9.-]+/g, ""))
-        : product.price;
-
-    const totalPrice = price * quantity;
+    const totalPrice = product.price * quantity;
 
     // Use our balance context to deduct the amount
     if (!deductFromBalance(totalPrice)) {
       toast.error("Insufficient balance. Please add funds to your wallet.");
       return;
-    }
+    }    try {
+      // Use Firebase transaction for stock purchase
+      await StockService.processStockPurchase(productId, quantity, "current-user-id");
+      
+      // Reset quantity
+      handleQuantityChange(productId, 0);
 
-    // Add to inventory safely
-    const inventoryProducts = getFromLocalStorage("inventoryProducts", []);
-
-    const existingProduct = inventoryProducts.find(
-      (p: InventoryProduct) => p.productCode === product.productCode
-    );
-
-    if (existingProduct) {
-      // Update existing product
-      const updatedInventory = inventoryProducts.map((p: InventoryProduct) =>
-        p.productCode === product.productCode
-          ? { ...p, stock: p.stock + quantity }
-          : p
+      // Show success notification and redirect to inventory
+      toast.success(
+        `Added ${quantity} units of ${product.name} to your inventory!`
       );
-      setToLocalStorage("inventoryProducts", updatedInventory);
-    } else {
-      // Add new product to inventory
-      const newProduct: InventoryProduct = {
-        id: Date.now(),
-        name: product.name,
-        description: product.description,
-        stock: quantity,
-        productCode: product.productCode!,
-        image: product.image,
-        price: price,
-        listed: false,
-      };
 
-      setToLocalStorage("inventoryProducts", [
-        ...inventoryProducts,
-        newProduct,
-      ]);
-    } // Reset quantity
-    handleQuantityChange(productId, 0);
-
-    // Show success notification and redirect to inventory
-    toast.success(
-      `Added ${quantity} units of ${product.name} to your inventory!`
-    );
-
-    // Use setTimeout to wait for toast to appear before redirecting
-    setTimeout(() => {
-      window.location.href = "/stock/inventory";
-    }, 1500);
+      // Use setTimeout to wait for toast to appear before redirecting
+      setTimeout(() => {
+        window.location.href = "/stock/inventory";
+      }, 1500);
+    } catch (error) {
+      console.error("Error purchasing stock:", error);
+      toast.error("Failed to purchase stock. Please try again.");
+    }
   };
+
   useEffect(() => {
     // Highlight row if needed
     if (highlightedProductCode && typeof window !== "undefined") {
-      // Ensure product code is processed as string
-      const productCode =
-        typeof highlightedProductCode === "string"
-          ? highlightedProductCode
-          : String(highlightedProductCode);
-      const element = document.getElementById(`product-${productCode}`);
+      const element = document.getElementById(`product-${highlightedProductCode}`);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "center" });
         element.classList.add("bg-yellow-50");
@@ -256,6 +135,17 @@ export default function StockPage() {
       }
     }
   }, [highlightedProductCode]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#FF0059]"></div>
+          <p className="mt-4 text-gray-600">Loading available stock...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -291,7 +181,7 @@ export default function StockPage() {
               </svg>
             </div>
           </div>
-        </div>{" "}
+        </div>
         <div className="flex items-center space-x-4">
           <Link href="/cart">
             <svg
@@ -369,6 +259,7 @@ export default function StockPage() {
             My Listings
           </Link>
         </div>
+
         {/* Current Balance Card */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
           <div className="flex justify-between items-center">
@@ -388,6 +279,7 @@ export default function StockPage() {
             </Link>
           </div>
         </div>
+
         {/* Search stock */}
         <div className="mb-6">
           <div className="relative">
@@ -416,6 +308,7 @@ export default function StockPage() {
             </div>
           </div>
         </div>
+
         {/* Table Header */}
         <div className="bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
           <div className="col-span-2">Product Image</div>
@@ -424,24 +317,21 @@ export default function StockPage() {
           <div className="col-span-2">Prices</div>
           <div className="col-span-2">Units</div>
           <div className="col-span-1">Actions</div>
-        </div>{" "}
-        {/* Products List */}{" "}
+        </div>
+
+        {/* Products List */}
         {filteredProducts.length > 0 ? (
           <>
             {currentProducts.map((product) => (
               <div
-                key={product.id}
-                id={
-                  product.productCode
-                    ? `product-${product.productCode}`
-                    : `product-${product.id}`
-                }
+                key={product.productId}
+                id={`product-${product.productCode}`}
                 className="border-b p-4 grid grid-cols-12 gap-4 items-center bg-white transition-all duration-300"
               >
                 <div className="col-span-2">
                   <div className="w-24 h-24 bg-gray-200 flex items-center justify-center">
                     <Image
-                      src={product.image}
+                      src={product.image || "/images/placeholders/t-shirt.svg"}
                       alt={product.name}
                       width={96}
                       height={96}
@@ -456,18 +346,16 @@ export default function StockPage() {
                   {product.description}
                 </div>
                 <div className="col-span-2 font-semibold text-gray-900">
-                  {typeof product.price === "number"
-                    ? `$${product.price.toFixed(2)}`
-                    : product.price}
+                  ${product.price.toFixed(2)}
                 </div>
                 <div className="col-span-2">
                   <div className="relative">
                     <select
                       className="w-full appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900"
-                      value={selectedQuantities[product.id] || 0}
+                      value={selectedQuantities[product.productId] || 0}
                       onChange={(e) =>
                         handleQuantityChange(
-                          product.id,
+                          product.productId,
                           parseInt(e.target.value)
                         )
                       }
@@ -493,13 +381,13 @@ export default function StockPage() {
                       </svg>
                     </div>
                   </div>
-                </div>{" "}
+                </div>
                 <div className="col-span-1">
                   <button
-                    onClick={() => handleBuyStock(product.id)}
-                    disabled={!selectedQuantities[product.id]}
+                    onClick={() => handleBuyStock(product.productId)}
+                    disabled={!selectedQuantities[product.productId]}
                     className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
-                      selectedQuantities[product.id]
+                      selectedQuantities[product.productId]
                         ? "bg-[#FF0059] hover:bg-[#E0004D]"
                         : "bg-gray-400"
                     }`}
@@ -572,7 +460,7 @@ export default function StockPage() {
           </>
         ) : (
           <div className="p-6 text-center text-gray-500 bg-white border-b">
-            No products found matching your search.
+            {loading ? "Loading available stock..." : "No products found matching your search."}
           </div>
         )}
       </div>

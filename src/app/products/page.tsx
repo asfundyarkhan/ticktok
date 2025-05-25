@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ProductService, Product } from "../../services/productService";
+import { ProductService } from "../../services/productService";
+import { Product } from "@/types/product";
 import { LoadingSpinner } from "../components/Loading";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function ProductCatalogPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -71,11 +73,12 @@ export default function ProductCatalogPage() {
           <div
             key={product.id}
             className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col transition-transform hover:shadow-lg hover:-translate-y-1"
-          >
-            <div className="aspect-w-4 aspect-h-3 relative h-48">
-              <img
+          >            <div className="aspect-w-4 aspect-h-3 relative h-48">
+              <Image
                 src={product.image || "/images/placeholders/t-shirt.svg"}
                 alt={product.name}
+                width={300}
+                height={200}
                 className="object-cover w-full h-full"
               />
             </div>
@@ -88,12 +91,11 @@ export default function ProductCatalogPage() {
                 {product.description}
               </p>
 
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-pink-600 font-medium">
+              <div className="mt-4 flex items-center justify-between">                <span className="text-pink-600 font-medium">
                   ${product.price.toFixed(2)}
                 </span>
                 <div className="text-sm text-gray-500">
-                  {product.stock} in stock
+                  In Stock
                 </div>
               </div>
             </div>

@@ -32,9 +32,10 @@ export default function MainPage() {
       );
     }
   }, [suspended]);
-
   // State to track if navbar should be visible
   const [showNavbar, setShowNavbar] = useState(false);
+  // This state is not used but kept for future scroll position tracking
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastScrollY, setLastScrollY] = useState(0);
 
   // Handle scroll events

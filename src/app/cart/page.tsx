@@ -5,6 +5,7 @@ import { Trash2, Plus, Minus } from "lucide-react";
 import Breadcrumb from "@/app/components/Breadcrumb";
 import { useCart } from "@/app/components/CartContext";
 import Link from "next/link";
+import Image from "next/image";
 import CheckoutButton from "@/app/components/CheckoutButton";
 import RelatedProducts from "@/app/components/RelatedProducts";
 import LoadingOverlay from "@/app/components/LoadingOverlay";
@@ -72,9 +73,8 @@ function CartContent() {
           <div className="p-6 max-w-md mx-auto">
             <h1 className="text-2xl font-semibold text-gray-900 mb-4">
               Your cart is empty
-            </h1>
-            <p className="text-gray-600 mb-8">
-              Looks like you haven't added anything to your cart yet.
+            </h1>            <p className="text-gray-600 mb-8">
+              Looks like you haven&apos;t added anything to your cart yet.
             </p>
             <Link
               href="/store"
@@ -105,11 +105,12 @@ function CartContent() {
               }
               message="Updating cart..."
             >
-              <div className="flex gap-6 p-6 bg-white rounded-lg border">
-                <div className="w-24 h-24 flex-shrink-0">
-                  <img
+              <div className="flex gap-6 p-6 bg-white rounded-lg border">                <div className="w-24 h-24 flex-shrink-0">
+                  <Image
                     src={item.image}
                     alt={item.name}
+                    width={96}
+                    height={96}
                     className="w-full h-full object-cover rounded-md"
                   />
                 </div>
@@ -258,12 +259,13 @@ function CartContent() {
                   operationLoading.removeSavedItem
                 }
                 message="Updating saved items..."
-              >
-                <div className="bg-white rounded-lg border overflow-hidden">
+              >                <div className="bg-white rounded-lg border overflow-hidden">
                   <div className="aspect-square overflow-hidden">
-                    <img
+                    <Image
                       src={item.image}
                       alt={item.name}
+                      width={200}
+                      height={200}
                       className="h-full w-full object-cover"
                     />
                   </div>

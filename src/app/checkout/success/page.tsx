@@ -13,9 +13,8 @@ export default function CheckoutSuccessPage() {
           </div>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900">
             Order Confirmed!
-          </h1>
-          <p className="mt-2 text-base text-gray-500">
-            Thank you for your purchase. We've sent you an email with your order
+          </h1>          <p className="mt-2 text-base text-gray-500">
+            Thank you for your purchase. We&apos;ve sent you an email with your order
             details.
           </p>
         </div>

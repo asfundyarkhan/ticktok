@@ -40,10 +40,9 @@ const nextConfig = {
   compress: true,
   crossOrigin: 'anonymous',
   // Add production-specific optimizations
-  productionBrowserSourceMaps: false,
-  // Configure image optimization for production
+  productionBrowserSourceMaps: false,  // Configure image optimization for production
   images: {
-    domains: ['images.unsplash.com', 'localhost', 'yourdomain.com'],
+    domains: ['images.unsplash.com', 'localhost', 'yourdomain.com', 'firebasestorage.googleapis.com'],
     minimumCacheTTL: 60,
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],

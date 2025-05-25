@@ -9,7 +9,6 @@ import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
 import { useCart } from "@/app/components/CartContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
-import CartQtyIndicator from "@/app/components/CartQtyIndicator";
 import "rc-pagination/assets/index.css";
 import { Product } from "@/types/product";
 

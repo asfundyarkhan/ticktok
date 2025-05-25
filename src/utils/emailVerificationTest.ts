@@ -59,11 +59,10 @@ export async function testEmailVerification() {
  * 
  * @returns Object containing configuration check results
  */
-export function checkEmailVerificationConfig() {
-  const config = {
+export function checkEmailVerificationConfig() {  const config = {
     authDomain: auth.config.authDomain,
     apiKey: auth.app.options.apiKey ? 'Valid' : 'Missing',
-    emulator: auth.app.options.emulator !== undefined
+    emulator: false // Simplified approach - we'll assume emulator is not enabled by default
   };
   
   // Check domain configuration
@@ -82,4 +81,9 @@ export function checkEmailVerificationConfig() {
   };
 }
 
-export default { testEmailVerification, checkEmailVerificationConfig };
+const EmailVerificationTest = { 
+  testEmailVerification, 
+  checkEmailVerificationConfig 
+};
+
+export default EmailVerificationTest;

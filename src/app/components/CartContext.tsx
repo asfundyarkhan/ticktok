@@ -46,7 +46,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 // Safe localStorage getter function
-const getFromLocalStorage = (key: string, defaultValue: any = null) => {
+const getFromLocalStorage = (key: string, defaultValue: unknown = null) => {
   if (typeof window === "undefined") {
     return defaultValue;
   }
@@ -61,7 +61,7 @@ const getFromLocalStorage = (key: string, defaultValue: any = null) => {
 };
 
 // Safe localStorage setter function
-const setToLocalStorage = (key: string, value: any) => {
+const setToLocalStorage = (key: string, value: unknown) => {
   if (typeof window === "undefined") {
     return;
   }
@@ -287,9 +287,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         // User is not logged in, use local state
         const itemToMove = savedItems.find((item) => item.id === id);
         if (itemToMove) {
-          // Remove from saved items
-          setSavedItems((prev) => prev.filter((item) => item.id !== id));
-          // Add to cart
+          // Remove from saved items        setSavedItems((prev) => prev.filter((item) => item.id !== id));
+          // Add to cart - remove savedForLater property
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { savedForLater, ...cartItem } = itemToMove;
           // Directly add to cart without triggering the addToCart function's loading state
           setCartItems((prevItems) => [...prevItems, cartItem]);

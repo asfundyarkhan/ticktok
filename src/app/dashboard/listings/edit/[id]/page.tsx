@@ -3,12 +3,11 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../../context/AuthContext";
-import {
-  ProductService,
-  Product,
-} from "../../../../../services/productService";
+import { ProductService } from "../../../../../services/productService";
+import { Product } from "@/types/product";
 import { LoadingSpinner } from "../../../../components/Loading";
 import toast from "react-hot-toast";
+import Image from "next/image";
 
 export default function EditProductPage({
   params,
@@ -329,10 +328,11 @@ export default function EditProductPage({
             <div className="w-32 h-32 border border-gray-300 rounded-md overflow-hidden flex items-center justify-center relative">
               {fileLoading ? (
                 <LoadingSpinner size="md" />
-              ) : imagePreview || product.image ? (
-                <img
+              ) : imagePreview || product.image ? (                <Image
                   src={imagePreview || product.image}
                   alt="Product preview"
+                  width={128}
+                  height={128}
                   className="h-full w-full object-cover"
                 />
               ) : (

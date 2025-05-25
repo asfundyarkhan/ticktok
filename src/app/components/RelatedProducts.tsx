@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useCart } from "./CartContext";
-import { toast } from "react-hot-toast";
 import { Star } from "lucide-react";
 import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 
 // Sample related products data - in a real app, this would come from an API
 const sampleRelatedProducts = [
@@ -14,13 +13,13 @@ const sampleRelatedProducts = [
     id: "rel1",
     name: "Vintage Watch",
     price: 129.99,
+    salePrice: 99.99,
     category: "accessories",
     rating: 4.5,
     image: "/images/product1.jpg",
     reviews: 24,
     description: "Classic vintage timepiece with leather band.",
-  },
-  {
+  },  {
     id: "rel2",
     name: "Silver Bracelet",
     price: 49.99,
@@ -34,6 +33,7 @@ const sampleRelatedProducts = [
     id: "rel3",
     name: "Gold Necklace",
     price: 79.99,
+    salePrice: 69.99,
     category: "accessories",
     rating: 4.7,
     image: "/images/product3.jpg",
@@ -53,32 +53,14 @@ const sampleRelatedProducts = [
 ];
 
 interface RelatedProductsProps {
-  products?: any[];
+  products?: unknown[];
   title?: string;
 }
 
 export default function RelatedProducts({
-  products = sampleRelatedProducts,
   title = "You Might Also Like",
 }: RelatedProductsProps) {
-  const [relatedProducts, setRelatedProducts] = useState(sampleRelatedProducts);
-  const { addToCart } = useCart();
-
-  const handleAddToCart = (product: any) => {
-    addToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      category: product.category,
-      rating: product.rating,
-      image: product.image,
-      reviews: product.reviews,
-      quantity: 1,
-      description: product.description,
-    });
-
-    toast.success(`Added ${product.name} to your cart!`);
-  };
+  const [relatedProducts] = useState(sampleRelatedProducts);
   return (
     <div className="mt-12 border-t border-gray-200 pt-8">
       <h2 className="text-2xl font-semibold text-gray-900 mb-6">{title}</h2>
@@ -91,12 +73,13 @@ export default function RelatedProducts({
             whileHover={{ y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <div className="relative">
-              <div className="aspect-square w-full overflow-hidden">
+            <div className="relative">              <div className="aspect-square w-full overflow-hidden">
                 {product.image ? (
-                  <img
+                  <Image
                     src={product.image}
                     alt={product.name}
+                    width={300}
+                    height={300}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 ) : (

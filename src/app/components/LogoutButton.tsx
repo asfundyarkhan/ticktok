@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "./Loading";
 import { LogOut } from "lucide-react";
@@ -20,7 +19,6 @@ export default function LogoutButton({
   children,
 }: LogoutButtonProps) {
   const { logout } = useAuth();
-  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const variantStyles = {

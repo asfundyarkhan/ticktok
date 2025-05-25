@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { LoadingSpinner } from "./Loading";
-import { UserService, UserProfile } from "@/services/userService";
+import { UserService } from "@/services/userService";
 import { useAuth } from "@/context/AuthContext";
 
 interface Referral {
@@ -27,12 +27,10 @@ export default function ReferralsTable({
   loading: initialLoading = false,
 }: ReferralsTableProps) {
   const { userProfile } = useAuth();
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [loading, setLoading] = useState(initialLoading);
+  const [referrals, setReferrals] = useState<Referral[]>([]);  const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [totalItems, setTotalItems] = useState(0);
   
   useEffect(() => {
     const fetchReferrals = async () => {
@@ -69,11 +67,9 @@ export default function ReferralsTable({
             email: user.email,
             role: user.role,
             dateJoined: user.createdAt,
-            balance: user.balance || 0,
-          }));
+            balance: user.balance || 0,        }));
         }
         
-        setTotalItems(fetchedReferrals.length);
         setReferrals(fetchedReferrals);
       } catch (err) {
         console.error("Error fetching referrals:", err);
@@ -127,24 +123,13 @@ export default function ReferralsTable({
             <p>No referrals found.</p>
           </div>
         ) : (
-          <table className="min-w-full">
-            <thead>
+          <table className="min-w-full">            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Date Joined
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Balance
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date Joined</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Balance</th>
               </tr>
             </thead>
             <tbody>

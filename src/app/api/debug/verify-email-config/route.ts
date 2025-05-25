@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { checkEmailVerificationConfig } from '@/utils/emailVerificationTest';
 
 // This is a diagnostic endpoint that can only be used in development mode
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Only allow in development environment
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'This endpoint is only available in development mode' }, { status: 403 });

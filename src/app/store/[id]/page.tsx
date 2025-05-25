@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { Star, Minus, Plus } from "lucide-react";
 import { Tab } from "@headlessui/react";
+import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import type { Swiper as SwiperType } from "swiper";
 import { FreeMode, Navigation, Thumbs } from "swiper/modules";
@@ -11,8 +12,6 @@ import { Product } from "@/types/product";
 import Breadcrumb from "@/app/components/Breadcrumb";
 import EnhancedQuickAddButton from "@/app/components/EnhancedQuickAddButton";
 import AddToCartButton from "@/app/components/AddToCartButton";
-import RelatedProducts from "@/app/components/RelatedProducts";
-import CartNotification from "@/app/components/CartNotification";
 import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import CartDrawer from "@/app/components/CartDrawer";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
@@ -237,10 +236,11 @@ export default function ProductDetailPage() {
             >
               {productImages.map((img, index) => (
                 <SwiperSlide key={index}>
-                  <div className="aspect-square">
-                    <img
+                  <div className="aspect-square">                    <Image
                       src={img}
                       alt={`${product.name} - View ${index + 1}`}
+                      width={500}
+                      height={500}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -258,10 +258,11 @@ export default function ProductDetailPage() {
             >
               {productImages.map((img, index) => (
                 <SwiperSlide key={index}>
-                  <div className="aspect-square cursor-pointer rounded-lg overflow-hidden">
-                    <img
+                  <div className="aspect-square cursor-pointer rounded-lg overflow-hidden">                    <Image
                       src={img}
                       alt={`${product.name} - Thumbnail ${index + 1}`}
+                      width={100}
+                      height={100}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -513,10 +514,11 @@ export default function ProductDetailPage() {
                 key={product.id}
                 className="bg-white rounded-lg shadow-sm overflow-hidden"
               >
-                <div className="relative aspect-square">
-                  <img
+                <div className="relative aspect-square">                  <Image
                     src={product.image}
                     alt={product.name}
+                    width={300}
+                    height={300}
                     className="w-full h-full object-cover"
                   />
                   {product.isSale && (

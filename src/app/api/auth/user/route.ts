@@ -1,6 +1,5 @@
 // API route for getting the current user from the session cookie
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { verifySessionToken, adminAuth, getFirestoreUser } from '@/lib/firebase/firebase-admin.server';
 
 export async function GET(request: NextRequest) {

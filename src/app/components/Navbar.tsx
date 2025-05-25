@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useUserBalance } from "./UserBalanceContext";
@@ -12,13 +12,12 @@ import LogoutButton from "./LogoutButton";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
-  const { cartCount, isCartOpen, setIsCartOpen } = useCart();
+  const { isCartOpen, setIsCartOpen } = useCart();
   // We will use the LogoutButton component instead of this function
   // which correctly handles all logout logic
 

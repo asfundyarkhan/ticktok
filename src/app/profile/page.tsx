@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
-import { Camera, Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
   return (

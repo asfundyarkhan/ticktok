@@ -30,9 +30,8 @@ export default function CheckoutButton({
 
       // On success
       toast.success("Order placed successfully!");
-      clearCart();
-      router.push("/checkout/success");
-    } catch (error) {
+      clearCart();      router.push("/checkout/success");
+    } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);

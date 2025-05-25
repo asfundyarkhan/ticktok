@@ -3,7 +3,6 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "../../../context/AuthContext";
 import { LoadingSpinner } from "../../components/Loading";
 import useFirebaseAuth from "@/hooks/useFirebaseAuth";
 
@@ -25,11 +24,11 @@ function LoginForm() {
 
     try {
       await signIn(email, password);
-      router.push(redirect);
-    } catch (error: any) {
+      router.push(redirect);    } catch (error: unknown) {
       console.error("Login error:", error);
       // Handle specific Firebase auth errors
-      switch (error.code) {
+      const firebaseError = error as { code?: string; message?: string };
+      switch (firebaseError.code) {
         case "auth/user-not-found":
           setError("No user found with this email. Please register first.");
           break;
@@ -44,9 +43,8 @@ function LoginForm() {
           break;
         case "auth/too-many-requests":
           setError("Too many failed attempts. Please try again later");
-          break;
-        default:
-          setError(error.message || "Failed to log in. Please try again");
+          break;        default:
+          setError(firebaseError.message || "Failed to log in. Please try again");
       }
     }
   };

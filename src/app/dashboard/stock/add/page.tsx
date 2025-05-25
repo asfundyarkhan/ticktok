@@ -1,18 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-
-interface Product {
-  id: string;
-  image: string;
-  name: string;
-  description: string;
-  price: number;
-  units: number;
-}
+import { StockService } from "../../../../services/stockService";
+import { StockItem } from "../../../../types/marketplace";
 
 export default function AddStockPage() {
   const router = useRouter();
@@ -23,24 +17,9 @@ export default function AddStockPage() {
     productCode: "",
     quantity: "",
     images: [] as File[],
-  });
+  });  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [existingProducts, setExistingProducts] = useState<Product[]>([]);
-
-  // Load existing products on mount
-  useEffect(() => {
-    const savedProducts = localStorage.getItem("stockProducts");
-    if (savedProducts) {
-      try {
-        const parsedProducts = JSON.parse(savedProducts);
-        setExistingProducts(parsedProducts);
-      } catch (error) {
-        console.error("Failed to parse stored products:", error);
-      }
-    }
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Form validation
@@ -54,30 +33,61 @@ export default function AddStockPage() {
       return;
     }
 
-    // Create a new product object
-    const newProduct: Product = {
-      id: Date.now().toString(), // Generate a unique ID using timestamp
-      name: formData.name,
-      description: formData.description,
-      price: parseFloat(formData.price),
-      units: parseInt(formData.quantity),
-      image:
-        formData.images.length > 0
-          ? URL.createObjectURL(formData.images[0])
-          : "/images/placeholders/t-shirt.svg", // Use placeholder if no image
-    };
+    setIsSubmitting(true);
 
-    // Combine with existing products
-    const updatedProducts = [...existingProducts, newProduct];
+    try {
+      let imageUrl = "/images/placeholders/t-shirt.svg"; // Default placeholder
 
-    // Save to localStorage
-    localStorage.setItem("stockProducts", JSON.stringify(updatedProducts));
+      // Upload image if provided
+      if (formData.images.length > 0) {
+        try {
+          imageUrl = await StockService.uploadImage(formData.images[0], 'stock/admin-products');
+          toast.success("Image uploaded successfully!");
+        } catch (error) {
+          console.error("Image upload failed:", error);
+          toast.error("Image upload failed, using placeholder");
+        }
+      }
 
-    // Show success message
-    toast.success("Product added successfully");
+      // Create new stock item for Firestore
+      const newStockItem: Omit<StockItem, 'id' | 'createdAt' | 'updatedAt'> = {
+        productId: `admin-${Date.now()}`, // Generate unique product ID
+        productCode: formData.productCode || `PROD-${Date.now()}`,
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.quantity),
+        image: imageUrl,
+        category: 'general',
+        listed: true,
+        sellerId: 'admin',
+        sellerName: 'TikTok Shop Admin'
+      };
 
-    // Redirect back to stock listing page
-    router.push("/dashboard/stock");
+      // Add to Firestore
+      await StockService.addStockItem(newStockItem);
+
+      // Show success message
+      toast.success("Product added successfully and is now available for sellers!");
+
+      // Reset form
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        productCode: "",
+        quantity: "",
+        images: [],
+      });
+
+      // Redirect back to stock listing page
+      router.push("/dashboard/stock");
+    } catch (error) {
+      console.error("Error adding product:", error);
+      toast.error("Failed to add product. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,10 +205,11 @@ export default function AddStockPage() {
                   <div
                     key={index}
                     className="relative aspect-square bg-gray-100 rounded-lg"
-                  >
-                    <img
+                  >                    <Image
                       src={URL.createObjectURL(file)}
                       alt={`Preview ${index + 1}`}
+                      width={100}
+                      height={100}
                       className="w-full h-full object-cover rounded-lg"
                     />
                   </div>
@@ -282,12 +293,16 @@ export default function AddStockPage() {
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
             Cancel
-          </Link>
-          <button
+          </Link>          <button
             type="submit"
-            className="px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded-md hover:bg-pink-700"
+            disabled={isSubmitting}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+              isSubmitting 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-pink-600 hover:bg-pink-700'
+            }`}
           >
-            List
+            {isSubmitting ? 'Adding Product...' : 'List'}
           </button>
         </div>
       </form>

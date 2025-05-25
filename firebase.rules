@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isSeller() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function hasBalance(amount) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.balance >= amount;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        isAdmin()
+      );
+      
+      // Only allow balance decrements with sufficient funds
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId &&
+        request.resource.data.balance < resource.data.balance &&
+        hasBalance(resource.data.balance - request.resource.data.balance)
+      );
+    }
+
+    // Admin stock collection
+    match /adminStock/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Seller inventory collection
+    match /inventory/{sellerId}/products/{productId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == sellerId || 
+        isAdmin()
+      );
+      allow write: if isAuthenticated() && (
+        request.auth.uid == sellerId || 
+        isAdmin()
+      );
+      
+      // Validate listing creation
+      allow create: if isAuthenticated() &&
+        request.auth.uid == sellerId &&
+        isSeller() &&
+        request.resource.data.stock > 0;
+        
+      // Validate inventory updates
+      allow update: if isAuthenticated() &&
+        request.auth.uid == sellerId &&
+        isSeller() &&
+        (
+          // Allow decreasing stock
+          request.resource.data.stock <= resource.data.stock ||
+          // Or allow increasing stock only if there's a corresponding purchase
+          exists(/databases/$(database)/documents/purchases/$(request.resource.data.lastPurchaseId))
+        );
+    }
+
+    // Stock transactions collection
+    match /stock_transactions/{transactionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.sellerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() &&
+        request.resource.data.sellerId == request.auth.uid &&
+        isSeller() &&
+        hasBalance(request.resource.data.total);
+      allow update, delete: if isAdmin();
+    }
+
+    // User listings collection
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if isAuthenticated() &&
+        request.resource.data.sellerId == request.auth.uid &&
+        isSeller() &&
+        exists(/databases/$(database)/documents/inventory/$(request.auth.uid)/products/$(request.resource.data.productId));
+      allow update: if isAuthenticated() &&
+        resource.data.sellerId == request.auth.uid &&
+        request.resource.data.sellerId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.sellerId == request.auth.uid;
+    }
+
+    // Stock purchases collection
+    match /purchases/{purchaseId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        isSeller() &&
+        hasBalance(request.resource.data.totalPrice);
+      allow update, delete: if isAdmin();
+    }
+  }
+}
