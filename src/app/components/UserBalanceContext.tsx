@@ -9,7 +9,7 @@ import {
   useRef,
 } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
 import { TransactionService } from "../../services/transactionService";
 
@@ -50,31 +50,52 @@ export function UserBalanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  // Load balance from Firestore when user is authenticated
+  // Load balance from Firestore when user is authenticated with real-time updates
   // Or from localStorage when not authenticated
   useEffect(() => {
-    const fetchBalance = async () => {
+    let unsubscribe: (() => void) | null = null;
+
+    const setupBalanceListener = () => {
       setLoading(true);
       try {
         if (user && userProfile) {
-          // User is logged in, use Firestore balance
-          setBalance(userProfile.balance);
+          // Set up real-time listener for user's balance
+          const userRef = doc(firestore, "users", user.uid);
+          
+          unsubscribe = onSnapshot(userRef, (doc) => {
+            if (doc.exists()) {
+              const userData = doc.data();
+              const currentBalance = userData.balance || 0;
+              setBalance(currentBalance);
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error("Error listening to balance updates:", error);
+            setLoading(false);
+          });
+          
         } else if (isClient) {
           // User is not logged in, use localStorage balance
           const savedBalance = getStoredBalance();
           if (savedBalance !== null) {
             setBalance(savedBalance);
           }
+          setLoading(false);
         }
       } catch (error) {
-        console.error("Error fetching balance:", error);
-      } finally {
+        console.error("Error setting up balance listener:", error);
         setLoading(false);
       }
     };
 
-    fetchBalance();
+    setupBalanceListener();
+
+    // Cleanup listener on unmount or user change
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [user, userProfile, isClient]);
   // Save balance to localStorage when not authenticated
   // Use a ref to track previous balance to prevent unnecessary updates

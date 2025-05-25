@@ -5,11 +5,13 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useAuth } from "../../../../context/AuthContext";
 import { StockService } from "../../../../services/stockService";
 import { StockItem } from "../../../../types/marketplace";
 
 export default function AddStockPage() {
   const router = useRouter();
+  const { user, userProfile } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -100,12 +102,15 @@ export default function AddStockPage() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="p-6 max-w-7xl mx-auto">      {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <h1 className="text-2xl font-semibold">John Doe</h1>
-          <span className="px-2 py-1 text-sm bg-gray-200 rounded">ref002</span>
+          <h1 className="text-2xl font-semibold">
+            {userProfile?.displayName || user?.email?.split('@')[0] || 'User'}
+          </h1>
+          <span className="px-2 py-1 text-sm bg-gray-200 rounded">
+            {userProfile?.referralCode || 'N/A'}
+          </span>
         </div>
       </div>
 

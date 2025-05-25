@@ -2,7 +2,11 @@ import {
   collection,
   doc,
   Timestamp,
-  runTransaction
+  runTransaction,
+  query,
+  where,
+  orderBy,
+  getDocs
 } from "firebase/firestore";
 import { firestore } from "../lib/firebase/firebase";
 import { CreditTransaction } from "../types/transactions";
@@ -10,6 +14,44 @@ import { CreditTransaction } from "../types/transactions";
 export class TransactionService {
   private static readonly COLLECTION = "credit_transactions";
   private static readonly COMMISSION_RATE = 0.10; // 10% commission for referrers
+
+  /**
+   * Get all transactions for a user (either as recipient or commission earner)
+   */
+  static async getUserTransactions(
+    userId: string, 
+    asReferrer: boolean = false
+  ): Promise<CreditTransaction[]> {
+    try {
+      const transactionsQuery = query(
+        collection(firestore, this.COLLECTION),
+        asReferrer 
+          ? where("referrerId", "==", userId)
+          : where("userId", "==", userId),
+        orderBy("createdAt", "desc")
+      );
+
+      const snapshot = await getDocs(transactionsQuery);
+      const transactions: CreditTransaction[] = [];
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        transactions.push({
+          id: doc.id,
+          ...data
+        } as CreditTransaction);
+      });
+
+      return transactions;
+    } catch (error) {
+      console.error("Error fetching user transactions:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process a top-up transaction with automatic commission calculation
+   */
 
   static async processTopUp(
     userId: string,

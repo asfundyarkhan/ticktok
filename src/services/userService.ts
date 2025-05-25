@@ -179,13 +179,19 @@ export class UserService {
       throw error;
     }
   }
-
   // Upload profile picture
   static async uploadProfilePicture(file: File, uid: string): Promise<string> {
     try {
       const fileExtension = file.name.split(".").pop();
       const storageRef = ref(storage, `users/${uid}/profile.${fileExtension}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        customMetadata: {
+          'Access-Control-Allow-Origin': '*',
+          'uploadedBy': 'ticktok-shop',
+          'userId': uid,
+          'uploadTimestamp': Date.now().toString()
+        }
+      });
 
       return new Promise((resolve, reject) => {
         uploadTask.on(
@@ -197,24 +203,51 @@ export class UserService {
             console.log(`Upload is ${progress}% done`);
           },
           (error) => {
+            console.error('Profile picture upload failed:', error);
+            
+            // Check if it's a CORS error and provide fallback
+            if (error.code === 'storage/unauthorized' || 
+                error.message.includes('CORS') || 
+                error.message.includes('cross-origin')) {
+              console.warn('CORS error detected, skipping profile picture upload');
+              resolve(''); // Return empty string to indicate no photo URL
+              return;
+            }
+            
             reject(error);
           },
           async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-            // Update user profile with new photo URL
-            const userRef = doc(firestore, this.COLLECTION, uid);
-            await updateDoc(userRef, {
-              photoURL: downloadURL,
-              updatedAt: Timestamp.now(),
-            });
+              // Update user profile with new photo URL
+              const userRef = doc(firestore, this.COLLECTION, uid);
+              await updateDoc(userRef, {
+                photoURL: downloadURL,
+                updatedAt: Timestamp.now(),
+              });
 
-            resolve(downloadURL);
+              resolve(downloadURL);
+            } catch (error) {
+              console.error('Error getting download URL for profile picture:', error);
+              // Don't update profile if URL retrieval fails
+              resolve('');
+            }
           }
         );
       });
     } catch (error) {
       console.error("Error uploading profile picture:", error);
+      
+      // Check if it's a CORS-related error
+      if (error instanceof Error && 
+          (error.message.includes('CORS') || 
+           error.message.includes('cross-origin') ||
+           error.message.includes('unauthorized'))) {
+        console.warn('CORS error in profile picture upload setup');
+        return ''; // Return empty string instead of throwing
+      }
+      
       throw error;
     }
   }

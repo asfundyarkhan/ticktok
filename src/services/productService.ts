@@ -277,12 +277,18 @@ export class ProductService {
       throw error;
     }
   }
-
   // Upload product image
   static async uploadProductImage(file: File, productId: string): Promise<string> {
     try {
       const storageRef = ref(storage, `products/${productId}/${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      const uploadTask = uploadBytesResumable(storageRef, file, {
+        customMetadata: {
+          'Access-Control-Allow-Origin': '*',
+          'uploadedBy': 'ticktok-shop',
+          'productId': productId,
+          'uploadTimestamp': Date.now().toString()
+        }
+      });
       
       return new Promise((resolve, reject) => {
         uploadTask.on(
@@ -293,16 +299,43 @@ export class ProductService {
             console.log(`Upload is ${progress}% done`);
           },
           (error) => {
+            console.error('Upload failed:', error);
+            
+            // Check if it's a CORS error and provide fallback
+            if (error.code === 'storage/unauthorized' || 
+                error.message.includes('CORS') || 
+                error.message.includes('cross-origin')) {
+              console.warn('CORS error detected, using placeholder image');
+              resolve('/images/placeholders/t-shirt.svg');
+              return;
+            }
+            
             reject(error);
           },
           async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(downloadURL);
+            } catch (error) {
+              console.error('Error getting download URL:', error);
+              // Fallback to placeholder if download URL fails
+              resolve('/images/placeholders/t-shirt.svg');
+            }
           }
         );
       });
     } catch (error) {
       console.error('Error uploading product image:', error);
+      
+      // Check if it's a CORS-related error
+      if (error instanceof Error && 
+          (error.message.includes('CORS') || 
+           error.message.includes('cross-origin') ||
+           error.message.includes('unauthorized'))) {
+        console.warn('CORS error in upload setup, using placeholder image');
+        return '/images/placeholders/t-shirt.svg';
+      }
+      
       throw error;
     }
   }

@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, ShoppingBag, CreditCard } from "lucide-react";
+import { Users, CreditCard } from "lucide-react";
 import StatsCard from "../components/StatsCard";
 import ActivityTable from "../components/ActivityTable";
+import TransactionHistory from "../components/TransactionHistory";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
-import { UserService } from "../../services/userService";
-import { ProductService } from "../../services/productService";
+import { onSnapshot, query, collection, where } from "firebase/firestore";
+import { firestore } from "../../lib/firebase/firebase";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();  const [loading, setLoading] = useState(true);
   const [referralCount, setReferralCount] = useState(0);
   const [referralBalance, setReferralBalance] = useState(0);
-  const [productCount, setProductCount] = useState(0);
 
   useEffect(() => {
     // Redirect if not authenticated
@@ -35,33 +34,37 @@ export default function DashboardPage() {
       // Non-admin/superadmin users should be redirected to store
       window.location.href = "/store";
       return;
-    }
-
-    // Load dashboard data
+    }    // Load dashboard data
     const loadDashboardData = async () => {
       if (!user) return;
       
       try {
         setLoading(true);
 
-        // Get referral users and calculate total balance
-        const referredUsers = await UserService.getUsersReferredByAdmin(user.uid);
-        setReferralCount(referredUsers.length);
-        
-        // Calculate total balance from all referred users
-        const totalBalance = referredUsers.reduce((total, user) => total + (user.balance || 0), 0);
-        setReferralBalance(totalBalance);
+        // Set up real-time listener for referred users' balances
+        const referredUsersQuery = query(
+          collection(firestore, "users"),
+          where("referredBy", "==", user.uid)
+        );        const unsubscribe = onSnapshot(referredUsersQuery, (snapshot) => {
+          const referredUsers = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              ...data,
+              uid: doc.id,
+              balance: data.balance || 0
+            };
+          });
+          
+          setReferralCount(referredUsers.length);
+          
+          // Calculate total balance from all referred users in real-time
+          const totalBalance = referredUsers.reduce((total, user) => total + user.balance, 0);
+          setReferralBalance(totalBalance);
+        });
 
-        // If user is a seller, admin or superadmin, get their products
-        if (
-          userProfile &&
-          (userProfile.role === "seller" ||
-            userProfile.role === "admin" ||
-            userProfile.role === "superadmin")
-        ) {
-          const products = await ProductService.getProductsBySeller(user.uid);
-          setProductCount(products.length);
-        }
+        // Store unsubscribe function for cleanup
+        return unsubscribe;
+
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -70,10 +73,16 @@ export default function DashboardPage() {
     };
 
     if (user) {
-      loadDashboardData();
+      const unsubscribe = loadDashboardData();
+      
+      // Cleanup listeners on unmount
+      return () => {
+        if (unsubscribe) {
+          unsubscribe.then(unsub => unsub && unsub());
+        }
+      };
     }
   }, [user, userProfile, authLoading, router]);
-
   // Stats to display on the dashboard
   const stats = [
     {
@@ -100,15 +109,6 @@ export default function DashboardPage() {
     },
   ];
 
-  // Add product count stat for sellers
-  if (userProfile?.role === "seller" || userProfile?.role === "admin") {
-    stats.push({
-      title: "My Products",
-      value: productCount.toString(),
-      icon: ShoppingBag,
-    });
-  }
-
   // Show loading spinner while loading
   if (authLoading || loading) {
     return (
@@ -130,9 +130,7 @@ export default function DashboardPage() {
             {userProfile?.role || "user"}
           </span>
         </div>
-      </div>
-
-      {/* Stats Grid */}
+      </div>      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {stats.map((stat, index) => (
           <StatsCard
@@ -144,9 +142,31 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Coming Soon Message */}
+      <div className="mb-8">
+        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-lg p-6 text-center">
+          <h2 className="text-2xl font-bold text-pink-600 mb-2">Coming Soon!</h2>
+          <p className="text-gray-600">New features and enhanced analytics are on the way</p>
+        </div>
+      </div>
+
       {/* Activity Table */}
       <div className="mb-8">
         <ActivityTable title="Recent Activity" />
+      </div>{/* Transaction History Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* User's own transactions */}
+        <TransactionHistory 
+          maxItems={5}
+          showCommissions={false}
+        />
+        
+        {/* Commission earnings (for admins/agents) */}
+        {userProfile?.role === "admin" || userProfile?.role === "superadmin" ? (
+          <TransactionHistory 
+            maxItems={5}
+            showCommissions={true}
+          />        ) : null}
       </div>
     </div>
   );

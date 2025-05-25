@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CreditCard, Download } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
 
 interface Transaction {
   id: string;
@@ -20,6 +21,7 @@ interface Card {
 }
 
 export default function PaymentPage() {
+  const { userProfile } = useAuth();
   const [transactions] = useState<Transaction[]>([
     {
       id: "1",
@@ -166,14 +168,12 @@ export default function PaymentPage() {
           <div className="bg-white rounded-lg shadow-sm">
             <div className="p-6 border-b">
               <h2 className="text-lg font-medium">Billing Address</h2>
-            </div>
-            <div className="p-6">
+            </div>            <div className="p-6">
               <div className="text-gray-600">
-                <p>John Doe</p>
-                <p>1234 Main Street</p>
-                <p>Apt 4B</p>
-                <p>New York, NY 10001</p>
-                <p>United States</p>
+                <p>{userProfile?.displayName || 'User Name'}</p>
+                <p>{userProfile?.address?.street || '1234 Main Street'}</p>
+                <p>{userProfile?.address?.city || 'City'}, {userProfile?.address?.state || 'State'} {userProfile?.address?.zip || '12345'}</p>
+                <p>{userProfile?.address?.country || 'United States'}</p>
               </div>
               <button className="mt-4 text-sm text-pink-500 hover:text-pink-600">
                 Edit Address

@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useUserBalance } from "../components/UserBalanceContext";
+import TransactionHistory from "../components/TransactionHistory";
 
 export default function WalletPage() {
   const [paymentAmount, setPaymentAmount] = useState("1000");
   const [receiptUploaded, setReceiptUploaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { balance, addToBalance } = useUserBalance();
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
       alert("Please enter a valid payment amount");
@@ -24,15 +24,22 @@ export default function WalletPage() {
 
     setSubmitting(true);
 
-    // Simulate processing delay
-    setTimeout(() => {
-      // In a real app, this would be an API call to verify the payment
-      addToBalance(amount);
-      alert(`$${amount} has been added to your wallet!`);
-      setReceiptUploaded(false);
-      setPaymentAmount("1000");
+    try {
+      // Use the transaction service for processing
+      const result = await addToBalance(amount, `Wallet top-up of $${amount}`);
+      
+      if (result.success) {
+        alert(`${result.message}`);
+        setReceiptUploaded(false);
+        setPaymentAmount("1000");
+      } else {
+        alert(`Error: ${result.message}`);
+      }    } catch (error) {
+      console.error("Error processing payment:", error);
+      alert("Failed to process payment. Please try again.");
+    } finally {
       setSubmitting(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -301,11 +308,15 @@ export default function WalletPage() {
                 >
                   {submitting ? "Processing..." : "Submit"}
                 </button>
-              </div>
+              </div>              </div>
             </div>
           </div>
         </div>
+
+        {/* Transaction History Section */}
+        <div className="mt-8">
+          <TransactionHistory maxItems={10} showCommissions={false} />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
