@@ -89,7 +89,7 @@ function initializeFirebaseAdmin() {
     // Initialize the app with the credential
     admin.initializeApp({
       credential,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.appspot.com"
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.firebasestorage.app"
     });
       console.log('Firebase Admin SDK initialized successfully');  
   } catch (error) {
@@ -119,7 +119,7 @@ function initializeFirebaseAdmin() {
         // Initialize with best available configuration
         admin.initializeApp({
           projectId,
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
           // On Vercel, we can initialize with databaseURL for better fallback functionality
           ...(isVercel ? { 
             databaseURL: `https://${projectId}.firebaseio.com`

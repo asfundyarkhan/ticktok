@@ -3,7 +3,7 @@ import { Timestamp } from "firebase/firestore";
 export interface CreditTransaction {
   id: string;
   userId: string;
-  referrerId?: string;  // Admin/referrer that gets the commission
+  referrerId?: string; // Admin/referrer that gets the commission
   amount: number;
   commission: number;
   type: "top_up";

@@ -23,9 +23,11 @@ const corsConfiguration = [
       "http://localhost:3000",
       "http://localhost:3001",
       "http://localhost:3002",
-      "http://localhost:3003",
-      "https://ticktok-*.vercel.app",
-      "https://*.vercel.app",      "https://ticktokshop.vercel.app",
+      "http://localhost:3003",      "https://ticktok-*.vercel.app",
+      "https://tiktok-*.vercel.app",
+      "https://tiktok-git-*.vercel.app",
+      "https://*.vercel.app",
+      "https://ticktokshop.vercel.app",
       "https://www.tiktokshophub.co",
       "https://tiktokshophub.co",
       "https://*.tiktokshophub.co",
@@ -40,7 +42,8 @@ const corsConfiguration = [
       "https://*.ticktokshop.org",
       "https://ticktokshop.app",
       "https://www.ticktokshop.app",
-      "https://*.ticktokshop.app",      "https://ticktokshop.io",
+      "https://*.ticktokshop.app",
+      "https://ticktokshop.io",
       "https://www.ticktokshop.io",
       "https://*.ticktokshop.io",
       "https://ticktokshop.co",
@@ -48,7 +51,8 @@ const corsConfiguration = [
       "https://*.ticktokshop.co",
       "https://ticktok-shop.com",
       "https://www.ticktok-shop.com",
-      "https://*.ticktok-shop.com",      "https://ticktok-shop.co",
+      "https://*.ticktok-shop.com",
+      "https://ticktok-shop.co",
       "https://www.ticktok-shop.co",
       "https://*.ticktok-shop.co",
       "https://tiktokshophub.co",
@@ -100,10 +104,10 @@ if (!serviceAccountFound) {
 
 // List of possible bucket names to try
 const bucketNames = [
-  "ticktokshop-5f1e9.appspot.com",
+  "ticktokshop-5f1e9.appspot.com", // Primary bucket used by the app
   "gs://ticktokshop-5f1e9.appspot.com",
+  "ticktokshop-5f1e9.firebasestorage.app", // Alternative format
   "ticktokshop-5f1e9",
-  "ticktokshop-5f1e9.firebasestorage.app",
 ];
 
 // Initialize admin SDK with the service account

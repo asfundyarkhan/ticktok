@@ -1,8 +1,8 @@
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
-  enabled: process.env.ANALYZE === 'true',
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
 });
 
-const securityHeaders = require('./security-headers');
+const securityHeaders = require("./security-headers");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -36,27 +36,34 @@ const nextConfig = {
   },
   typescript: {
     // Disabling for deployment - in production you would want to fix type errors
-    ignoreBuildErrors: true,  },  poweredByHeader: false,
+    ignoreBuildErrors: true,
+  },
+  poweredByHeader: false,
   compress: true,
-  crossOrigin: 'anonymous',
+  crossOrigin: "anonymous",
   // Add production-specific optimizations
-  productionBrowserSourceMaps: false,  // Configure image optimization for production
+  productionBrowserSourceMaps: false, // Configure image optimization for production
   images: {
-    domains: ['images.unsplash.com', 'localhost', 'yourdomain.com', 'firebasestorage.googleapis.com'],
+    domains: [
+      "images.unsplash.com",
+      "localhost",
+      "yourdomain.com",
+      "firebasestorage.googleapis.com",
+    ],
     minimumCacheTTL: 60,
-    formats: ['image/webp', 'image/avif'],
+    formats: ["image/webp", "image/avif"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384]
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   // Add security headers
   headers: async () => {
     return [
       {
-        source: '/:path*',
+        source: "/:path*",
         headers: securityHeaders,
       },
     ];
-  }
-}
+  },
+};
 
 module.exports = withBundleAnalyzer(nextConfig);

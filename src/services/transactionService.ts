@@ -1,4 +1,4 @@
-import { 
+import {
   collection,
   doc,
   Timestamp,
@@ -6,26 +6,26 @@ import {
   query,
   where,
   orderBy,
-  getDocs
+  getDocs,
 } from "firebase/firestore";
 import { firestore } from "../lib/firebase/firebase";
 import { CreditTransaction } from "../types/transactions";
 
 export class TransactionService {
   private static readonly COLLECTION = "credit_transactions";
-  private static readonly COMMISSION_RATE = 0.10; // 10% commission for referrers
+  private static readonly COMMISSION_RATE = 0.1; // 10% commission for referrers
 
   /**
    * Get all transactions for a user (either as recipient or commission earner)
    */
   static async getUserTransactions(
-    userId: string, 
+    userId: string,
     asReferrer: boolean = false
   ): Promise<CreditTransaction[]> {
     try {
       const transactionsQuery = query(
         collection(firestore, this.COLLECTION),
-        asReferrer 
+        asReferrer
           ? where("referrerId", "==", userId)
           : where("userId", "==", userId),
         orderBy("createdAt", "desc")
@@ -38,7 +38,7 @@ export class TransactionService {
         const data = doc.data();
         transactions.push({
           id: doc.id,
-          ...data
+          ...data,
         } as CreditTransaction);
       });
 
@@ -64,7 +64,7 @@ export class TransactionService {
         // Get the user document to check referrer
         const userRef = doc(firestore, "users", userId);
         const userSnap = await transaction.get(userRef);
-        
+
         if (!userSnap.exists()) {
           return { success: false, message: "User not found" };
         }
@@ -77,7 +77,9 @@ export class TransactionService {
         const userAmount = amount;
 
         // Create the credit transaction
-        const creditTransactionRef = doc(collection(firestore, this.COLLECTION));
+        const creditTransactionRef = doc(
+          collection(firestore, this.COLLECTION)
+        );
         const creditTransaction: Omit<CreditTransaction, "id"> = {
           userId,
           referrerId,
@@ -87,7 +89,7 @@ export class TransactionService {
           status: "completed",
           description,
           createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
+          updatedAt: Timestamp.now(),
         };
 
         // Create transaction record
@@ -96,31 +98,36 @@ export class TransactionService {
         // Update user's balance
         transaction.update(userRef, {
           balance: (userData.balance || 0) + userAmount,
-          updatedAt: Timestamp.now()
+          updatedAt: Timestamp.now(),
         });
 
         // If there's a referrer, update their balance with the commission
         if (referrerId && commission > 0) {
           const referrerRef = doc(firestore, "users", referrerId);
           const referrerSnap = await transaction.get(referrerRef);
-          
+
           if (referrerSnap.exists()) {
             const referrerData = referrerSnap.data();
             transaction.update(referrerRef, {
               balance: (referrerData.balance || 0) + commission,
-              updatedAt: Timestamp.now()
+              updatedAt: Timestamp.now(),
             });
           }
-        }        return {
+        }
+        return {
           success: true,
-          message: `Successfully processed top-up of $${amount}${commission > 0 ? `. Commission of $${commission} paid to referrer` : ''}`
+          message: `Successfully processed top-up of $${amount}${
+            commission > 0
+              ? `. Commission of $${commission} paid to referrer`
+              : ""
+          }`,
         };
       });
     } catch (error) {
       console.error("Error processing top-up:", error);
       return {
         success: false,
-        message: "Failed to process top-up. Please try again."
+        message: "Failed to process top-up. Please try again.",
       };
     }
   }

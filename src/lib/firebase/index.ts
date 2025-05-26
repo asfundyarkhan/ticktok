@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBwqU1SU4jNWYKjhqkN1tEyyp64HXzmyG8",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "ticktokshop-5f1e9.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "ticktokshop-5f1e9",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.appspot.com",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "ticktokshop-5f1e9.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "155434252666",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:155434252666:web:fa5051f4cb33f3a784bec3",
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID

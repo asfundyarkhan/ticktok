@@ -186,11 +186,11 @@ export class UserService {
       const storageRef = ref(storage, `users/${uid}/profile.${fileExtension}`);
       const uploadTask = uploadBytesResumable(storageRef, file, {
         customMetadata: {
-          'Access-Control-Allow-Origin': '*',
-          'uploadedBy': 'ticktok-shop',
-          'userId': uid,
-          'uploadTimestamp': Date.now().toString()
-        }
+          "Access-Control-Allow-Origin": "*",
+          uploadedBy: "ticktok-shop",
+          userId: uid,
+          uploadTimestamp: Date.now().toString(),
+        },
       });
 
       return new Promise((resolve, reject) => {
@@ -203,17 +203,21 @@ export class UserService {
             console.log(`Upload is ${progress}% done`);
           },
           (error) => {
-            console.error('Profile picture upload failed:', error);
-            
+            console.error("Profile picture upload failed:", error);
+
             // Check if it's a CORS error and provide fallback
-            if (error.code === 'storage/unauthorized' || 
-                error.message.includes('CORS') || 
-                error.message.includes('cross-origin')) {
-              console.warn('CORS error detected, skipping profile picture upload');
-              resolve(''); // Return empty string to indicate no photo URL
+            if (
+              error.code === "storage/unauthorized" ||
+              error.message.includes("CORS") ||
+              error.message.includes("cross-origin")
+            ) {
+              console.warn(
+                "CORS error detected, skipping profile picture upload"
+              );
+              resolve(""); // Return empty string to indicate no photo URL
               return;
             }
-            
+
             reject(error);
           },
           async () => {
@@ -229,25 +233,30 @@ export class UserService {
 
               resolve(downloadURL);
             } catch (error) {
-              console.error('Error getting download URL for profile picture:', error);
+              console.error(
+                "Error getting download URL for profile picture:",
+                error
+              );
               // Don't update profile if URL retrieval fails
-              resolve('');
+              resolve("");
             }
           }
         );
       });
     } catch (error) {
       console.error("Error uploading profile picture:", error);
-      
+
       // Check if it's a CORS-related error
-      if (error instanceof Error && 
-          (error.message.includes('CORS') || 
-           error.message.includes('cross-origin') ||
-           error.message.includes('unauthorized'))) {
-        console.warn('CORS error in profile picture upload setup');
-        return ''; // Return empty string instead of throwing
+      if (
+        error instanceof Error &&
+        (error.message.includes("CORS") ||
+          error.message.includes("cross-origin") ||
+          error.message.includes("unauthorized"))
+      ) {
+        console.warn("CORS error in profile picture upload setup");
+        return ""; // Return empty string instead of throwing
       }
-      
+
       throw error;
     }
   }

@@ -18,7 +18,7 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "ticktokshop-5f1e9",
   storageBucket:
     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-    "ticktokshop-5f1e9.appspot.com",
+    "ticktokshop-5f1e9.firebasestorage.app",
   messagingSenderId:
     process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "155434252666",
   appId:

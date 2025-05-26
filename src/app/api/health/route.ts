@@ -18,14 +18,13 @@ export async function GET() {
       // Just check if firestore is defined rather than making a call
       if (firestore) {
         firestoreTest = "Firestore instance available";
-        
-        // Check Firebase storage bucket format as this is often an issue in Vercel
+          // Check Firebase storage bucket format as this is often an issue in Vercel
         const storageBucketFormat = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "";
-        const isCorrectFormat = storageBucketFormat.includes("appspot.com");
+        const isCorrectFormat = storageBucketFormat.includes("firebasestorage.app");
         
         firestoreTest += isCorrectFormat 
           ? " (storage bucket format looks correct)" 
-          : " (warning: storage bucket format may not be optimal)";
+          : " (warning: storage bucket format may not be optimal - should use .firebasestorage.app)";
       } else {
         firestoreTest = "Firestore instance not available";
       }
