@@ -1,4 +1,19 @@
 // Firestore service for admin stock management
+/**
+ * StockService - Manages stock items, inventory, and listings
+ * 
+ * IMPORTANT: Zero-quantity handling
+ * This service now automatically deletes stock items when their quantity reaches zero.
+ * This applies to:
+ * - Admin stock items that reach zero quantity
+ * - Seller listings that reach zero quantity
+ * - Inventory items that reach zero quantity
+ * 
+ * This ensures that when stock is depleted, it is removed from the database,
+ * allowing users to create new stock with the same details later.
+ * 
+ * Automatic cleanup runs periodically through the StockCleanupService component.
+ */
 import {
   collection,
   doc,
@@ -54,6 +69,9 @@ export class StockService {
   // Active listeners store
   private static activeListeners: Map<string, Unsubscribe> = new Map();
 
+  // Track cleanup interval
+  private static cleanupInterval: NodeJS.Timeout | null = null;
+
   // Real-time sync methods
   static subscribeToSellerListings(
     sellerId: string,
@@ -104,7 +122,6 @@ export class StockService {
       throw error;
     }
   }
-
   static subscribeToInventory(
     sellerId: string,
     onUpdate: (items: StockItem[]) => void,
@@ -112,21 +129,42 @@ export class StockService {
   ): () => void {
     try {
       const listenerKey = `inventory_${sellerId}`;
+      console.log(`Setting up inventory subscription for user: ${sellerId}`);
 
       // Unsubscribe existing listener if any
       this.unsubscribeListener(listenerKey);
 
+      // Path structure following the updated pattern in processStockPurchase
+      const inventoryPath = `${this.INVENTORY_COLLECTION}/${sellerId}/products`;
+      console.log(`Querying inventory path: ${inventoryPath}`);
+
       const inventoryQuery = query(
-        collection(
-          firestore,
-          `${this.INVENTORY_COLLECTION}/${sellerId}/products`
-        ),
+        collection(firestore, inventoryPath),
         orderBy("updatedAt", "desc")
       );
 
       const unsubscribe = onSnapshot(
         inventoryQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
+          console.log(
+            `Got inventory data for user ${sellerId}:`,
+            snapshot.size,
+            "items"
+          );
+
+          // Debug: print first few document IDs for debugging
+          if (snapshot.size > 0) {
+            const firstFew = snapshot.docs.slice(0, 3);
+            console.log(
+              "Sample document IDs:",
+              firstFew.map((d) => d.id)
+            );
+            console.log(
+              "Sample data:",
+              firstFew.map((d) => d.data())
+            );
+          }
+
           const items: StockItem[] = [];
           snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
             const data = doc.data();
@@ -213,12 +251,13 @@ export class StockService {
 
       for (const docSnapshot of querySnapshot.docs) {
         const data = docSnapshot.data();
-        // Validate required fields exist
+        // Validate required fields exist and ensure stock > 0
         if (
           data.productCode &&
           data.name &&
           typeof data.price === "number" &&
-          typeof data.stock === "number"
+          typeof data.stock === "number" &&
+          data.stock > 0 // Double-check stock is greater than zero
         ) {
           // Ensure all fields are properly formatted
           const item: StockItem = {
@@ -353,11 +392,19 @@ export class StockService {
   ): Promise<void> {
     try {
       const itemRef = doc(firestore, StockService.COLLECTION, id);
-
-      await updateDoc(itemRef, {
-        ...data,
-        updatedAt: Timestamp.now(),
-      });
+      
+      // Check if the update would result in zero quantity
+      if (data.stock === 0) {
+        // Delete the item instead of updating it
+        await deleteDoc(itemRef);
+        console.log(`Stock item ${id} deleted because quantity reached zero`);
+      } else {
+        // Perform normal update
+        await updateDoc(itemRef, {
+          ...data,
+          updatedAt: Timestamp.now(),
+        });
+      }
     } catch (error) {
       console.error("Error updating stock item:", error);
       throw error;
@@ -391,14 +438,17 @@ export class StockService {
     quantity: number
   ): Promise<PurchaseResult> {
     try {
-      return await runTransaction(
-        firestore,
+      return await this.runSecureTransaction(
         async (t: Transaction): Promise<PurchaseResult> => {
-          // Get references
+          // Get all references
           const stockRef = doc(firestore, StockService.COLLECTION, stockId);
           const userRef = doc(firestore, "users", userId);
 
-          // Get current data
+          // Prepare inventory path and reference
+          const inventoryCollectionPath = `${StockService.INVENTORY_COLLECTION}/${userId}/products`;
+          const inventoryRef = collection(firestore, inventoryCollectionPath);
+
+          // Get current data - ALL READS FIRST
           const stockDoc = await t.get(stockRef);
           const userDoc = await t.get(userRef);
 
@@ -413,6 +463,12 @@ export class StockService {
 
           const stockData = stockDoc.data() as DocumentData;
           const userData = userDoc.data() as DocumentData;
+          // Also check if product already exists in seller's inventory - READ OPERATION
+          // Use the product ID from admin stock, not the document ID
+          const productId = stockData.productId || stockId;
+          console.log(`Looking for inventory product with ID: ${productId}`);
+          const productRef = doc(inventoryRef, productId);
+          const productDoc = await t.get(productRef);
 
           // Validate stock data
           if (
@@ -429,7 +485,9 @@ export class StockService {
               quantity: 0,
               totalCost: 0,
             };
-          } // Check user's balance
+          }
+
+          // Check user's balance
           const totalCost = stockData.price * quantity;
           if (userData.balance < totalCost) {
             return {
@@ -440,59 +498,67 @@ export class StockService {
             };
           }
 
+          // Now perform all write operations
+
           // Update user balance
           t.update(userRef, {
             balance: userData.balance - totalCost,
             updatedAt: Timestamp.now(),
           });
 
-          // Update stock quantity
-          t.update(stockRef, {
-            stock: stockData.stock - quantity,
-            updatedAt: Timestamp.now(),
-          });
-
-          // Handle inventory
-          const inventoryRef = collection(
-            firestore,
-            StockService.INVENTORY_COLLECTION
+          // Calculate new stock quantity
+          const newStockQuantity = stockData.stock - quantity;
+          
+          // Check if stock will be zero after purchase
+          if (newStockQuantity === 0) {
+            // Delete the admin stock item
+            t.delete(stockRef);
+          } else {
+            // Update stock quantity
+            t.update(stockRef, {
+              stock: newStockQuantity,
+              updatedAt: Timestamp.now(),
+            });
+          }
+          
+          // Handle inventory - all read operations have been completed
+          console.log(
+            `Processing inventory update for user ${userId}, product ${
+              stockData.productId || stockId
+            }`
           );
-          const inventoryQuery = query(
-            inventoryRef,
-            where("userId", "==", userId),
-            where("productCode", "==", stockData.productCode)
-          );
+          console.log(`Inventory path: ${inventoryCollectionPath}`);
+          console.log(`Product exists in inventory: ${productDoc.exists()}`);
 
-          const inventorySnapshot = await getDocs(inventoryQuery);
-
-          if (inventorySnapshot.docs.length > 0) {
+          if (productDoc.exists()) {
             // Update existing inventory item
-            const inventoryItemDoc = inventorySnapshot.docs[0];
-            const inventoryData = inventoryItemDoc.data();
-            t.update(
-              doc(
-                firestore,
-                StockService.INVENTORY_COLLECTION,
-                inventoryItemDoc.id
-              ),
-              {
-                quantity: (inventoryData.quantity || 0) + quantity,
-                updatedAt: Timestamp.now(),
-              }
+            const productData = productDoc.data();
+            console.log(`Existing product data:`, productData);
+            console.log(
+              `Updating quantity from ${productData.stock || 0} to ${
+                (productData.stock || 0) + quantity
+              }`
             );
+
+            t.update(productRef, {
+              stock: (productData.stock || 0) + quantity,
+              updatedAt: Timestamp.now(),
+            });
           } else {
             // Create new inventory item
-            const newInventoryDoc = doc(inventoryRef);
-            t.set(newInventoryDoc, {
-              userId,
-              productId: stockData.productId,
+            console.log(`Creating new inventory item for ${stockData.name}`);
+
+            t.set(productRef, {
+              productId: stockData.productId || stockId,
               productCode: stockData.productCode,
               name: stockData.name,
               description: stockData.description || "",
               image: stockData.image || "/images/placeholders/t-shirt.svg",
               category: stockData.category || "general",
-              quantity,
+              stock: quantity,
+              price: stockData.price,
               purchasePrice: stockData.price,
+              listed: false, // Initially not listed in marketplace
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
             });
@@ -669,6 +735,19 @@ export class StockService {
           }
 
           const listingData = listingDoc.data();
+
+          // If updating quantity to zero, delete the listing instead
+          if (updates.quantity === 0) {
+            // Delete the listing
+            t.delete(listingRef);
+            
+            return {
+              success: true,
+              message: "Listing deleted because quantity reached zero",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
 
           // If updating quantity, validate inventory
           if (updates.quantity && updates.quantity > listingData.quantity) {
@@ -906,6 +985,7 @@ export class StockService {
       const stockQuery = query(
         collection(firestore, this.COLLECTION),
         where("listed", "==", true),
+        where("stock", ">", 0), // Only listen for items with stock > 0
         orderBy("createdAt", "desc")
       );
 
@@ -919,7 +999,9 @@ export class StockService {
               data &&
               data.productCode &&
               data.name &&
-              typeof data.price === "number"
+              typeof data.price === "number" &&
+              typeof data.stock === "number" &&
+              data.stock > 0 // Double-check stock is greater than zero
             ) {
               stocks.push({
                 id: doc.id,
@@ -975,10 +1057,184 @@ export class StockService {
           } as StockItem);
         }
       });
-
       return items;
     } catch (error) {
       console.error("Error getting inventory items:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check and remove any stock items with zero quantity
+   * @returns Promise with count of removed items
+   */
+  static async cleanupZeroQuantityItems(): Promise<{
+    adminItemsRemoved: number;
+    listingsRemoved: number;
+  }> {
+    try {
+      let adminItemsRemoved = 0;
+      let listingsRemoved = 0;
+
+      // Find and remove admin stock items with zero quantity
+      const adminStockQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("stock", "==", 0)
+      );
+
+      const adminStockSnapshot = await getDocs(adminStockQuery);
+      
+      for (const doc of adminStockSnapshot.docs) {
+        await deleteDoc(doc.ref);
+        adminItemsRemoved++;
+      }
+
+      // Find and remove listings with zero quantity
+      const listingsQuery = query(
+        collection(firestore, this.LISTINGS_COLLECTION),
+        where("quantity", "==", 0)
+      );
+
+      const listingsSnapshot = await getDocs(listingsQuery);
+      
+      for (const doc of listingsSnapshot.docs) {
+        await deleteDoc(doc.ref);
+        listingsRemoved++;
+      }
+
+      console.log(
+        `Cleanup completed: Removed ${adminItemsRemoved} admin stock items and ${listingsRemoved} listings with zero quantity`
+      );
+
+      return { adminItemsRemoved, listingsRemoved };
+    } catch (error) {
+      console.error("Error cleaning up zero quantity items:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Initialize periodic cleanup of zero-quantity items
+   * @param intervalMinutes How often to run cleanup (in minutes)
+   * @returns Cleanup function to cancel the periodic task
+   */
+  static initializePeriodicCleanup(intervalMinutes: number = 60): () => void {
+    // Clear any existing interval
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    console.log(`Initializing periodic cleanup every ${intervalMinutes} minutes`);
+    
+    // Convert minutes to milliseconds
+    const intervalMs = intervalMinutes * 60 * 1000;
+    
+    // Set up periodic cleanup
+    this.cleanupInterval = setInterval(async () => {
+      try {
+        console.log("Running scheduled zero-quantity cleanup...");
+        // Clean up admin stock and listings
+        const stockResult = await this.cleanupZeroQuantityItems();
+        console.log(`Scheduled cleanup removed ${stockResult.adminItemsRemoved} admin items and ${stockResult.listingsRemoved} listings`);
+        
+        // Clean up all sellers' inventory items (less frequently - every 3 cycles)
+        // This is to avoid excessive operations on the database
+        if (Math.random() < 0.33) { // ~33% chance to run on each cycle
+          console.log("Running comprehensive inventory cleanup for all sellers...");
+          const inventoryResult = await this.cleanupAllSellersZeroInventory();
+          console.log(`Comprehensive inventory cleanup removed ${inventoryResult.itemsRemoved} items across ${inventoryResult.sellersAffected} sellers`);
+        }
+      } catch (error) {
+        console.error("Error in periodic cleanup:", error);
+      }
+    }, intervalMs);
+    
+    // Do NOT run an immediate cleanup here as the StockCleanupService 
+    // component now handles the initial cleanup
+    
+    // Return a function to cancel the interval
+    return () => {
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = null;
+      }
+    };
+  }
+
+  /**
+   * Delete zero-quantity items from a seller's inventory
+   * @param sellerId The seller's ID
+   * @returns Promise with number of items removed
+   */
+  static async deleteZeroQuantityInventoryItems(sellerId: string): Promise<number> {
+    try {
+      let itemsRemoved = 0;
+      
+      // Get inventory items with zero quantity
+      const inventoryPath = `${this.INVENTORY_COLLECTION}/${sellerId}/products`;
+      const inventoryQuery = query(
+        collection(firestore, inventoryPath),
+        where("stock", "==", 0)
+      );
+      
+      const snapshot = await getDocs(inventoryQuery);
+      
+      // Delete each item with zero quantity
+      for (const doc of snapshot.docs) {
+        await deleteDoc(doc.ref);
+        itemsRemoved++;
+      }
+      
+      console.log(`Removed ${itemsRemoved} zero-quantity items from seller ${sellerId}'s inventory`);
+      return itemsRemoved;
+    } catch (error) {
+      console.error("Error deleting zero-quantity inventory items:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up zero-quantity inventory items for all sellers
+   * @returns Promise with count of removed items and affected sellers
+   */
+  static async cleanupAllSellersZeroInventory(): Promise<{
+    itemsRemoved: number;
+    sellersAffected: number;
+  }> {
+    try {
+      // Get all inventory collections
+      const inventoryCollections = await getDocs(
+        collection(firestore, this.INVENTORY_COLLECTION)
+      );
+      
+      let itemsRemoved = 0;
+      let sellersAffected = 0;
+      
+      // Process each seller's inventory
+      for (const sellerDoc of inventoryCollections.docs) {
+        const sellerId = sellerDoc.id;
+        
+        // Skip any non-folder documents
+        if (!sellerId) continue;
+        
+        try {
+          // Delete zero-quantity items for this seller
+          const removed = await this.deleteZeroQuantityInventoryItems(sellerId);
+          
+          if (removed > 0) {
+            itemsRemoved += removed;
+            sellersAffected++;
+          }
+        } catch (error) {
+          console.error(`Error cleaning up inventory for seller ${sellerId}:`, error);
+          // Continue with other sellers even if one fails
+        }
+      }
+      
+      console.log(`Global inventory cleanup: Removed ${itemsRemoved} zero-quantity items across ${sellersAffected} sellers`);
+      return { itemsRemoved, sellersAffected };
+    } catch (error) {
+      console.error("Error in global inventory cleanup:", error);
       throw error;
     }
   }

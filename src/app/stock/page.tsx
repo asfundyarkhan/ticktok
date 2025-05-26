@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUserBalance } from "../components/UserBalanceContext";
+import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
 
 export default function StockPage() {
-  const { balance, deductFromBalance } = useUserBalance();
+  const { balance } = useUserBalance();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [adminProducts, setAdminProducts] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +72,62 @@ export default function StockPage() {
     });
   };
 
+  // Generate quantity options based on available stock
+  const generateQuantityOptions = (stock: number): number[] => {
+    const options: number[] = [];
+    
+    // For very small stock, offer options in smaller increments
+    if (stock <= 50) {
+      // Offer options in increments of 5, up to the available stock
+      for (let i = 5; i <= stock; i += 5) {
+        options.push(i);
+      }
+      // Add the full stock amount if it's not already included
+      if (stock % 5 !== 0 && !options.includes(stock)) {
+        options.push(stock);
+      }
+    } else if (stock <= 200) {
+      // For medium stock, offer options in increments of 10, then 25, then 50
+      for (let i = 10; i <= Math.min(50, stock); i += 10) {
+        options.push(i);
+      }
+      for (let i = 50; i <= Math.min(100, stock); i += 25) {
+        if (!options.includes(i)) options.push(i);
+      }
+      for (let i = 100; i <= stock; i += 50) {
+        if (!options.includes(i)) options.push(i);
+      }
+      // Add the full stock amount if it's not already included
+      if (!options.includes(stock) && options[options.length - 1] < stock) {
+        options.push(stock);
+      }
+    } else {
+      // For larger stock, offer more spaced-out options
+      options.push(50, 100, 200);
+      
+      // Add increments of 100 up to 1000
+      if (stock > 200) {
+        for (let i = 300; i <= Math.min(1000, stock); i += 100) {
+          options.push(i);
+        }
+      }
+      
+      // Add increments of 500 for very large stock
+      if (stock > 1000) {
+        for (let i = 1500; i <= stock; i += 500) {
+          options.push(i);
+        }
+      }
+      
+      // Add the full stock amount if it's a "round" number and not already included
+      if (!options.includes(stock) && stock % 100 === 0) {
+        options.push(stock);
+      }
+    }
+    
+    return options;
+  };
+
   // Pagination handlers
   const goToPreviousPage = () => {
     if (currentPage > 1) {
@@ -82,7 +140,6 @@ export default function StockPage() {
       setCurrentPage(currentPage + 1);
     }
   };
-
   const handleBuyStock = async (productId: string) => {
     const product = adminProducts.find((p) => p.productId === productId);
     const quantity = selectedQuantities[productId];
@@ -94,13 +151,21 @@ export default function StockPage() {
 
     const totalPrice = product.price * quantity;
 
-    // Use our balance context to deduct the amount
-    if (!deductFromBalance(totalPrice)) {
+    // Check if user has enough balance but DON'T deduct it yet - let the transaction handle it
+    if (balance < totalPrice) {
       toast.error("Insufficient balance. Please add funds to your wallet.");
       return;
-    }    try {
-      // Use Firebase transaction for stock purchase
-      await StockService.processStockPurchase(productId, quantity, "current-user-id");
+    }
+    
+    try {
+      if (!user || !user.uid) {
+        toast.error("You must be logged in to purchase stock");
+        return;
+      }
+      
+      // Use Firebase transaction for stock purchase with user's actual ID
+      // The transaction will handle balance deduction
+      await StockService.processStockPurchase(user.uid, product.id || "", quantity);
       
       // Reset quantity
       handleQuantityChange(productId, 0);
@@ -113,10 +178,13 @@ export default function StockPage() {
       // Use setTimeout to wait for toast to appear before redirecting
       setTimeout(() => {
         window.location.href = "/stock/inventory";
-      }, 1500);
-    } catch (error) {
+      }, 1500);    } catch (error) {
       console.error("Error purchasing stock:", error);
-      toast.error("Failed to purchase stock. Please try again.");
+      // Show more detailed error message to help with debugging
+      const errorMessage = error instanceof Error 
+        ? `Error: ${error.message}`
+        : "Failed to purchase stock. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -349,8 +417,7 @@ export default function StockPage() {
                   ${product.price.toFixed(2)}
                 </div>
                 <div className="col-span-2">
-                  <div className="relative">
-                    <select
+                  <div className="relative">                    <select
                       className="w-full appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900"
                       value={selectedQuantities[product.productId] || 0}
                       onChange={(e) =>
@@ -361,9 +428,11 @@ export default function StockPage() {
                       }
                     >
                       <option value={0}>Choose unit</option>
-                      <option value={50}>50pcs</option>
-                      <option value={100}>100pcs</option>
-                      <option value={200}>200pcs</option>
+                      {generateQuantityOptions(product.stock).map((quantity) => (
+                        <option key={quantity} value={quantity}>
+                          {quantity}pcs
+                        </option>
+                      ))}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                       <svg

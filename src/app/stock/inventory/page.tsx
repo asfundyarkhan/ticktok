@@ -5,14 +5,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUserBalance } from "../../components/UserBalanceContext";
+import { useAuth } from "../../../context/AuthContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
 import { StockService } from "../../../services/stockService";
 import { StockItem } from "../../../types/marketplace";
 import { toast } from "react-hot-toast";
+import { collection, getDocs } from "firebase/firestore";
+import { firestore } from "../../../lib/firebase/firebase";
 
 export default function InventoryPage() {
   const router = useRouter();
   const { balance, addToBalance } = useUserBalance();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
@@ -22,16 +26,35 @@ export default function InventoryPage() {
   const [currentProduct, setCurrentProduct] = useState<StockItem | null>(null);
   const [sellQuantity, setSellQuantity] = useState(0);
   const [sellPrice, setSellPrice] = useState(0);
-  const [processingListing, setProcessingListing] = useState(false);
-
-  // Current user ID - in a real app, this would come from authentication
-  const currentUserId = "current-user-id";
-
-  useEffect(() => {
+  const [processingListing, setProcessingListing] = useState(false);  useEffect(() => {
+    console.log("Inventory page mounted, user:", user?.uid);
+    
+    if (!user || !user.uid) {
+      // If not logged in, show appropriate message
+      setLoading(false);
+      toast.error("You must be logged in to view inventory");
+      return () => {
+        console.log("Cleanup function called for non-authenticated user");
+      };
+    }
+    
+    console.log(`Setting up inventory subscription for user ${user.uid}`);
+    
+    // Clean up zero-quantity items before loading inventory
+    StockService.deleteZeroQuantityInventoryItems(user.uid)
+      .then(numRemoved => {
+        if (numRemoved > 0) {
+          console.log(`Cleaned up ${numRemoved} zero-quantity inventory items`);
+        }
+      })
+      .catch(error => {
+        console.error("Error cleaning up inventory:", error);
+      });
+    
     // Subscribe to real-time inventory updates
-    const unsubscribe = StockService.subscribeToInventory(
-      currentUserId,
+    const unsubscribe = StockService.subscribeToInventory(user.uid,
       (items) => {
+        console.log(`Received ${items.length} inventory items for user ${user.uid}`);
         setInventoryItems(items);
         setLoading(false);
       },
@@ -40,9 +63,7 @@ export default function InventoryPage() {
         toast.error("Failed to load inventory");
         setLoading(false);
       }
-    );
-
-    // Check if there's a product to highlight (coming from restock button)
+    );// Check if there's a product to highlight (coming from restock button)
     const productToRestock = localStorage.getItem("productToRestock");
     if (productToRestock) {
       // Find and highlight the product in the list
@@ -55,25 +76,32 @@ export default function InventoryPage() {
         }
       }, 500);
       localStorage.removeItem("productToRestock");
-    }
-
-    return () => unsubscribe();
-  }, [currentUserId]);
+    }    return () => {
+      console.log(`Cleaning up inventory subscription for user ${user.uid}`);
+      unsubscribe();
+    };
+  }, [user]);
 
   // Filter products based on search query
   const filteredProducts = inventoryItems.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
+      product.productCode.toLowerCase().includes(searchQuery.toLowerCase()) 
   );
 
-  const totalItems = filteredProducts.length;
+  // Further filter out products with zero stock that should have been deleted
+  // This is a fallback in case the automatic deletion didn't work
+  const productsWithStock = filteredProducts.filter(
+    (product) => (product.stock || 0) > 0
+  );
+
+  const totalItems = productsWithStock.length;
   const validRowsPerPage = isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
   const totalPages = Math.ceil(totalItems / validRowsPerPage);
   const startIndex = (currentPage - 1) * validRowsPerPage;
   const endIndex = Math.min(startIndex + validRowsPerPage, totalItems);
-  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+  const currentProducts = productsWithStock.slice(startIndex, endIndex);
 
 
   // Reset to first page when search query changes
@@ -99,12 +127,15 @@ export default function InventoryPage() {
       return;
     }
 
-    setProcessingListing(true);
-
-    try {
+    setProcessingListing(true);    try {
+      if (!user || !user.uid) {
+        toast.error("You must be logged in to create a listing");
+        return;
+      }
+      
       // Use Firebase transaction to create listing
       const result = await StockService.createListing(
-        currentUserId,
+        user.uid,
         currentProduct.id,
         sellQuantity,
         sellPrice
@@ -137,6 +168,30 @@ export default function InventoryPage() {
       toast.error("Failed to create listing. Please try again.");
     } finally {
       setProcessingListing(false);
+    }
+  };
+  // Debug function to directly check the Firebase database
+  const debugCheckInventory = async () => {
+    if (!user || !user.uid) return;
+    
+    try {
+      // Check both potential paths where inventory might be stored
+      const newPath = collection(firestore, `inventory/${user.uid}/products`);
+      const newPathDocs = await getDocs(newPath);
+      
+      console.log("Debug - New path inventory check:", newPathDocs.size, "items found");
+      newPathDocs.forEach(doc => {
+        console.log(`Item: ${doc.id}`, doc.data());
+      });
+      
+      if (newPathDocs.size === 0) {
+        toast.error("No inventory items found. Try purchasing some stock.");
+      } else {
+        toast.success(`Found ${newPathDocs.size} items in your inventory!`);
+      }
+    } catch (error) {
+      console.error("Error in debug check:", error);
+      toast.error("Error checking inventory directly");
     }
   };
 
@@ -279,9 +334,7 @@ export default function InventoryPage() {
               Add Funds
             </Link>
           </div>
-        </div>
-
-        {/* Search inventory */}
+        </div>        {/* Search inventory */}
         <div className="flex justify-between items-center mb-6">
           <div className="relative w-full max-w-md">
             <input
@@ -308,13 +361,21 @@ export default function InventoryPage() {
               </svg>
             </div>
           </div>
+            <div className="flex space-x-2">
+            <button
+              onClick={debugCheckInventory}
+              className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium"
+            >
+              Refresh Inventory
+            </button>
+          </div>
         </div>
 
         {/* Table */}
         <div className="mb-4">
-          {filteredProducts.length > 0 ? (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>                <tr className="text-gray-700 uppercase text-xs font-semibold">
+          {filteredProducts.length > 0 ? (            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="text-gray-700 uppercase text-xs font-semibold">
                   <th className="py-3 text-left pl-2 pr-6">PRODUCT IMAGE</th>
                   <th className="py-3 text-left px-6">PRODUCT NAME</th>
                   <th className="py-3 text-left px-6">DESCRIPTION</th>

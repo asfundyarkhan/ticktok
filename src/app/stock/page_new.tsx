@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useUserBalance } from "../components/UserBalanceContext";
+import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
 
 export default function StockPage() {
-  const { balance, deductFromBalance } = useUserBalance();
+  const { balance } = useUserBalance();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [adminProducts, setAdminProducts] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,17 +94,20 @@ export default function StockPage() {
       return;
     }
 
-    const totalPrice = product.price * quantity;
-
-    // Use our balance context to deduct the amount
-    if (!deductFromBalance(totalPrice)) {
+    const totalPrice = product.price * quantity;    // Check if user has enough balance but DON'T deduct it yet - let the transaction handle it
+    if (balance < totalPrice) {
       toast.error("Insufficient balance. Please add funds to your wallet.");
       return;
     }
-
+    
     try {
-      // Use Firebase transaction for stock purchase
-      await StockService.processStockPurchase(productId.toString(), quantity, "current-user-id");
+      if (!user || !user.uid) {
+        toast.error("You must be logged in to purchase stock");
+        return;
+      }
+      
+      // Use Firebase transaction for stock purchase with user's actual ID
+      await StockService.processStockPurchase(user.uid, productId.toString(), quantity);
       
       // Reset quantity
       handleQuantityChange(productId, 0);

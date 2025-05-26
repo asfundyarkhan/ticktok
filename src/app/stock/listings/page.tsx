@@ -43,9 +43,14 @@ export default function MyListingsPage() {
   }, [user?.uid]);// Filter products based on search query
   const filteredListings = myListings.filter(
     (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.productId.toLowerCase().includes(searchQuery.toLowerCase())
+      // First ensure the product has quantity > 0
+      product.quantity > 0 && 
+      // Then check if it matches the search query
+      (
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.productId.toLowerCase().includes(searchQuery.toLowerCase())
+      )
   );
 
   // Pagination calculations
@@ -293,7 +298,8 @@ export default function MyListingsPage() {
           {myListings.length > 0 ? (
             <>
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">                  <tr>
+                <thead className="bg-gray-50">
+                  <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
@@ -377,11 +383,10 @@ export default function MyListingsPage() {
                         >
                           Remove
                         </button>
-                      </td>
-                    </tr>
+                      </td></tr>
                   ))}
                 </tbody>
-              </table>{" "}
+              </table>
               {/* Pagination */}
               <div className="px-6 py-3 bg-white border-t border-gray-200">
                 <PaginationWithCustomRows
@@ -399,7 +404,8 @@ export default function MyListingsPage() {
                 />
               </div>
             </>
-          ) : (            <div className="py-20 text-center">
+          ) : (
+            <div className="py-20 text-center">
               <div className="text-gray-500 mb-4">
                 You don&apos;t have any product listings yet
               </div>

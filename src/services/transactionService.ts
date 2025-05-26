@@ -79,10 +79,10 @@ export class TransactionService {
         // Create the credit transaction
         const creditTransactionRef = doc(
           collection(firestore, this.COLLECTION)
-        );
+        ); // Build the credit transaction object with conditional referrerId
+        // to avoid "undefined" values in Firestore
         const creditTransaction: Omit<CreditTransaction, "id"> = {
           userId,
-          referrerId,
           amount: userAmount,
           commission,
           type: "top_up",
@@ -91,6 +91,11 @@ export class TransactionService {
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         };
+
+        // Only add referrerId if it's actually defined
+        if (referrerId) {
+          creditTransaction.referrerId = referrerId;
+        }
 
         // Create transaction record
         transaction.set(creditTransactionRef, creditTransaction);
