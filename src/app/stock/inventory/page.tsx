@@ -289,9 +289,8 @@ export default function InventoryPage() {
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             General
-          </Link>
-          <Link
-            href="/wallet"
+          </Link>          <Link
+            href="/receipts"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             Wallet
@@ -328,7 +327,7 @@ export default function InventoryPage() {
               </p>
             </div>
             <Link
-              href="/wallet"
+              href="/receipts"
               className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
             >
               Add Funds

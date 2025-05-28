@@ -1,17 +1,17 @@
 // Firestore service for admin stock management
 /**
  * StockService - Manages stock items, inventory, and listings
- * 
+ *
  * IMPORTANT: Zero-quantity handling
  * This service now automatically deletes stock items when their quantity reaches zero.
  * This applies to:
  * - Admin stock items that reach zero quantity
  * - Seller listings that reach zero quantity
  * - Inventory items that reach zero quantity
- * 
+ *
  * This ensures that when stock is depleted, it is removed from the database,
  * allowing users to create new stock with the same details later.
- * 
+ *
  * Automatic cleanup runs periodically through the StockCleanupService component.
  */
 import {
@@ -392,7 +392,7 @@ export class StockService {
   ): Promise<void> {
     try {
       const itemRef = doc(firestore, StockService.COLLECTION, id);
-      
+
       // Check if the update would result in zero quantity
       if (data.stock === 0) {
         // Delete the item instead of updating it
@@ -508,7 +508,7 @@ export class StockService {
 
           // Calculate new stock quantity
           const newStockQuantity = stockData.stock - quantity;
-          
+
           // Check if stock will be zero after purchase
           if (newStockQuantity === 0) {
             // Delete the admin stock item
@@ -520,7 +520,7 @@ export class StockService {
               updatedAt: Timestamp.now(),
             });
           }
-          
+
           // Handle inventory - all read operations have been completed
           console.log(
             `Processing inventory update for user ${userId}, product ${
@@ -740,7 +740,7 @@ export class StockService {
           if (updates.quantity === 0) {
             // Delete the listing
             t.delete(listingRef);
-            
+
             return {
               success: true,
               message: "Listing deleted because quantity reached zero",
@@ -1083,7 +1083,7 @@ export class StockService {
       );
 
       const adminStockSnapshot = await getDocs(adminStockQuery);
-      
+
       for (const doc of adminStockSnapshot.docs) {
         await deleteDoc(doc.ref);
         adminItemsRemoved++;
@@ -1096,7 +1096,7 @@ export class StockService {
       );
 
       const listingsSnapshot = await getDocs(listingsQuery);
-      
+
       for (const doc of listingsSnapshot.docs) {
         await deleteDoc(doc.ref);
         listingsRemoved++;
@@ -1124,34 +1124,43 @@ export class StockService {
       clearInterval(this.cleanupInterval);
     }
 
-    console.log(`Initializing periodic cleanup every ${intervalMinutes} minutes`);
-    
+    console.log(
+      `Initializing periodic cleanup every ${intervalMinutes} minutes`
+    );
+
     // Convert minutes to milliseconds
     const intervalMs = intervalMinutes * 60 * 1000;
-    
+
     // Set up periodic cleanup
     this.cleanupInterval = setInterval(async () => {
       try {
         console.log("Running scheduled zero-quantity cleanup...");
         // Clean up admin stock and listings
         const stockResult = await this.cleanupZeroQuantityItems();
-        console.log(`Scheduled cleanup removed ${stockResult.adminItemsRemoved} admin items and ${stockResult.listingsRemoved} listings`);
-        
+        console.log(
+          `Scheduled cleanup removed ${stockResult.adminItemsRemoved} admin items and ${stockResult.listingsRemoved} listings`
+        );
+
         // Clean up all sellers' inventory items (less frequently - every 3 cycles)
         // This is to avoid excessive operations on the database
-        if (Math.random() < 0.33) { // ~33% chance to run on each cycle
-          console.log("Running comprehensive inventory cleanup for all sellers...");
+        if (Math.random() < 0.33) {
+          // ~33% chance to run on each cycle
+          console.log(
+            "Running comprehensive inventory cleanup for all sellers..."
+          );
           const inventoryResult = await this.cleanupAllSellersZeroInventory();
-          console.log(`Comprehensive inventory cleanup removed ${inventoryResult.itemsRemoved} items across ${inventoryResult.sellersAffected} sellers`);
+          console.log(
+            `Comprehensive inventory cleanup removed ${inventoryResult.itemsRemoved} items across ${inventoryResult.sellersAffected} sellers`
+          );
         }
       } catch (error) {
         console.error("Error in periodic cleanup:", error);
       }
     }, intervalMs);
-    
-    // Do NOT run an immediate cleanup here as the StockCleanupService 
+
+    // Do NOT run an immediate cleanup here as the StockCleanupService
     // component now handles the initial cleanup
-    
+
     // Return a function to cancel the interval
     return () => {
       if (this.cleanupInterval) {
@@ -1166,26 +1175,30 @@ export class StockService {
    * @param sellerId The seller's ID
    * @returns Promise with number of items removed
    */
-  static async deleteZeroQuantityInventoryItems(sellerId: string): Promise<number> {
+  static async deleteZeroQuantityInventoryItems(
+    sellerId: string
+  ): Promise<number> {
     try {
       let itemsRemoved = 0;
-      
+
       // Get inventory items with zero quantity
       const inventoryPath = `${this.INVENTORY_COLLECTION}/${sellerId}/products`;
       const inventoryQuery = query(
         collection(firestore, inventoryPath),
         where("stock", "==", 0)
       );
-      
+
       const snapshot = await getDocs(inventoryQuery);
-      
+
       // Delete each item with zero quantity
       for (const doc of snapshot.docs) {
         await deleteDoc(doc.ref);
         itemsRemoved++;
       }
-      
-      console.log(`Removed ${itemsRemoved} zero-quantity items from seller ${sellerId}'s inventory`);
+
+      console.log(
+        `Removed ${itemsRemoved} zero-quantity items from seller ${sellerId}'s inventory`
+      );
       return itemsRemoved;
     } catch (error) {
       console.error("Error deleting zero-quantity inventory items:", error);
@@ -1206,32 +1219,37 @@ export class StockService {
       const inventoryCollections = await getDocs(
         collection(firestore, this.INVENTORY_COLLECTION)
       );
-      
+
       let itemsRemoved = 0;
       let sellersAffected = 0;
-      
+
       // Process each seller's inventory
       for (const sellerDoc of inventoryCollections.docs) {
         const sellerId = sellerDoc.id;
-        
+
         // Skip any non-folder documents
         if (!sellerId) continue;
-        
+
         try {
           // Delete zero-quantity items for this seller
           const removed = await this.deleteZeroQuantityInventoryItems(sellerId);
-          
+
           if (removed > 0) {
             itemsRemoved += removed;
             sellersAffected++;
           }
         } catch (error) {
-          console.error(`Error cleaning up inventory for seller ${sellerId}:`, error);
+          console.error(
+            `Error cleaning up inventory for seller ${sellerId}:`,
+            error
+          );
           // Continue with other sellers even if one fails
         }
       }
-      
-      console.log(`Global inventory cleanup: Removed ${itemsRemoved} zero-quantity items across ${sellersAffected} sellers`);
+
+      console.log(
+        `Global inventory cleanup: Removed ${itemsRemoved} zero-quantity items across ${sellersAffected} sellers`
+      );
       return { itemsRemoved, sellersAffected };
     } catch (error) {
       console.error("Error in global inventory cleanup:", error);

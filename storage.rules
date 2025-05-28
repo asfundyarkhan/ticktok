@@ -19,6 +19,7 @@ service firebase.storage {
     // Allow public read access to all files
     match /{allPaths=**} {
       allow read: if true;
+      allow write: if isAuthenticated();
     }
       
     // Allow write access for authenticated users to their own user directory
@@ -38,6 +39,19 @@ service firebase.storage {
       allow write: if isAuthenticated() 
         && isValidImage()
         && request.resource.size < 10 * 1024 * 1024; // 10MB max
+    }
+    
+    // Allow receipt image uploads for authenticated users to their own folder
+    match /receipts/{userId}/{fileName} {
+      // Allow uploads for authenticated users to their own folder
+      allow write: if isAuthenticated() 
+        && request.auth.uid == userId 
+        && isValidImage()
+        && request.resource.size < 5 * 1024 * 1024; // 5MB max
+      
+      // Allow public read access to receipt images 
+      // This ensures users can view receipts regardless of role status
+      allow read: if true;
     }
     
     // Allow admin-products image uploads for authenticated users

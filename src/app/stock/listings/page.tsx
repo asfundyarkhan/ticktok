@@ -219,9 +219,8 @@ export default function MyListingsPage() {
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             General
-          </Link>
-          <Link
-            href="/wallet"
+          </Link>          <Link
+            href="/receipts"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             Wallet

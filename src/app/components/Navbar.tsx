@@ -53,7 +53,8 @@ export default function Navbar() {
     pathname.startsWith("/store") ||
     pathname.startsWith("/stock") ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/wallet");
+    pathname.startsWith("/wallet") ||
+    pathname.startsWith("/receipts");
 
   return (
     <nav
@@ -114,11 +115,10 @@ export default function Navbar() {
                 }`}
               >
                 Stock
-              </Link>
-              <Link
-                href="/wallet"
+              </Link>              <Link
+                href="/receipts"
                 className={`text-sm font-medium ${
-                  pathname.startsWith("/wallet")
+                  pathname.startsWith("/receipts")
                     ? "text-[#FF0059]"
                     : "text-gray-600 hover:text-gray-900"
                 }`}

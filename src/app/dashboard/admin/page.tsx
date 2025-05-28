@@ -6,7 +6,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { UserService } from "../../../services/userService";
 import { LoadingSpinner } from "../../components/Loading";
-import Link from "next/link";
 
 // Modified User interface to match our Firebase structure
 interface User {
@@ -204,6 +203,10 @@ function AdminPageContent() {
     }
   };
 
+  const navigateToReceipts = () => {
+    window.location.href = "/dashboard/admin/receipts";
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -229,21 +232,16 @@ function AdminPageContent() {
   }
 
   return (
-    <div className="p-6">      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">Seller Credit Management</h1>
-        <div className="flex space-x-2">
-          <Link 
-            href="/dashboard/referral-debug" 
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Seller Management</h1>
+        <div className="flex space-x-3">
+          <button
+            onClick={navigateToReceipts}
+            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
           >
-            Referral Codes
-          </Link>
-          <Link 
-            href="/dashboard/email-verification-debug" 
-            className="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
-          >
-            Email Verification
-          </Link>
+            Manage Payment Receipts
+          </button>
         </div>
       </div>
       <div className="mb-6">
@@ -266,9 +264,9 @@ function AdminPageContent() {
           </p>
         </div>
       ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white rounded-lg">              <thead>
+        <>          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white rounded-lg">
+              <thead>
                 <tr className="bg-gray-50 border-b">
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seller Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seller ID</th>
@@ -286,7 +284,8 @@ function AdminPageContent() {
                         <div className="text-sm font-medium text-gray-900">
                           {user.displayName || "Unknown"}
                         </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>                      </div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {user.uid}
@@ -328,7 +327,8 @@ function AdminPageContent() {
                           )}
                         </button>
                       )}
-                    </td>                    <td className="px-6 py-4">
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
                         <div className="relative flex-1" style={{ minWidth: "120px", width: "100%" }}>
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">

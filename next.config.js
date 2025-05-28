@@ -40,8 +40,7 @@ const nextConfig = {
   },
   poweredByHeader: false,
   compress: true,
-  crossOrigin: "anonymous",
-  // Add production-specific optimizations
+  crossOrigin: "anonymous", // Add production-specific optimizations
   productionBrowserSourceMaps: false, // Configure image optimization for production
   images: {
     domains: [
