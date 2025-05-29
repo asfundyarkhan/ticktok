@@ -1,15 +1,16 @@
 "use client";
 
 import React from "react";
-import { Product } from "@/types/product";
-import StarRating from "./StarRating";
-import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
+import { StockItem } from "@/types/marketplace";
 import Image from "next/image";
+import { motion } from "framer-motion";
+import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
 import { useRouter } from "next/navigation";
+import { getBestProductImage } from "../utils/imageHelpers";
 
 interface ProductGridProps {
-  products: Product[];
-  onAddToCart: (product: Product, event?: React.MouseEvent) => void;
+  products: StockItem[];
+  onAddToCart: (product: StockItem, event: React.MouseEvent) => void;
 }
 
 export default function ProductGrid({
@@ -25,64 +26,106 @@ export default function ProductGrid({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {products.map((product) => (
-        <div
+        <motion.div
           key={product.id}
-          className="bg-white rounded-lg shadow-sm overflow-hidden cursor-pointer"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
         >
           <div
-            className="relative aspect-square"
-            onClick={() => handleProductClick(product.id)}
-          >            <Image
-              src={product.image}
+            className="relative aspect-square mb-4 overflow-hidden rounded-md bg-gray-200 cursor-pointer"
+            onClick={() => product.id && handleProductClick(product.id)}
+          >
+            <Image
+              src={getBestProductImage(product)}
               alt={product.name}
-              width={300}
-              height={300}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover transform hover:scale-105 transition-transform"
+              onError={(e) => {
+                console.log("Image failed to load:", e.currentTarget.src);
+                e.currentTarget.src = '/images/placeholders/product.svg';
+              }}
+              unoptimized={true}
+              priority
             />
             {product.isSale && (
-              <span className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-xs font-semibold rounded">
-                SALE
-              </span>
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                SALE {product.salePercentage > 0 && `-${product.salePercentage}%`}
+              </div>
+            )}
+            {product.rating > 0 && (
+              <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                <span>⭐</span>
+                <span>{product.rating.toFixed(1)}</span>
+              </div>
             )}
           </div>
-          <div className="p-4" onClick={() => handleProductClick(product.id)}>
-            <h3 className="text-lg font-medium text-gray-900">
-              {product.name}
-            </h3>
-            <div className="mt-2">
-              <StarRating rating={product.rating} />
-              <span className="text-sm text-gray-700">({product.reviews})</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {product.salePrice ? (
-                  <>
-                    <span className="text-lg font-medium text-gray-900">
+
+          <h3 className="text-lg font-medium text-gray-900 mb-1">
+            {product.name}
+          </h3>
+
+          <div className="mb-2">
+            <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <div>
+                {product.isSale && product.salePrice ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-gray-900">
                       ${product.salePrice}
                     </span>
-                    <span className="text-sm text-gray-700 line-through">
+                    <span className="text-sm text-gray-500 line-through">
                       ${product.price}
                     </span>
-                  </>
+                  </div>
                 ) : (
-                  <span className="text-lg font-medium text-gray-900">
+                  <span className="text-lg font-bold text-gray-900">
                     ${product.price}
                   </span>
                 )}
-              </div>{" "}
-              <div onClick={(e) => e.stopPropagation()}>
-                <EnhancedQuickAddButton
-                  product={product}
-                  className="flex items-center justify-center w-10 h-10"
-                  showIcon={true}
-                  variant="round"
-                  size="md"
-                  onClick={(e) => onAddToCart(product, e)}
-                />
+              </div>
+              {product.stock > 0 ? (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <EnhancedQuickAddButton
+                    product={{
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                      salePrice: product.salePrice,
+                      category: product.category,                      image: getBestProductImage(product),
+                      description: product.description,
+                      quantity: product.stock,
+                      sellerId: product.sellerId || "",
+                      sellerName: product.sellerName,
+                      productId: product.productId,
+                      isSale: product.isSale,
+                    }}
+                    className="flex items-center justify-center w-10 h-10"
+                    showIcon={true}
+                    variant="round"
+                    size="md"
+                    onClick={(e) => onAddToCart(product, e)}
+                  />
+                </div>
+              ) : (
+                <span className="text-sm text-red-500 font-medium">Out of stock</span>
+              )}
+            </div>
+            <div className="flex justify-between items-center text-sm text-gray-500">
+              <span>By {product.sellerName || 'Unknown Seller'}</span>
+              <div className="flex items-center gap-2">
+                <span>{product.stock} in stock</span>
+                {product.reviews > 0 && (
+                  <span>({product.reviews} reviews)</span>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       ))}
     </div>
   );

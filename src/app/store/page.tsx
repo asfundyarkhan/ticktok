@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { toast } from "react-hot-toast";
 import ProductGrid from "@/app/components/ProductGrid";
 import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
 import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
-import { useCart } from "@/app/components/CartContext";
+import { useCart } from "@/app/components/NewCartContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
+import { StockService } from "@/services/stockService";
+import type { StockItem } from "@/types/marketplace";
 import "rc-pagination/assets/index.css";
-import { Product } from "@/types/product";
+import { toast } from "react-hot-toast";
+import { getBestProductImage, normalizeProductImages } from "../utils/imageHelpers";
 
+// Keep the same categories
 const categories = [
   { id: "all", name: "All" },
   { id: "casual", name: "Casual" },
@@ -20,85 +23,19 @@ const categories = [
   { id: "gym", name: "Gym" },
 ];
 
-// Default products as fallback
-const defaultProducts: Product[] = [
-  {
-    id: "1",
-    name: "Gradient Graphic T-shirt",
-    price: 145,
-    category: "casual",
-    rating: 4.5,
-    image: "/images/placeholders/t-shirt.svg",
-    reviews: 128,
-    sizes: ["S", "M", "L", "XL"],
-    description: "A comfortable graphic t-shirt perfect for casual outings",
-  },
-  {
-    id: "2",
-    name: "Polo with Taping Details",
-    price: 180,
-    category: "casual",
-    rating: 4.8,
-    image: "/images/placeholders/t-shirt.svg",
-    reviews: 89,
-    sizes: ["M", "L", "XL", "2XL"],
-    description: "Premium polo shirt with elegant tape details on the collar",
-  },
-  {
-    id: "3",
-    name: "Black Striped T-shirt",
-    price: 160,
-    salePrice: 130,
-    isSale: true,
-    category: "casual",
-    rating: 4.7,
-    image: "/images/placeholders/t-shirt.svg",
-    reviews: 156,
-    sizes: ["XS", "S", "M", "L"],
-    description: "Fashionable black striped t-shirt with modern fit",
-  },
-  {
-    id: "4",
-    name: "Skinny Fit Jeans",
-    price: 260,
-    salePrice: 240,
-    isSale: true,
-    category: "casual",
-    rating: 4.6,
-    image: "/images/placeholders/t-shirt.svg",
-    reviews: 234,
-    sizes: ["S", "M", "L", "XL"],
-    description: "Stylish skinny fit jeans that hug your legs comfortably",
-  },
-  {
-    id: "5",
-    name: "Checkered Shirt",
-    price: 180,
-    category: "casual",
-    rating: 4.8,
-    image: "/images/placeholders/t-shirt.svg",
-    reviews: 89,
-    sizes: ["M", "L", "XL", "2XL"],
-    description: "Classic checkered shirt for a smart casual look",
-  },
-];
+const animationSettings = {
+  animationDuration: 800,
+  animationDelay: 200,
+  openCartAfterAdd: false,
+  openCartDelay: 1000,
+};
 
 export default function StorePage() {
-  // Animation settings - easily configurable
-  const animationSettings = {
-    animationDuration: 700,
-    animationDelay: 300,
-    openCartAfterAdd: false,
-    openCartDelay: 300,
-  };
-
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 300]);
+  const [products, setProducts] = useState<StockItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [products, setProducts] = useState<Product[]>([]);
   const [showAnimation, setShowAnimation] = useState(false);
+  const [animatedProduct, setAnimatedProduct] = useState<StockItem | null>(null);
   const [animationStartPosition, setAnimationStartPosition] = useState({
     x: 0,
     y: 0,
@@ -106,16 +43,15 @@ export default function StorePage() {
   const [animationEndPosition, setAnimationEndPosition] = useState({
     x: 0,
     y: 0,
-  });
-  const [animatedProduct, setAnimatedProduct] = useState<Product | null>(null);
-  const { addToCart, isCartOpen, setIsCartOpen } = useCart();
-  const cartIconRef = useRef<HTMLDivElement>(null);
-  const itemsPerPage = 6;
-  // Get cart icon position for animation
+  });  const cartIconRef = useRef<HTMLDivElement>(null);
+  const { setIsCartOpen, isCartOpen, addToCart } = useCart();
+
   useEffect(() => {
+    // Update cart icon position for animation
     const updateCartPosition = () => {
-      if (cartIconRef.current) {
-        const rect = cartIconRef.current.getBoundingClientRect();
+      const cartIcon = cartIconRef.current;
+      if (cartIcon) {
+        const rect = cartIcon.getBoundingClientRect();
         setAnimationEndPosition({
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
@@ -123,81 +59,45 @@ export default function StorePage() {
       }
     };
 
-    // Initialize positions and update on resize
     updateCartPosition();
     window.addEventListener("resize", updateCartPosition);
-
-    return () => {
-      window.removeEventListener("resize", updateCartPosition);
-    };
+    return () => window.removeEventListener("resize", updateCartPosition);
   }, []);
-
-  // Load products from localStorage (those listed by sellers)
   useEffect(() => {
-    const loadProducts = () => {
-      try {
-        const storeProducts = localStorage.getItem("storeProducts");
-        if (storeProducts) {
-          const parsedProducts = JSON.parse(storeProducts);
+    const unsubscribe = StockService.subscribeToAllListings((listings) => {
+      const stockItems = listings.map((listing) => ({
+        id: listing.productId, // Use productId instead of listing.id for navigation
+        productId: listing.productId,
+        productCode: listing.productCode || listing.productId,
+        name: listing.name,
+        description: listing.description,
+        price: listing.price,
+        stock: listing.quantity,
+        images: listing.images || (listing.image ? [listing.image] : []),
+        mainImage: listing.mainImage || listing.image,
+        category: listing.category,
+        listed: true,
+        sellerId: listing.sellerId,
+        sellerName: listing.sellerName,
+        rating: listing.rating || 0,
+        reviews: listing.reviews || 0,
+        isSale: false,
+        salePercentage: 0,
+        createdAt: listing.createdAt,
+        updatedAt: listing.updatedAt,
+      }));
+      setProducts(stockItems);
+    });
 
-          // Convert the seller-listed products to the expected Product format
-          const formattedProducts = parsedProducts.map(
-            (p: {
-              id: number;
-              name: string;
-              description: string;
-              price: number;
-              rating?: number;
-              image: string;
-              reviews?: number;
-              stock: number;
-              sellerName: string;
-              productCode: string;
-            }) => ({
-              id: p.id.toString(),
-              name: p.name,
-              description: p.description,
-              price: p.price,
-              category: "casual", // Default category
-              rating: p.rating || 4.5,
-              image: p.image,
-              reviews: p.reviews || 0,
-              sizes: ["S", "M", "L", "XL"], // Default sizes
-              stock: p.stock,
-              sellerName: p.sellerName,
-              productCode: p.productCode,
-            })
-          );
-
-          setProducts([...formattedProducts, ...defaultProducts]);
-        } else {
-          setProducts(defaultProducts);
-        }
-      } catch (err) {
-        console.error("Error loading products:", err);
-        setProducts(defaultProducts);
-      }
-    };
-
-    loadProducts();
-
-    // Set up event listener for storage changes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "storeProducts") {
-        loadProducts();
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    return () => unsubscribe();
   }, []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesCategory =
-        selectedCategory === "all" || product.category === selectedCategory;
+        selectedCategory === "all" ||
+        (product.category &&
+          product.category.toLowerCase() === selectedCategory.toLowerCase());
 
       const matchesPrice =
         product.price >= priceRange[0] && product.price <= priceRange[1];
@@ -207,12 +107,13 @@ export default function StorePage() {
         (product.sizes &&
           product.sizes.some((size) => selectedSizes.includes(size)));
 
+      // Basic search functionality
+      const searchQuery = "";
       const matchesSearch =
-        searchQuery === "" ||
+        !searchQuery ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.category &&
           product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        // Use proper type check for description
         ("description" in product &&
           product.description
             ?.toLowerCase()
@@ -220,16 +121,18 @@ export default function StorePage() {
 
       return matchesCategory && matchesPrice && matchesSize && matchesSearch;
     });
-  }, [selectedCategory, priceRange, selectedSizes, searchQuery, products]);
+  }, [selectedCategory, priceRange, selectedSizes, products]);
 
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const handleProductAddToCart = (
-    product: Product,
+  const handleProductAddToCart = async (
+    product: StockItem,
     event?: React.MouseEvent
   ) => {
+    // Validate stock before adding to cart
+    if (product.stock <= 0) {
+      toast.error("This item is out of stock");
+      return;
+    }
+
     // Set animation start position from the click event or product position
     if (event) {
       setAnimationStartPosition({
@@ -242,14 +145,25 @@ export default function StorePage() {
     setAnimatedProduct(product);
 
     // Show animation
-    setShowAnimation(true);
-
-    // Add to cart with a slight delay to allow animation to complete
+    setShowAnimation(true);    // Add to cart with a slight delay to allow animation to complete
     setTimeout(() => {
-      addToCart({
-        ...product,
+      // Create a clean cart item from the product
+      const cartItem = {
+        id: product.id || product.productId || `item-${Date.now()}`,
+        productId: product.productId || product.id || `prod-${Date.now()}`,
+        name: product.name || "Unknown Product",
+        price: typeof product.price === 'number' ? product.price : 0,
+        salePrice: product.salePrice && typeof product.salePrice === 'number' ? product.salePrice : undefined,
+        image: product.mainImage || "/images/placeholders/product.svg",
         quantity: 1,
-      });
+        sellerId: product.sellerId || "",
+        category: product.category || "Uncategorized",
+        description: product.description || "",
+        stock: typeof product.stock === 'number' ? product.stock : 0,
+        rating: typeof product.rating === 'number' ? product.rating : 0,
+      };
+
+      addToCart(cartItem);
 
       // Show toast notification that item was added
       toast.success(`${product.name} added to cart!`);
@@ -264,139 +178,62 @@ export default function StorePage() {
     }, animationSettings.animationDelay);
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
+  // Show filtered products
+  const totalItems = filteredProducts.length;
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {" "}
-      {/* Cart Animation */}
-      {showAnimation && animatedProduct && (
-        <FlyToCartAnimation
-          startPosition={animationStartPosition}
-          endPosition={animationEndPosition}
-          productImage={animatedProduct.image}
-          onAnimationComplete={() => setShowAnimation(false)}
-        />
-      )}
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex-1 flex items-center">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={handleSearch}
-                className="w-full max-w-lg px-4 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-500 bg-white focus:ring-2 focus:ring-[#FF0059] focus:border-transparent"
-              />{" "}
-            </div>{" "}
-            <div className="ml-4 relative" ref={cartIconRef}>
-              <AnimatedCartIcon
-                onClick={() => setIsCartOpen(true)}
-                className="hover:scale-110 transition-transform duration-200"
-                size="lg"
-              />
-            </div>
+    <div className="min-h-screen bg-gray-50 pt-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Shop</h1>
+          <div className="relative" ref={cartIconRef}>
+            <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
           </div>
         </div>
-      </header>
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Cart Animation */}
+        {showAnimation && animatedProduct && (
+          <FlyToCartAnimation
+            startPosition={animationStartPosition}
+            endPosition={animationEndPosition}
+            productImage={getBestProductImage(animatedProduct)}
+            onAnimationComplete={() => setShowAnimation(false)}
+          />
+        )}
+
+        {/* Categories */}
         <CategoryBar
           categories={categories}
           selected={selectedCategory}
           onSelect={setSelectedCategory}
         />
 
-        <div className="mt-6 flex flex-col md:flex-row gap-8">
-          <FilterSidebar
-            priceRange={priceRange}
-            setPriceRange={setPriceRange}
-            selectedSizes={selectedSizes}
-            setSelectedSizes={setSelectedSizes}
-          />
+        <div className="mt-8 grid grid-cols-12 gap-8">
+          {/* Filters */}
+          <div className="col-span-3">
+            <FilterSidebar
+              priceRange={priceRange}
+              setPriceRange={setPriceRange}
+              selectedSizes={selectedSizes}
+              setSelectedSizes={setSelectedSizes}
+            />
+          </div>
 
-          <div className="flex-1">
-            <div className="mb-4 flex justify-between items-center">
-              <p className="text-gray-800">
-                Showing {paginatedProducts.length} of {filteredProducts.length}{" "}
-                products
+          {/* Product Grid */}
+          <div className="col-span-9">
+            <div className="mb-6">
+              <p className="text-sm text-gray-500">
+                Showing {totalItems} products
               </p>
-              <select
-                className="border rounded-md px-3 py-1.5 text-gray-800 focus:ring-2 focus:ring-[#FF0059] focus:border-transparent"
-                onChange={() => {
-                  // Sort functionality can be added here
-                }}
-              >
-                <option>Most Popular</option>
-                <option>Price: Low to High</option>
-                <option>Price: High to Low</option>
-                <option>Newest First</option>
-              </select>
             </div>
 
-            {filteredProducts.length > 0 ? (
-              <ProductGrid
-                products={paginatedProducts}
-                onAddToCart={handleProductAddToCart}
-              />
-            ) : (
-              <div className="text-center py-10 bg-white rounded-lg shadow">
-                <p className="text-gray-500">
-                  No products found matching your criteria.
-                </p>
-              </div>
-            )}
-
-            {filteredProducts.length > itemsPerPage && (
-              <div className="mt-8 flex justify-center items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                {Array.from({
-                  length: Math.ceil(filteredProducts.length / itemsPerPage),
-                }).map((_, i) => (
-                  <button
-                    key={i + 1}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 flex items-center justify-center rounded-md ${
-                      currentPage === i + 1
-                        ? "bg-[#FF0059] text-white"
-                        : "border border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-                <button
-                  onClick={() =>
-                    setCurrentPage(
-                      Math.min(
-                        Math.ceil(filteredProducts.length / itemsPerPage),
-                        currentPage + 1
-                      )
-                    )
-                  }
-                  disabled={
-                    currentPage ===
-                    Math.ceil(filteredProducts.length / itemsPerPage)
-                  }
-                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+            <ProductGrid
+              products={filteredProducts}
+              onAddToCart={handleProductAddToCart}
+            />
           </div>
         </div>
-      </main>
+      </div>      {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </div>
   );

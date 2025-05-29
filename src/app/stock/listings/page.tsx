@@ -9,15 +9,18 @@ import { StockService } from "../../../services/stockService";
 import { StockListing } from "../../../types/marketplace";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../../context/AuthContext";
+import { getBestProductImage, getFirestoreImage } from "../../utils/imageHelpers";
 
 export default function MyListingsPage() {
   const [myListings, setMyListings] = useState<StockListing[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [loading, setLoading] = useState(true);  const [editingListing, setEditingListing] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingListing, setEditingListing] = useState<string | null>(null);
   const { balance } = useUserBalance();
   const { user } = useAuth();
+
   // Subscribe to Firebase real-time listings updates
   useEffect(() => {
     if (!user?.uid) {
@@ -38,18 +41,17 @@ export default function MyListingsPage() {
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [user?.uid]);// Filter products based on search query
+  }, [user?.uid]);
+
+  // Filter listings based on search query
   const filteredListings = myListings.filter(
-    (product) =>
-      // First ensure the product has quantity > 0
-      product.quantity > 0 && 
-      // Then check if it matches the search query
+    (listing) =>
+      listing.quantity > 0 && 
       (
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.productId.toLowerCase().includes(searchQuery.toLowerCase())
+        listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        listing.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        listing.productId.toLowerCase().includes(searchQuery.toLowerCase())
       )
   );
 
@@ -59,9 +61,10 @@ export default function MyListingsPage() {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentListings = filteredListings.slice(startIndex, endIndex);
-  // Remove a listing using Firebase
+
+  // Handle listing removal
   const handleRemoveListing = async (listingId: string) => {
-    if (!user?.uid) {
+    if (!user?.uid || !listingId) {
       toast.error("Authentication required");
       return;
     }
@@ -81,15 +84,16 @@ export default function MyListingsPage() {
     } catch (error) {
       console.error("Error removing listing:", error);
       toast.error("Failed to remove listing. Please try again.");
-    }  };
+    }
+  };
 
-  // Edit a listing using Firebase
+  // Handle listing edit
   const handleEditListing = async (
     listingId: string,
     newPrice: number,
     newQuantity: number
   ) => {
-    if (!user?.uid) {
+    if (!user?.uid || !listingId) {
       toast.error("Authentication required");
       return;
     }
@@ -120,7 +124,6 @@ export default function MyListingsPage() {
     }
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -134,7 +137,6 @@ export default function MyListingsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header with TikTok Shop and search */}
       <div className="py-4 px-6 border-b flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-bold text-black">TikTok Shop</h1>
@@ -143,48 +145,17 @@ export default function MyListingsPage() {
               Category <span className="ml-1">▼</span>
             </button>
           </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search for products..."
-              className="pl-10 pr-4 py-2 rounded-full bg-gray-100 w-96 text-black placeholder-gray-500 border border-gray-300"
-            />
-            <div className="absolute left-3 top-2.5 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
+          <input
+            type="text"
+            placeholder="Search your listings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-2 rounded-full bg-gray-100 w-96 text-black placeholder-gray-500 border border-gray-300"
+          />
         </div>
+        
         <div className="flex items-center space-x-4">
-          <button className="relative">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-          </button>
-          <Link href="/cart" className="ml-2">
+          <Link href="/cart" className="relative">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
@@ -203,98 +174,34 @@ export default function MyListingsPage() {
           <div className="text-sm font-medium text-gray-700">
             Balance: ${balance.toFixed(2)}
           </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <span className="text-gray-700 font-medium">Your Name</span>
-          </div>
         </div>
       </div>
 
       <div className="p-6">
-        <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>
-
+        <h1 className="text-xl font-medium mb-6 text-gray-900">My Listings</h1>
+        
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
-          <Link
-            href="/profile"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/profile" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             General
-          </Link>          <Link
-            href="/receipts"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          </Link>
+          <Link href="/receipts" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             Wallet
           </Link>
-          <Link
-            href="/stock"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/stock" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             Buy stock
           </Link>
-          <Link
-            href="/stock/inventory"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/stock/inventory" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             Inventory
           </Link>
-          <Link
-            href="/stock/listings"
-            className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]"
-          >
+          <Link href="/stock/listings" className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]">
             My Listings
           </Link>
         </div>
 
-        {/* Balance Summary */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059] flex justify-between items-center">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-500">
-              CURRENT BALANCE
-            </h3>
-            <p className="text-2xl font-bold text-gray-900">
-              ${balance.toFixed(2)}
-            </p>
-          </div>
-          <Link
-            href="/stock/inventory"
-            className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
-          >
-            Add New Product
-          </Link>
-        </div>
-
-        {/* Search Bar */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search your listings..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-gray-900"
-            />
-            <div className="absolute left-3 top-3 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-
         {/* Listings Table */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          {myListings.length > 0 ? (
+          {currentListings.length > 0 ? (
             <>
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -311,19 +218,25 @@ export default function MyListingsPage() {
                     <tr key={listing.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-100">
+                          <div className="flex-shrink-0 h-10 w-10">
                             <Image
-                              src={listing.image || "/images/placeholders/t-shirt.svg"}
+                              src={getBestProductImage(listing)}
                               alt={listing.name}
                               width={40}
                               height={40}
-                              className="object-cover"
+                              className="object-cover w-full h-full rounded-lg"
+                              onError={(e) => {
+                                e.currentTarget.src = '/images/placeholders/product.svg';
+                              }}
+                              unoptimized
+                              priority
                             />
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {listing.name}
-                            </div>                            <div className="text-sm text-gray-500">
+                            </div>
+                            <div className="text-sm text-gray-500">
                               {listing.productId}
                             </div>
                           </div>
@@ -335,40 +248,24 @@ export default function MyListingsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            listing.quantity > 10
-                              ? "bg-green-100 text-green-800"
-                              : listing.quantity > 0
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          listing.quantity > 10
+                            ? "bg-green-100 text-green-800"
+                            : listing.quantity > 0
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
                           {listing.quantity} units
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="text-sm text-gray-500">
-                            Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
-                          </div>
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => {
-                            const newPrice = parseFloat(
-                              prompt(
-                                "Enter new price:",
-                                listing.price.toString()
-                              ) || listing.price.toString()
-                            );
-                            const newQuantity = parseInt(
-                              prompt(
-                                "Enter new quantity:",
-                                listing.quantity.toString()
-                              ) || listing.quantity.toString()
-                            );
+                            const newPrice = parseFloat(prompt("Enter new price:", listing.price.toString()) || listing.price.toString());
+                            const newQuantity = parseInt(prompt("Enter new quantity:", listing.quantity.toString()) || listing.quantity.toString());
                             handleEditListing(listing.id!, newPrice, newQuantity);
                           }}
                           disabled={editingListing === listing.id}
@@ -382,23 +279,25 @@ export default function MyListingsPage() {
                         >
                           Remove
                         </button>
-                      </td></tr>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
+
               {/* Pagination */}
               <div className="px-6 py-3 bg-white border-t border-gray-200">
                 <PaginationWithCustomRows
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  onPageChange={(page) => setCurrentPage(page)}
+                  onPageChange={setCurrentPage}
                   totalItems={totalItems}
                   startIndex={startIndex}
                   endIndex={endIndex}
                   rowsPerPage={rowsPerPage}
                   onRowsPerPageChange={(newRowsPerPage) => {
                     setRowsPerPage(newRowsPerPage);
-                    setCurrentPage(1); // Reset to first page when changing rows per page
+                    setCurrentPage(1);
                   }}
                 />
               </div>

@@ -18,24 +18,10 @@ import {
 } from "firebase/firestore";
 import { firestore, storage } from "../lib/firebase/firebase";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import { Product } from "../types/product";
 
-export interface Product {
-  id?: string;
-  productCode: string;
-  name: string;
-  description: string;
-  price: number;
-  stock: number;
-  image: string;
-  sellerId: string;
-  sellerName: string;
-  rating: number;
-  reviews: number;
-  category?: string;
-  listed?: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
+// Re-export Product for backward compatibility
+export type { Product };
 
 export class ProductService {
   static COLLECTION = "products";
@@ -61,15 +47,14 @@ export class ProductService {
     try {
       const docRef = doc(firestore, this.COLLECTION, id);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const data = docSnap.data();
         return {
-          id: docSnap.id,
           ...data,
+          id: docSnap.id,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product;
+        } as unknown as Product;
       } else {
         return null;
       }
@@ -125,7 +110,7 @@ export class ProductService {
           ...data,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product);
+        } as unknown as Product);
       });
 
       return products;
@@ -154,7 +139,7 @@ export class ProductService {
           ...data,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product);
+        } as unknown as Product);
       });
 
       return products;
@@ -199,7 +184,7 @@ export class ProductService {
           ...data,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product);
+        } as unknown as Product);
       });
 
       const lastVisible =
@@ -237,7 +222,7 @@ export class ProductService {
           ...data,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product);
+        } as unknown as Product);
       });
 
       return products;
@@ -272,7 +257,7 @@ export class ProductService {
           ...data,
           createdAt: data.createdAt?.toDate(),
           updatedAt: data.updatedAt?.toDate(),
-        } as Product);
+        } as unknown as Product);
       });
 
       return products;

@@ -1,10 +1,9 @@
 "use client";
 
 import { Fragment } from "react";
-import { Dialog } from "@headlessui/react";
-import { Transition } from "@headlessui/react";
+import { Dialog, Transition } from "@headlessui/react";
 import { X, Minus, Plus, ShoppingBag } from "lucide-react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -14,12 +13,12 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { cartItems, cartTotal, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, getCartTotal, updateQuantity, removeFromCart } = useCart();
+  const cartTotal = getCartTotal();
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
+      <Dialog as="div" className="relative z-50" onClose={onClose}>        <Transition.Child
           as={Fragment}
           enter="ease-in-out duration-500"
           enterFrom="opacity-0"
@@ -33,8 +32,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
         <div className="fixed inset-0 overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-              <Transition.Child
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">              <Transition.Child
                 as={Fragment}
                 enter="transform transition ease-in-out duration-500"
                 enterFrom="translate-x-full"

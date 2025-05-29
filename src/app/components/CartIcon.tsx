@@ -1,6 +1,6 @@
 "use client";
 
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import { ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -10,7 +10,8 @@ interface CartIconProps {
 }
 
 export default function CartIcon({ onClick, className = "" }: CartIconProps) {
-  const { cartCount, setIsCartOpen } = useCart();
+  const { getCartItemCount, setIsCartOpen } = useCart();
+  const cartCount = getCartItemCount();
 
   const handleClick = () => {
     if (onClick) {

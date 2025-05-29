@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
-import { ProductService, Product } from "../../../services/productService";
+import { ProductService } from "../../../services/productService";
+import { Product } from "../../../types/product";
 import { LoadingSpinner } from "../../components/Loading";
 import Link from "next/link";
 import Image from "next/image";

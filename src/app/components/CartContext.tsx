@@ -10,6 +10,7 @@ import {
 import { CartItem } from "@/types/product";
 import { useAuth } from "../../context/AuthContext";
 import { CartService } from "../../services/cartService";
+import { toast } from "react-toastify";
 
 interface OperationLoadingState {
   addToCart: boolean;
@@ -143,30 +144,52 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setHasNewAddition(true);
 
     try {
-      // Set operation loading state
       setOperationLoading((prev) => ({ ...prev, addToCart: true }));
 
       if (user) {
-        // User is logged in, add to Firestore
-        await CartService.addToCart(user.uid, item);
+        // Check if item exists and get its current quantity
+        const currentItems = cartItems.find(
+          (i) => i.productId === item.productId && i.sellerId === item.sellerId
+        );
+        
+        const newQuantity = (currentItems?.quantity || 0) + item.quantity;
+        const maxStock = Number(item.stock) || 0;
+        
+        // Check if new quantity would exceed stock
+        if (maxStock > 0 && newQuantity > maxStock) {
+          toast.error(`Cannot add more items. Only ${maxStock} available in stock.`);
+          return;
+        }
+
+        // Add/update cart in Firestore
+        await CartService.addToCart(user.uid, {
+          ...item,
+          quantity: newQuantity,
+        });
 
         // Refresh cart from Firestore
         const updatedCart = await CartService.getCart(user.uid);
         setCartItems(updatedCart);
       } else {
-        // User is not logged in, use local state
+        // For local storage cart
         setCartItems((prevItems) => {
-          const existingItem = prevItems.find(
-            (i) =>
-              i.id === item.id && i.size === item.size && i.color === item.color
+          const existingItemIndex = prevItems.findIndex(
+            (i) => i.productId === item.productId && i.sellerId === item.sellerId
           );
 
-          if (existingItem) {
-            // Update quantity if item already exists
-            return prevItems.map((i) =>
-              i.id === item.id && i.size === item.size && i.color === item.color
-                ? { ...i, quantity: i.quantity + item.quantity }
-                : i
+          if (existingItemIndex >= 0) {
+            // Check stock limit for existing item
+            const newQuantity = prevItems[existingItemIndex].quantity + item.quantity;
+            const maxStock = Number(item.stock) || 0;
+
+            if (maxStock > 0 && newQuantity > maxStock) {
+              toast.error(`Cannot add more items. Only ${maxStock} available in stock.`);
+              return prevItems;
+            }
+
+            // Update quantity if item exists
+            return prevItems.map((i, index) =>
+              index === existingItemIndex ? { ...i, quantity: newQuantity } : i
             );
           } else {
             // Add new item
@@ -174,8 +197,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         });
       }
+
+      toast.success(`${item.name} added to your cart!`);
     } catch (error) {
       console.error("Error adding item to cart:", error);
+      toast.error("Failed to add item to cart");
     } finally {
       setOperationLoading((prev) => ({ ...prev, addToCart: false }));
     }
@@ -204,11 +230,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setOperationLoading((prev) => ({ ...prev, removeFromCart: false }));
     }
-  };
-  const updateQuantity = async (id: string, quantity: number) => {
+  };  const updateQuantity = async (id: string, quantity: number) => {
     try {
       // Set operation loading state
       setOperationLoading((prev) => ({ ...prev, updateQuantity: true }));
+
+      // Find the item to update
+      const itemToUpdate = cartItems.find((item) => item.id === id || item.productId === id);
+      
+      if (!itemToUpdate) {
+        console.error("Item not found in cart");
+        return;
+      }
+
+      // Check stock limits
+      const maxStock = Number(itemToUpdate.stock) || 0;
+      if (maxStock > 0 && quantity > maxStock) {
+        toast.error(`Cannot add more than ${maxStock} items (stock limit)`);
+        return;
+      }
 
       if (user) {
         // User is logged in, use Firestore

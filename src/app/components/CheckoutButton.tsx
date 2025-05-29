@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import { toast } from "react-hot-toast";
 
 interface CheckoutButtonProps {

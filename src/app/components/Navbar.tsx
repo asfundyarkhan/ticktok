@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X, LogOut } from "lucide-react";
 import { useUserBalance } from "./UserBalanceContext";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import CartDrawer from "./CartDrawer";
 import AnimatedCartIcon from "./AnimatedCartIcon";
 import LogoutButton from "./LogoutButton";
@@ -23,18 +23,9 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollPos = window.scrollY;
-
-      // Hide navbar when at the very top
-      if (currentScrollPos === 0) {
-        setVisible(false);
-        setIsScrolled(false);
-        return;
-      }
-
-      // Show navbar when scrolling
+      const currentScrollPos = window.scrollY;      // Always show navbar, just update the style based on scroll
       setVisible(true);
-      setIsScrolled(true);
+      setIsScrolled(currentScrollPos > 0);
       setPrevScrollPos(currentScrollPos);
     };
 
@@ -57,15 +48,12 @@ export default function Navbar() {
     pathname.startsWith("/receipts");
 
   return (
-    <nav
-      className={`fixed w-full z-50 transition-all duration-300 ${
-        !visible && isMainPage ? "-translate-y-full" : "translate-y-0"
+    <nav      className={`fixed w-full z-50 transition-all duration-300 ${
+        visible ? "translate-y-0" : "-translate-y-full"
       } ${
         isScrolled || !isMainPage
           ? "bg-white shadow-sm"
-          : isMainPage
-          ? "opacity-0"
-          : "bg-white shadow-sm"
+          : "bg-white/80 backdrop-blur-sm"
       }`}
       style={{ transition: "transform 0.3s ease-in-out" }}
     >

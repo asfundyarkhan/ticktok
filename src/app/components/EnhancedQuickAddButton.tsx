@@ -1,21 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import { toast } from "react-hot-toast";
 import { ShoppingCart, Check } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface EnhancedQuickAddButtonProps {
   product: {
-    id: string;
+    id?: string;
     name: string;
     price: number;
     image: string;
     category?: string;
     description?: string;
-    rating?: number;
-    reviews?: number;
+    quantity: number;
+    sellerId: string;
+    sellerName?: string;
+    productId: string;
+    isSale?: boolean;
     salePrice?: number;
   };
   className?: string;
@@ -55,21 +58,24 @@ export default function EnhancedQuickAddButton({
 
     // Call the onClick prop if provided (for animation)
     if (onClick) {
-      onClick(e);
-    } else {
+      onClick(e);    } else {
       // Add product to cart directly if no onClick handler
-      addToCart({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        salePrice: product.salePrice,
-        category: product.category || "product",
-        rating: product.rating || 0,
-        image: product.image,
-        reviews: product.reviews || 0,
+      const cartItem = {
+        id: product.id || product.productId || `item-${Date.now()}`,
+        productId: product.productId || `prod-${Date.now()}`,
+        name: product.name || "Unknown Product",
+        price: typeof product.price === 'number' ? product.price : 0,
+        salePrice: product.salePrice && typeof product.salePrice === 'number' ? product.salePrice : undefined,
+        image: product.image || "/images/placeholders/product.svg",
         quantity: 1,
+        sellerId: product.sellerId || "",
+        category: product.category || "Uncategorized",
         description: product.description || "",
-      });
+        stock: typeof product.quantity === 'number' ? product.quantity : 0,
+        rating: 0,
+      };
+
+      addToCart(cartItem);
 
       // Show toast notification
       toast.success(`${product.name} added to cart!`);

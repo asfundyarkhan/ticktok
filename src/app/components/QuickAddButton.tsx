@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import { toast } from "react-hot-toast";
 import { ShoppingCart, Check } from "lucide-react";
 
@@ -16,6 +16,7 @@ interface QuickAddButtonProps {
     rating?: number;
     reviews?: number;
     salePrice?: number;
+    sellerId?: string;
   };
   className?: string;
   showIcon?: boolean;
@@ -31,9 +32,7 @@ export default function QuickAddButton({
   const { addToCart } = useCart();
 
   const handleQuickAdd = () => {
-    setIsAdding(true);
-
-    // Add product to cart
+    setIsAdding(true);    // Add product to cart
     addToCart({
       id: product.id,
       name: product.name,
@@ -45,6 +44,8 @@ export default function QuickAddButton({
       reviews: product.reviews || 0,
       quantity: 1,
       description: product.description || "",
+      sellerId: product.sellerId || "",
+      productId: product.id,
     });
 
     // Show toast notification

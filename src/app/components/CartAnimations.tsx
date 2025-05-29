@@ -25,11 +25,11 @@ export function FlyToCartAnimation({
     width: `${size}px`,
     height: `${size}px`,
     borderRadius: "50%",
-    zIndex: 1000,
-    backgroundSize: "cover",
+    zIndex: 1000,    backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundImage: productImage ? `url(${productImage})` : undefined,
     backgroundColor: !productImage ? "#FF0059" : undefined,
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.1)",
   };
 
   return (

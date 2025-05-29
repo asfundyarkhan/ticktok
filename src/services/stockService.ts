@@ -236,7 +236,8 @@ export class StockService {
   /**
    * Get all stock items available for sellers
    * @returns Promise with array of stock items
-   */ static async getAllStockItems(): Promise<StockItem[]> {
+   */
+  static async getAllStockItems(): Promise<StockItem[]> {
     try {
       const q = query(
         collection(firestore, StockService.COLLECTION),
@@ -266,11 +267,21 @@ export class StockService {
             productCode: data.productCode,
             name: data.name,
             description: data.description || "",
+            features: data.features,
             price: Number(data.price),
             stock: Number(data.stock),
-            image: data.image || "/images/placeholders/t-shirt.svg",
+            images: data.images || ["/images/placeholders/t-shirt.svg"],
+            mainImage:
+              data.mainImage ||
+              data.images?.[0] ||
+              "/images/placeholders/t-shirt.svg",
             category: data.category || "general",
             listed: data.listed ?? true,
+            rating: data.rating || 0,
+            reviews: data.reviews || 0,
+            isSale: data.isSale || false,
+            salePercentage: data.salePercentage || 0,
+            salePrice: data.salePrice,
             sellerId: data.sellerId,
             sellerName: data.sellerName,
             createdAt: data.createdAt,
@@ -539,24 +550,39 @@ export class StockService {
                 (productData.stock || 0) + quantity
               }`
             );
-
             t.update(productRef, {
               stock: (productData.stock || 0) + quantity,
+              features: stockData.features || productData.features || "", // Preserve existing features or use new ones
+              rating: stockData.rating || productData.rating || 0,
+              reviews: stockData.reviews || productData.reviews || [],
               updatedAt: Timestamp.now(),
             });
           } else {
             // Create new inventory item
             console.log(`Creating new inventory item for ${stockData.name}`);
-
             t.set(productRef, {
               productId: stockData.productId || stockId,
               productCode: stockData.productCode,
               name: stockData.name,
               description: stockData.description || "",
-              image: stockData.image || "/images/placeholders/t-shirt.svg",
+              // Include both mainImage and images array for better compatibility
+              mainImage:
+                stockData.mainImage ||
+                (stockData.images && stockData.images.length > 0
+                  ? stockData.images[0]
+                  : "/images/placeholders/t-shirt.svg"),
+              images: stockData.images || [],
+              image:
+                stockData.mainImage ||
+                (stockData.images && stockData.images.length > 0
+                  ? stockData.images[0]
+                  : "/images/placeholders/t-shirt.svg"),
               category: stockData.category || "general",
               stock: quantity,
               price: stockData.price,
+              features: stockData.features || "",
+              rating: stockData.rating || 0,
+              reviews: stockData.reviews || [],
               purchasePrice: stockData.price,
               listed: false, // Initially not listed in marketplace
               createdAt: Timestamp.now(),
@@ -631,7 +657,7 @@ export class StockService {
           const inventoryData = inventoryDoc.data();
 
           // Validate stock availability
-          if (inventoryData.quantity < quantity) {
+          if (inventoryData.stock < quantity) {
             return {
               success: false,
               message: "Insufficient stock in inventory",
@@ -640,11 +666,7 @@ export class StockService {
             };
           }
 
-          // Update inventory quantity
-          t.update(inventoryRef, {
-            quantity: inventoryData.quantity - quantity,
-            updatedAt: Timestamp.now(),
-          }); // Create or update listing
+          // Check if product is already listed
           const listingQuery = query(
             collection(firestore, StockService.LISTINGS_COLLECTION),
             where("sellerId", "==", sellerId),
@@ -652,6 +674,12 @@ export class StockService {
           );
 
           const listingSnapshot = await getDocs(listingQuery);
+
+          // Update inventory first
+          t.update(inventoryRef, {
+            stock: inventoryData.stock - quantity,
+            updatedAt: Timestamp.now(),
+          });
 
           if (!listingSnapshot.empty) {
             // Update existing listing
@@ -675,8 +703,41 @@ export class StockService {
               productId,
               name: inventoryData.name,
               description: inventoryData.description,
-              image: inventoryData.image,
+              features: inventoryData.features || "", // Copy features from inventory as string
+              image:
+                inventoryData.mainImage ||
+                inventoryData.image ||
+                (inventoryData.images && inventoryData.images.length > 0
+                  ? inventoryData.images[0]
+                  : ""),
+              // Store the full images array and ensure we preserve all image fields
+              images:
+                inventoryData.images ||
+                (inventoryData.image ? [inventoryData.image] : []),
+              mainImage:
+                inventoryData.mainImage ||
+                inventoryData.image ||
+                (inventoryData.images && inventoryData.images.length > 0
+                  ? inventoryData.images[0]
+                  : ""),
+              imageUrl: inventoryData.imageUrl || inventoryData.imageURL || "",
+              imageURL: inventoryData.imageURL || inventoryData.imageUrl || "",
               category: inventoryData.category,
+              reviews: Array.isArray(inventoryData.reviews)
+                ? inventoryData.reviews
+                : typeof inventoryData.reviews === "number"
+                ? Array(inventoryData.reviews).fill({
+                    rating: inventoryData.rating || 0,
+                    content: "Legacy review",
+                    date: new Date().toISOString(),
+                  })
+                : [],
+              rating: inventoryData.rating || 0,
+              reviewCount: Array.isArray(inventoryData.reviews)
+                ? inventoryData.reviews.length
+                : typeof inventoryData.reviews === "number"
+                ? inventoryData.reviews
+                : 0,
               quantity,
               price,
               createdAt: Timestamp.now(),
@@ -842,8 +903,9 @@ export class StockService {
           const inventoryDoc = await t.get(inventoryRef);
 
           if (inventoryDoc.exists()) {
+            // Update existing inventory with returned stock
             t.update(inventoryRef, {
-              quantity: inventoryDoc.data().quantity + listingData.quantity,
+              stock: (inventoryDoc.data().stock || 0) + listingData.quantity,
               updatedAt: Timestamp.now(),
             });
           } else {
@@ -855,8 +917,8 @@ export class StockService {
               description: listingData.description,
               image: listingData.image,
               category: listingData.category,
-              quantity: listingData.quantity,
-              purchasePrice: listingData.price,
+              stock: listingData.quantity,
+              price: listingData.price,
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
             });
@@ -1025,6 +1087,58 @@ export class StockService {
       return () => this.unsubscribeListener(listenerKey);
     } catch (error) {
       console.error("Error setting up admin stock subscription:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to all active listings across sellers
+   * @param onUpdate Callback function for listings updates
+   * @param onError Optional error callback
+   * @returns Unsubscribe function
+   */
+  static subscribeToAllListings(
+    onUpdate: (listings: StockListing[]) => void,
+    onError?: (error: Error) => void
+  ): () => void {
+    try {
+      const listenerKey = "all_listings";
+      this.unsubscribeListener(listenerKey);
+
+      const listingsQuery = query(
+        collection(firestore, this.LISTINGS_COLLECTION),
+        where("quantity", ">", 0),
+        orderBy("quantity"),
+        orderBy("updatedAt", "desc")
+      );
+
+      const unsubscribe = onSnapshot(
+        listingsQuery,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const listings: StockListing[] = [];
+          snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            if (data) {
+              listings.push({
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt?.toDate(),
+                updatedAt: data.updatedAt?.toDate(),
+              } as StockListing);
+            }
+          });
+          onUpdate(listings);
+        },
+        (error: Error) => {
+          console.error("Error in all listings subscription:", error);
+          if (onError) onError(error);
+        }
+      );
+
+      this.activeListeners.set(listenerKey, unsubscribe);
+      return () => this.unsubscribeListener(listenerKey);
+    } catch (error) {
+      console.error("Error setting up all listings subscription:", error);
       throw error;
     }
   }
@@ -1253,6 +1367,55 @@ export class StockService {
       return { itemsRemoved, sellersAffected };
     } catch (error) {
       console.error("Error in global inventory cleanup:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search for listings by product ID
+   * @param productId The product ID to search for
+   * @returns Promise with array of listings
+   */ static async searchListingsByProductId(
+    productId: string
+  ): Promise<StockListing[]> {
+    try {
+      const listingsQuery = query(
+        collection(firestore, this.LISTINGS_COLLECTION),
+        where("productId", "==", productId),
+        where("quantity", ">", 0), // Only get active listings
+        orderBy("quantity", "desc"),
+        orderBy("price", "asc") // Get best deals first
+      );
+
+      const snapshot = await getDocs(listingsQuery);
+      const listings: StockListing[] = [];
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data) {
+          // Convert reviews field to consistently be an array
+          const reviews = Array.isArray(data.reviews)
+            ? data.reviews
+            : typeof data.reviews === "number"
+            ? Array(data.reviews).fill({})
+            : [];
+
+          listings.push({
+            id: doc.id,
+            ...data,
+            reviews,
+            reviewCount: reviews.length,
+            rating: data.rating || 0,
+            features: data.features || [],
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
+          } as StockListing);
+        }
+      });
+
+      return listings;
+    } catch (error) {
+      console.error("Error searching listings by product ID:", error);
       throw error;
     }
   }

@@ -4,7 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../context/AuthContext";
 import { ProductService } from "../../../../services/productService";
-import { Product } from "@/services/productService";
+import { Product } from "../../../../types/product";
 import { LoadingSpinner } from "../../../components/Loading";
 import toast from "react-hot-toast";
 import Image from "next/image";

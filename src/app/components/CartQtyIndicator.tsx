@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 
 interface CartQtyIndicatorProps {
   size?: "sm" | "md" | "lg";
@@ -18,7 +18,8 @@ export default function CartQtyIndicator({
   size = "md",
   position = "top-right",
 }: CartQtyIndicatorProps) {
-  const { cartCount } = useCart();
+  const { getCartItemCount } = useCart();
+  const cartCount = getCartItemCount();
   const [prevCount, setPrevCount] = useState(cartCount);
   const [showAnimation, setShowAnimation] = useState(false);
 

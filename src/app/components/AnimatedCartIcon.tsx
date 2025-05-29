@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingBag } from "lucide-react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 
 interface AnimatedCartIconProps {
   onClick?: () => void;
@@ -16,7 +16,8 @@ export default function AnimatedCartIcon({
   className = "",
   size = "md",
 }: AnimatedCartIconProps) {
-  const { cartCount, setIsCartOpen } = useCart();
+  const { getCartItemCount, setIsCartOpen } = useCart();
+  const cartCount = getCartItemCount();
   const [isAnimating, setIsAnimating] = useState(false);
   const [prevCount, setPrevCount] = useState(cartCount);
 

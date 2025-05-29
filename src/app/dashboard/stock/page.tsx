@@ -163,11 +163,9 @@ export default function StockPage() {
               </tr>
             ) : filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
-                <tr key={product.id} className="border-b last:border-b-0">
-                  <td className="px-6 py-4">
-                    <div className="w-20 h-20 bg-gray-100 rounded overflow-hidden">
+                <tr key={product.id} className="border-b last:border-b-0">                  <td className="px-6 py-4">                    <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shadow-sm">
                       <Image
-                        src={product.image}
+                        src={product.mainImage || product.images?.[0] || '/placeholder.jpg'}
                         alt={product.name}
                         width={80}
                         height={80}

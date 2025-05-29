@@ -12,10 +12,11 @@ import { StockItem } from "../../../types/marketplace";
 import { toast } from "react-hot-toast";
 import { collection, getDocs } from "firebase/firestore";
 import { firestore } from "../../../lib/firebase/firebase";
+import { getBestProductImage } from "../../utils/imageHelpers";
 
 export default function InventoryPage() {
   const router = useRouter();
-  const { balance, addToBalance } = useUserBalance();
+  const { balance } = useUserBalance();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -127,7 +128,8 @@ export default function InventoryPage() {
       return;
     }
 
-    setProcessingListing(true);    try {
+    setProcessingListing(true);
+    try {
       if (!user || !user.uid) {
         toast.error("You must be logged in to create a listing");
         return;
@@ -142,18 +144,11 @@ export default function InventoryPage() {
       );
 
       if (result.success) {
-        // Calculate the listing fee (10% of total value)
-        const listingValue = sellPrice * sellQuantity;
-        const listingFee = listingValue * 0.1;
-
-        // Update balance - earn listing fee as income
-        addToBalance(listingFee);
-
         setShowSellModal(false);
 
         // Show success notification
         toast.success(
-          `${sellQuantity} units of ${currentProduct.name} listed for sale! Earned $${listingFee.toFixed(2)} in listing fees.`
+          `${sellQuantity} units of ${currentProduct.name} listed for sale!`
         );
 
         // Redirect to listings page
@@ -389,15 +384,18 @@ export default function InventoryPage() {
                     key={product.id} 
                     className="text-sm"
                     data-product-code={product.productCode}
-                  >
-                    <td className="py-4 pl-2 pr-6">
-                      <div className="w-16 h-16 bg-gray-200">
-                        <Image
-                          src={product.image}
+                  >                    <td className="py-4 pl-2 pr-6">                      <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">                        <Image
+                          src={getBestProductImage(product)}
                           alt={product.name}
                           width={64}
                           height={64}
                           className="object-cover w-full h-full"
+                          onError={(e) => {
+                            console.log("Image failed to load:", e.currentTarget.src);
+                            e.currentTarget.src = '/images/placeholders/product.svg';
+                          }}
+                          unoptimized={true}
+                          priority
                         />
                       </div>
                     </td>
@@ -479,15 +477,18 @@ export default function InventoryPage() {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">List Product for Sale</h2>
 
-              <div className="flex items-start mb-4">
-                <div className="mr-4">
-                  <div className="w-16 h-16 bg-gray-200">
-                    <Image
-                      src={currentProduct.image}
+              <div className="flex items-start mb-4">                <div className="mr-4">                  <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">                    <Image
+                      src={currentProduct.mainImage || (currentProduct.images && currentProduct.images.length > 0 ? currentProduct.images[0] : '/images/placeholders/product.svg')}
+                      unoptimized={true}
+                      priority
                       alt={currentProduct.name}
                       width={64}
                       height={64}
                       className="object-cover w-full h-full"
+                      onError={(e) => {
+                        console.log("Modal image failed to load:", e.currentTarget.src);
+                        e.currentTarget.src = '/images/placeholders/product.svg';
+                      }}
                     />
                   </div>
                 </div>

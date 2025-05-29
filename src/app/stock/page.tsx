@@ -394,15 +394,16 @@ export default function StockPage() {
                 key={product.productId}
                 id={`product-${product.productCode}`}
                 className="border-b p-4 grid grid-cols-12 gap-4 items-center bg-white transition-all duration-300"
-              >
-                <div className="col-span-2">
-                  <div className="w-24 h-24 bg-gray-200 flex items-center justify-center">
-                    <Image
-                      src={product.image || "/images/placeholders/t-shirt.svg"}
+              >                <div className="col-span-2">
+                  <div className="w-24 h-24 bg-gray-200 flex items-center justify-center overflow-hidden rounded-lg">                    <Image
+                      src={product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : "/images/placeholders/t-shirt.svg")}
                       alt={product.name}
+                      unoptimized={true}
+                      priority
+                      className="object-cover min-w-full min-h-full"
                       width={96}
                       height={96}
-                      className="object-cover"
+                      className="object-cover w-full h-full"
                     />
                   </div>
                 </div>

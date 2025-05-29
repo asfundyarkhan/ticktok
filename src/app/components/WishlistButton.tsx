@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCart } from "../components/CartContext";
+import { useCart } from "../components/NewCartContext";
 import { Heart, ShoppingBag } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -34,7 +34,6 @@ export default function WishlistButton({
         : `Added ${product.name} to wishlist`
     );
   };
-
   const addItemToCart = () => {
     addToCart({
       id: productId,
@@ -46,6 +45,8 @@ export default function WishlistButton({
       reviews: product.reviews || 0,
       quantity: 1,
       description: product.description,
+      sellerId: "",
+      productId: productId,
     });
 
     toast.success(`Added ${product.name} to your cart!`);

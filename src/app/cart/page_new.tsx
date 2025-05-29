@@ -89,7 +89,6 @@ function CartContent() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <Breadcrumb items={breadcrumbItems} />
       <h1 className="text-3xl font-bold text-gray-900 mt-8">Shopping Cart</h1>
-      
       <div className="mt-8 grid lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
@@ -117,11 +116,10 @@ function CartContent() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center">
+                  <div className="flex items-center space-x-3">
                     <button
                       onClick={() => removeFromCart(item.id)}
-                      className="text-gray-400 hover:text-gray-500 ml-4"
-                      aria-label="Remove item"
+                      className="text-gray-400 hover:text-gray-500"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -134,7 +132,7 @@ function CartContent() {
                         item.quantity > 1 &&
                         updateQuantity(item.id, item.quantity - 1)
                       }
-                      className="px-3 py-1 border-r text-gray-700 hover:bg-gray-50 font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 border-r text-gray-700 hover:bg-gray-50 font-medium text-lg"
                       disabled={item.quantity <= 1}
                       aria-label="Decrease quantity"
                     >
@@ -164,7 +162,7 @@ function CartContent() {
             </div>
           ))}
         </div>
-
+        
         {/* Order Summary */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-lg border">
@@ -191,7 +189,6 @@ function CartContent() {
                 </div>
               </div>
             </div>
-            
             <div className="mt-6">
               <div className="flex gap-2">
                 <input
@@ -206,11 +203,9 @@ function CartContent() {
                 </button>
               </div>
             </div>
-            
             <div className="mt-6">
               <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
             </div>
-            
             <div className="mt-4">
               <Link
                 href="/store"
@@ -222,7 +217,7 @@ function CartContent() {
           </div>
         </div>
       </div>
-
+      
       {/* Related Products Section */}
       <div className="mt-16">
         <RelatedProducts />

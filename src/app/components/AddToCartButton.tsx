@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ShoppingCart, Check } from "lucide-react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import { toast } from "react-hot-toast";
 import { Product } from "@/types/product";
 
@@ -53,13 +53,13 @@ export default function AddToCartButton({
       return;
     }
 
-    setIsAdding(true);
-
-    // Add to cart using CartContext
+    setIsAdding(true);    // Add to cart using CartContext
     addToCart({
       ...product,
       quantity: quantity,
       size: size,
+      productId: product.id || '', // Add productId for cart tracking
+      rating: product.rating || 0, // Ensure rating is always a number
     });
 
     // Show success notification

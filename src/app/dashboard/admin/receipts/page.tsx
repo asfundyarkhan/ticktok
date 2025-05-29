@@ -45,15 +45,14 @@ function ReceiptApprovalPageContent() {
     setRejectionReason('');
     setApprovalNotes('');
   };
-
   const handleApproveReceipt = async () => {
-    if (!selectedReceipt || !user) return;
+    if (!selectedReceipt || !user || !selectedReceipt.id) return;
     
     try {
       setProcessingId(selectedReceipt.id);
       
       const result = await ReceiptService.approveReceipt(
-        selectedReceipt.id!,
+        selectedReceipt.id,
         user.uid,
         approvalNotes
       );
@@ -72,8 +71,7 @@ function ReceiptApprovalPageContent() {
     }
   };
 
-  const handleRejectReceipt = async () => {
-    if (!selectedReceipt || !user || !rejectionReason.trim()) {
+  const handleRejectReceipt = async () => {    if (!selectedReceipt || !user || !selectedReceipt.id || !rejectionReason.trim()) {
       toast.error('Please provide a reason for rejection');
       return;
     }
@@ -82,7 +80,7 @@ function ReceiptApprovalPageContent() {
       setProcessingId(selectedReceipt.id);
       
       const result = await ReceiptService.rejectReceipt(
-        selectedReceipt.id!,
+        selectedReceipt.id,
         user.uid,
         rejectionReason
       );

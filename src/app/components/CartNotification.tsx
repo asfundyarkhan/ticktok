@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, ShoppingCart } from "lucide-react";
-import { useCart } from "./CartContext";
+import { useCart } from "./NewCartContext";
 import Image from "next/image";
 
 export default function CartNotification() {

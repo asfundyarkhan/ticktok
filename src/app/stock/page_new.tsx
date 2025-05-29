@@ -334,11 +334,10 @@ export default function StockPage() {
                 key={product.productId}
                 id={`product-${product.productCode}`}
                 className="border-b p-4 grid grid-cols-12 gap-4 items-center bg-white transition-all duration-300"
-              >
-                <div className="col-span-2">
+              >                <div className="col-span-2">
                   <div className="w-24 h-24 bg-gray-200 flex items-center justify-center">
                     <Image
-                      src={product.image || "/images/placeholders/t-shirt.svg"}
+                      src={product.mainImage || product.images?.[0] || "/images/placeholders/t-shirt.svg"}
                       alt={product.name}
                       width={96}
                       height={96}

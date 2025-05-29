@@ -3,13 +3,18 @@ export interface Product {
   name: string;
   price: number;
   salePrice?: number;
-  category: string;
-  rating: number;
+  category?: string;
   image: string;
-  reviews: number;
-  sizes?: string[];
-  isSale?: boolean;
   description?: string;
+  sellerId: string;
+  sellerName?: string;
+  stock?: number;
+  rating?: number;
+  reviews?: number;
+  productCode?: string;
+  listed?: boolean;
+  isSale?: boolean;
+  salePercentage?: number;
 }
 
 export interface CartItem extends Product {
@@ -17,4 +22,6 @@ export interface CartItem extends Product {
   size?: string;
   color?: string;
   savedForLater?: boolean;
+  rating: number; // Make rating required for cart items
+  productId: string; // Add productId for cart tracking
 }

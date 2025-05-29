@@ -340,15 +340,18 @@ export default function InventoryPage() {
                     key={product.id} 
                     className="text-sm"
                     data-product-code={product.productCode}
-                  >
-                    <td className="py-4 pl-2 pr-6">
-                      <div className="w-16 h-16 bg-gray-200">
+                  >                    <td className="py-4 pl-2 pr-6">                      <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
                         <Image
-                          src={product.image}
+                          src={product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : '/images/placeholders/product.svg')}
                           alt={product.name}
                           width={64}
                           height={64}
                           className="object-cover w-full h-full"
+                          onError={(e) => {
+                            console.log("Image failed to load:", e.currentTarget.src);
+                            e.currentTarget.src = '/images/placeholders/product.svg';
+                          }}
+                          unoptimized
                         />
                       </div>
                     </td>
@@ -430,15 +433,16 @@ export default function InventoryPage() {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">List Product for Sale</h2>
 
-              <div className="flex items-start mb-4">
-                <div className="mr-4">
-                  <div className="w-16 h-16 bg-gray-200">
+              <div className="flex items-start mb-4">                <div className="mr-4">                  <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
                     <Image
-                      src={currentProduct.image}
+                      src={currentProduct.mainImage || currentProduct.images?.[0] || '/images/placeholders/product.svg'}
                       alt={currentProduct.name}
                       width={64}
                       height={64}
                       className="object-cover w-full h-full"
+                      onError={(e) => {
+                        e.currentTarget.src = '/images/placeholders/product.svg';
+                      }}
                     />
                   </div>
                 </div>

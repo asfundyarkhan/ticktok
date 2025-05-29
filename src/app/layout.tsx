@@ -4,7 +4,7 @@ import "./globals.css";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import { UserBalanceProvider } from "./components/UserBalanceContext";
-import { CartProvider } from "./components/CartContext";
+import { NewCartProvider } from "./components/NewCartContext";
 import CartNotification from "./components/CartNotification";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "../context/AuthContext";
@@ -34,17 +34,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body suppressHydrationWarning className={`${inter.className} h-full`}>
-        <AuthProvider>
+      <body suppressHydrationWarning className={`${inter.className} h-full`}>        <AuthProvider>
           <UserBalanceProvider>
-            <CartProvider>
+            <NewCartProvider>
               <SuperadminStoreRedirect />
               <Navbar />
               <main className="min-h-full">{children}</main>
               <Footer />
               <CartNotification />
-              <StockCleanupService />
-              <Toaster
+              <StockCleanupService />              <Toaster
                 position="top-center"
                 toastOptions={{
                   duration: 3000,
@@ -60,7 +58,7 @@ export default function RootLayout({
                   },
                 }}
               />
-            </CartProvider>
+            </NewCartProvider>
           </UserBalanceProvider>
         </AuthProvider>
       </body>
