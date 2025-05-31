@@ -22,19 +22,21 @@ export default function DashboardPage() {
     if (!authLoading && !user) {
       window.location.href = "/login?redirect=/dashboard";
       return;
-    }
-
-    // Check if user is an admin or superadmin, redirect to store page if they're a seller or regular user
+    }    // Check if user is an admin or superadmin, redirect appropriately for other roles
     if (
       !authLoading &&
       userProfile &&
       userProfile.role !== "admin" &&
       userProfile.role !== "superadmin"
     ) {
-      // Non-admin/superadmin users should be redirected to store
-      window.location.href = "/store";
+      // Redirect based on role
+      if (userProfile.role === "seller") {
+        window.location.href = "/profile"; // Sellers go to profile
+      } else {
+        window.location.href = "/store"; // Regular users go to store
+      }
       return;
-    }    // Load dashboard data
+    }// Load dashboard data
     const loadDashboardData = async () => {
       if (!user) return;
       

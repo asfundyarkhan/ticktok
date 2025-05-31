@@ -57,6 +57,8 @@ export interface StockListing {
   price: number;
   rating?: number;
   reviews?: number;
+  sellerName?: string;
+  productCode?: string;
   createdAt: Date;
   updatedAt: Date;
 }

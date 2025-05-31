@@ -12,27 +12,34 @@ export default function Footer() {
 
   return (
     <footer className="bg-white border-t border-gray-200">
-      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div>
             <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-              Product
+              Platform
             </h3>
             <ul className="mt-4 space-y-4">
               <li>
                 <Link
-                  href="/features"
+                  href="/how-it-works"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
-                  Features
+                  How It Works
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/pricing"
+                  href="/seller-center"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
-                  Pricing
+                  Seller Center
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/business"
+                  className="text-base text-gray-500 hover:text-gray-900"
+                >
+                  TikTok for Business
                 </Link>
               </li>
               <li>
@@ -53,7 +60,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-4">
               <li>
                 <Link
-                  href="/help"
+                  href="/help-center"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
                   Help Center
@@ -61,10 +68,18 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/guides"
+                  href="/safety-center"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
-                  Guides
+                  Safety Center
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/community-guidelines"
+                  className="text-base text-gray-500 hover:text-gray-900"
+                >
+                  Community Guidelines
                 </Link>
               </li>
               <li>
@@ -88,15 +103,15 @@ export default function Footer() {
                   href="/about"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
-                  About
+                  About Us
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/blog"
+                  href="/newsroom"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
-                  Blog
+                  Newsroom
                 </Link>
               </li>
               <li>
@@ -105,6 +120,14 @@ export default function Footer() {
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
                   Careers
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/impact"
+                  className="text-base text-gray-500 hover:text-gray-900"
+                >
+                  Social Impact
                 </Link>
               </li>
             </ul>
@@ -117,14 +140,6 @@ export default function Footer() {
             <ul className="mt-4 space-y-4">
               <li>
                 <Link
-                  href="/privacy"
-                  className="text-base text-gray-500 hover:text-gray-900"
-                >
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/terms"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
@@ -133,10 +148,26 @@ export default function Footer() {
               </li>
               <li>
                 <Link
+                  href="/privacy"
+                  className="text-base text-gray-500 hover:text-gray-900"
+                >
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link
                   href="/cookies"
                   className="text-base text-gray-500 hover:text-gray-900"
                 >
                   Cookie Policy
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/accessibility"
+                  className="text-base text-gray-500 hover:text-gray-900"
+                >
+                  Accessibility
                 </Link>
               </li>
             </ul>

@@ -8,7 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 export default function ReceiptUploadForm() {
   const { user } = useAuth();
   const [amount, setAmount] = useState<string>('');
-  const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -39,14 +38,8 @@ export default function ReceiptUploadForm() {
       toast.error('You must be logged in to upload a receipt');
       return;
     }
-    
-    if (!amount || parseFloat(amount) <= 0) {
+      if (!amount || parseFloat(amount) <= 0) {
       toast.error('Please enter a valid amount');
-      return;
-    }
-    
-    if (!referenceNumber.trim()) {
-      toast.error('Please enter a reference number');
       return;
     }
     
@@ -65,21 +58,17 @@ export default function ReceiptUploadForm() {
     
     try {
       toast.loading('Uploading receipt...');
-      
-      const result = await ReceiptService.submitReceipt(
+        const result = await ReceiptService.submitReceipt(
         user.uid,
         parseFloat(amount),
-        referenceNumber.trim(),
         receiptFile
       );
       
       toast.dismiss(); // Clear loading toast
       
-      if (result.success) {
-        toast.success(result.message);
+      if (result.success) {        toast.success(result.message);
         // Reset form
         setAmount('');
-        setReferenceNumber('');
         setReceiptFile(null);
         setPreviewUrl(null);
       } else {
@@ -126,24 +115,7 @@ export default function ReceiptUploadForm() {
             step="0.01"
             min="0.01"
             required
-          />
-        </div>
-        
-        {/* Reference Number Input */}
-        <div>
-          <label htmlFor="referenceNumber" className="block text-sm font-medium text-gray-700 mb-1">
-            Reference Number
-          </label>
-          <input
-            type="text"
-            id="referenceNumber"
-            value={referenceNumber}
-            onChange={(e) => setReferenceNumber(e.target.value)}
-            placeholder="Enter payment reference number"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#FF0059]"
-            required
-          />
-        </div>
+          />        </div>
         
         {/* Receipt Image Upload */}
         <div>

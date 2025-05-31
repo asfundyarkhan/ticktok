@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
 import styles from "./main.module.css";
 import { useState, useEffect } from "react";
@@ -31,42 +30,7 @@ export default function MainPage() {
         }
       );
     }
-  }, [suspended]);
-  // State to track if navbar should be visible
-  const [showNavbar, setShowNavbar] = useState(false);
-  // This state is not used but kept for future scroll position tracking
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [lastScrollY, setLastScrollY] = useState(0);
-
-  // Handle scroll events
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > 100) {
-        setShowNavbar(true);
-      } else {
-        setShowNavbar(false);
-      }
-
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
-  const handleCartClick = () => {
-    if (isAuthenticated) {
-      router.push("/cart");
-    } else {
-      toast.error("Please login to view your cart");
-      router.push("/login");
-    }
-  };
+  }, [suspended]);  // Removed navbar state and scroll handling since we're removing the header
 
   const handleGetStartedClick = () => {
     if (isAuthenticated) {
@@ -77,88 +41,7 @@ export default function MainPage() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#121212] text-white relative">
-      {/* Navbar with scroll-based visibility */}
-      <nav
-        className={`fixed top-0 left-0 w-full z-50 flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-[#121212] transition-transform duration-300 ${
-          showNavbar ? "translate-y-0" : "-translate-y-full"
-        }`}
-      >
-        <div className="flex items-center space-x-8">
-          <Link href="/" className="text-2xl font-bold text-pink-500">
-            TikTok Shop
-          </Link>
-          <div className="relative">
-            <button className="flex items-center space-x-2 text-gray-300">
-              <span>Category</span>
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 max-w-2xl mx-8">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search for products..."
-              className="w-full px-4 py-2 bg-gray-800 rounded-full text-gray-300 focus:outline-none focus:ring-2 focus:ring-pink-500"
-            />
-            <button className="absolute right-3 top-2">
-              <svg
-                className="w-6 h-6 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-6">
-          <button onClick={handleCartClick} className="text-gray-300">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          </button>
-          <Link
-            href="/login"
-            className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors"
-          >
-            Log in
-          </Link>
-        </div>
-      </nav>
-
+  return (    <main className="min-h-screen bg-[#121212] text-white relative">
       {/* Hero Section - Added pt-6 for better spacing */}
       <div className={`${styles.heroSection} pt-6`}>
         <motion.div

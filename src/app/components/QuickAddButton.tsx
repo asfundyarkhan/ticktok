@@ -30,9 +30,10 @@ export default function QuickAddButton({
   const [isAdding, setIsAdding] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const { addToCart } = useCart();
-
   const handleQuickAdd = () => {
-    setIsAdding(true);    // Add product to cart
+    setIsAdding(true);
+    
+    // Add product to cart
     addToCart({
       id: product.id,
       name: product.name,
@@ -41,7 +42,6 @@ export default function QuickAddButton({
       category: product.category || "product",
       rating: product.rating || 0,
       image: product.image,
-      reviews: product.reviews || 0,
       quantity: 1,
       description: product.description || "",
       sellerId: product.sellerId || "",

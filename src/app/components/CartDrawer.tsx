@@ -1,11 +1,9 @@
 "use client";
 
-import { Fragment } from "react";
-import { Dialog, Transition } from "@headlessui/react";
-import { X, Minus, Plus, ShoppingBag } from "lucide-react";
-import { useCart } from "./NewCartContext";
-import Link from "next/link";
+import { ShoppingBag, X, Plus, Minus } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { useCart } from "./NewCartContext";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -13,189 +11,153 @@ interface CartDrawerProps {
 }
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
-  const { cartItems, getCartTotal, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, getCartTotal } = useCart();
   const cartTotal = getCartTotal();
 
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>        <Transition.Child
-          as={Fragment}
-          enter="ease-in-out duration-500"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in-out duration-500"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </Transition.Child>
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          onClick={onClose}
+        />
+      )}
 
-        <div className="fixed inset-0 overflow-hidden">
-          <div className="absolute inset-0 overflow-hidden">
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">              <Transition.Child
-                as={Fragment}
-                enter="transform transition ease-in-out duration-500"
-                enterFrom="translate-x-full"
-                enterTo="translate-x-0"
-                leave="transform transition ease-in-out duration-500"
-                leaveFrom="translate-x-0"
-                leaveTo="translate-x-full"
+      {/* Drawer */}
+      <div
+        className={`fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="px-4 py-6 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900">
+                Shopping Cart
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 -m-2 text-gray-400 hover:text-gray-500 rounded-md"
               >
-                <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
-                  <div className="flex h-full flex-col overflow-y-scroll bg-white shadow-xl">
-                    <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-                      <div className="flex items-start justify-between">
-                        <Dialog.Title className="text-lg font-medium text-gray-900">
-                          Shopping Cart
-                        </Dialog.Title>
-                        <div className="ml-3 flex h-7 items-center">
-                          <button
-                            type="button"
-                            className="relative -m-2 p-2 text-gray-400 hover:text-gray-500"
-                            onClick={onClose}
-                          >
-                            <span className="absolute -inset-0.5" />
-                            <span className="sr-only">Close panel</span>
-                            <X className="h-6 w-6" aria-hidden="true" />
-                          </button>
-                        </div>
+                <span className="sr-only">Close panel</span>
+                <X className="h-6 w-6" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+
+          {/* Cart items */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-4 py-6 sm:px-6">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <ShoppingBag className="h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-500">Your cart is empty</p>
+                </div>
+              ) : (
+                <ul role="list" className="divide-y divide-gray-200">
+                  {cartItems.map((item) => (
+                    <li key={item.id} className="py-6 flex">
+                      {/* Item image */}
+                      <div className="relative flex-shrink-0 w-24 h-24 overflow-hidden rounded-md">
+                        <Image
+                          src={item.image || "/placeholder.png"}
+                          alt={item.name}
+                          className="object-cover object-center"
+                          fill
+                          sizes="96px"
+                        />
                       </div>
 
-                      <div className="mt-8">
-                        <div className="flow-root">
-                          {" "}
-                          {cartItems.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12">
-                              <ShoppingBag className="h-12 w-12 text-gray-400 mb-4" />
-                              <p className="text-gray-500">
-                                Your cart is empty
-                              </p>
-                            </div>
-                          ) : (
-                            <ul
-                              role="list"
-                              className="-my-6 divide-y divide-gray-200"
-                            >
-                              {cartItems.map((item) => (                                <li key={item.id} className="flex py-6">
-                                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                    <Image
-                                      src={item.image}
-                                      alt={item.name}
-                                      width={96}
-                                      height={96}
-                                      className="h-full w-full object-cover object-center"
-                                    />
-                                  </div>
-
-                                  <div className="ml-4 flex flex-1 flex-col">
-                                    <div>
-                                      <div className="flex justify-between text-base font-medium text-gray-900">
-                                        <h3>{item.name}</h3>{" "}
-                                        <p className="ml-4">
-                                          $
-                                          {(
-                                            (item.salePrice || item.price) *
-                                            item.quantity
-                                          ).toFixed(2)}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-1 items-end justify-between text-sm">
-                                      <div className="flex items-center space-x-2">
-                                        {" "}
-                                        <button
-                                          onClick={() => {
-                                            if (item.quantity > 1) {
-                                              updateQuantity(
-                                                item.id,
-                                                item.quantity - 1
-                                              );
-                                            }
-                                          }}
-                                          className="p-1 rounded-full hover:bg-gray-100"
-                                          disabled={item.quantity <= 1}
-                                        >
-                                          <Minus className="h-4 w-4 text-gray-500" />
-                                        </button>
-                                        <span className="text-gray-700">
-                                          {item.quantity}
-                                        </span>
-                                        <button
-                                          onClick={() =>
-                                            updateQuantity(
-                                              item.id,
-                                              item.quantity + 1
-                                            )
-                                          }
-                                          className="p-1 rounded-full hover:bg-gray-100"
-                                        >
-                                          <Plus className="h-4 w-4 text-gray-500" />
-                                        </button>
-                                      </div>{" "}
-                                      <button
-                                        type="button"
-                                        onClick={() => removeFromCart(item.id)}
-                                        className="font-medium text-[#FF0059] hover:text-[#E60050]"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {cartItems.length > 0 && (
-                      <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
-                        <div className="flex justify-between text-base font-medium text-gray-900">
-                          <p>Subtotal</p>
-                          <p>${cartTotal.toFixed(2)}</p>
-                        </div>
-                        <p className="mt-0.5 text-sm text-gray-500">
-                          Shipping and taxes calculated at checkout.
-                        </p>
-                        <div className="mt-6 flex flex-col space-y-3">
-                          <Link
-                            href="/cart"
-                            onClick={onClose}
-                            className="flex items-center justify-center rounded-md border border-transparent bg-[#FF0059] px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-[#E60050]"
-                          >
-                            View Cart
-                          </Link>{" "}
-                          <Link
-                            href="/cart"
-                            onClick={onClose}
-                            className="flex items-center justify-center rounded-md border border-transparent bg-gray-900 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-gray-800"
-                          >
-                            Checkout
-                          </Link>
-                        </div>
-                        <div className="mt-6 flex justify-center text-center text-sm text-gray-500">
-                          <p>
-                            or{" "}
+                      {/* Item details */}
+                      <div className="ml-4 flex-1 flex flex-col">
+                        <div>
+                          <div className="flex justify-between">
+                            <h3 className="text-sm font-medium text-gray-900">
+                              {item.name}
+                            </h3>
                             <button
                               type="button"
-                              className="font-medium text-[#FF0059] hover:text-[#E60050]"
-                              onClick={onClose}
+                              onClick={() => removeFromCart(item.id)}
+                              className="ml-4 text-pink-600 hover:text-pink-500 p-1 rounded-full hover:bg-pink-50"
                             >
-                              Continue Shopping
-                              <span aria-hidden="true"> &rarr;</span>
+                              <span className="sr-only">Remove</span>
+                              <X className="h-5 w-5" aria-hidden="true" />
                             </button>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-500">
+                            ${item.price.toFixed(2)}
+                          </p>
+                        </div>
+
+                        {/* Quantity controls */}
+                        <div className="flex-1 flex items-end justify-between">
+                          <div className="flex items-center border rounded-md">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateQuantity(item.id, Math.max(1, item.quantity - 1))
+                              }
+                              className="p-2 text-gray-600 hover:text-gray-900"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="px-4 py-2 text-gray-900">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateQuantity(item.id, item.quantity + 1)
+                              }
+                              className="p-2 text-gray-600 hover:text-gray-900"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <p className="text-sm font-medium text-gray-900">
+                            ${(item.price * item.quantity).toFixed(2)}
                           </p>
                         </div>
                       </div>
-                    )}
-                  </div>
-                </Dialog.Panel>
-              </Transition.Child>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
+
+          {/* Footer */}
+          {cartItems.length > 0 && (
+            <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
+              <div className="flex justify-between text-base font-medium text-gray-900 mb-4">
+                <p>Subtotal</p>
+                <p>${cartTotal.toFixed(2)}</p>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                Shipping and taxes calculated at checkout.
+              </p>
+              <div className="space-y-3">
+                <Link
+                  href="/cart"
+                  onClick={onClose}
+                  className="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-pink-700 transition-colors"
+                >
+                  Checkout
+                </Link>
+                <button
+                  onClick={onClose}
+                  className="w-full flex items-center justify-center rounded-md border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+                >
+                  Continue Shopping
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </Dialog>
-    </Transition.Root>
+      </div>
+    </>
   );
 }

@@ -19,7 +19,12 @@ const sampleRelatedProducts = [
     image: "/images/product1.jpg",
     reviews: 24,
     description: "Classic vintage timepiece with leather band.",
-  },  {
+    quantity: 1,
+    sellerId: "sample-seller-1",
+    sellerName: "Vintage Co",
+    productId: "rel1",
+  },
+  {
     id: "rel2",
     name: "Silver Bracelet",
     price: 49.99,
@@ -28,6 +33,10 @@ const sampleRelatedProducts = [
     image: "/images/product2.jpg",
     reviews: 18,
     description: "Elegant silver bracelet with minimalist design.",
+    quantity: 1,
+    sellerId: "sample-seller-2",
+    sellerName: "Silver Co",
+    productId: "rel2",
   },
   {
     id: "rel3",
@@ -39,8 +48,11 @@ const sampleRelatedProducts = [
     image: "/images/product3.jpg",
     reviews: 36,
     description: "Beautiful gold necklace with pendant.",
-  },
-  {
+    quantity: 1,
+    sellerId: "sample-seller-3",
+    sellerName: "Gold Co",
+    productId: "rel3",
+  },  {
     id: "rel4",
     name: "Diamond Earrings",
     price: 199.99,
@@ -49,6 +61,10 @@ const sampleRelatedProducts = [
     image: "/images/product4.jpg",
     reviews: 52,
     description: "Stunning diamond earrings with platinum finish.",
+    quantity: 1,
+    sellerId: "sample-seller-4",
+    sellerName: "Diamond Co",
+    productId: "rel4",
   },
 ];
 

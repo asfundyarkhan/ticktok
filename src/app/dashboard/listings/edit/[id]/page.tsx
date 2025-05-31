@@ -12,7 +12,7 @@ import Image from "next/image";
 export default function EditProductPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const { user, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function EditProductPage({
   const [productLoading, setProductLoading] = useState(true);
   const [fileLoading, setFileLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [productId, setProductId] = useState<string>("");
 
   const [product, setProduct] = useState<Partial<Product>>({
     name: "",
@@ -31,21 +32,27 @@ export default function EditProductPage({
     listed: false,
     productCode: "",
     rating: 0,
-    reviews: 0,
-  });
+    reviews: 0,  });
+
+  // Resolve params Promise and set productId
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setProductId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
 
   // Load product data
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!params.id) {
-        toast.error("No product ID provided");
-        router.push("/dashboard/listings");
-        return;
+      if (!productId) {
+        return; // Wait for productId to be set
       }
 
       try {
         setProductLoading(true);
-        const productData = await ProductService.getProduct(params.id);
+        const productData = await ProductService.getProduct(productId);
 
         if (!productData) {
           toast.error("Product not found");
@@ -70,12 +77,10 @@ export default function EditProductPage({
       } finally {
         setProductLoading(false);
       }
-    };
-
-    if (user && !authLoading) {
+    };    if (user && !authLoading) {
       fetchProduct();
     }
-  }, [params.id, user, authLoading, router]);
+  }, [productId, user, authLoading, router]);
 
   // Redirect non-sellers
   useEffect(() => {
@@ -114,13 +119,11 @@ export default function EditProductPage({
       reader.onload = (event) => {
         setImagePreview(event.target?.result as string);
       };
-      reader.readAsDataURL(file);
-
-      // Use the actual product ID for the image upload
-      if (params.id) {
+      reader.readAsDataURL(file);      // Use the actual product ID for the image upload
+      if (productId) {
         const imageUrl = await ProductService.uploadProductImage(
           file,
-          params.id
+          productId
         );
         setProduct({ ...product, image: imageUrl });
         toast.success("Image uploaded successfully");
@@ -146,11 +149,9 @@ export default function EditProductPage({
       return;
     }
 
-    setLoading(true);
-
-    try {
+    setLoading(true);    try {
       // Update the product in Firestore
-      await ProductService.updateProduct(params.id, product);
+      await ProductService.updateProduct(productId, product);
       toast.success("Product updated successfully!");
 
       // Redirect to product listings
@@ -327,9 +328,9 @@ export default function EditProductPage({
           <div className="mt-1 flex items-center space-x-6">
             <div className="w-32 h-32 border border-gray-300 rounded-md overflow-hidden flex items-center justify-center relative">
               {fileLoading ? (
-                <LoadingSpinner size="md" />
-              ) : imagePreview || product.image ? (                <Image
-                  src={imagePreview || product.image}
+                <LoadingSpinner size="md" />              ) : imagePreview || product.image ? (
+                <Image
+                  src={imagePreview || product.image || '/placeholder-image.jpg'}
                   alt="Product preview"
                   width={128}
                   height={128}

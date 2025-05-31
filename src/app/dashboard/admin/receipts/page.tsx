@@ -122,9 +122,8 @@ function ReceiptApprovalPageContent() {
       </span>
     );
   };
-
   if (loading) {
-    return <LoadingSpinner message="Loading receipts..." />;
+    return <LoadingSpinner />;
   }
 
   return (
@@ -161,9 +160,8 @@ function ReceiptApprovalPageContent() {
                     <div className="text-xs text-gray-500">
                       {format(receipt.createdAt, 'h:mm a')}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{receipt.referenceNumber}</div>
+                  </td>                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{receipt.referenceNumber || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">${receipt.amount.toFixed(2)}</div>
@@ -212,10 +210,9 @@ function ReceiptApprovalPageContent() {
                     <div>
                       <p className="text-sm text-gray-500">Amount</p>
                       <p className="font-semibold text-lg">${selectedReceipt.amount.toFixed(2)}</p>
-                    </div>
-                    <div>
+                    </div>                    <div>
                       <p className="text-sm text-gray-500">Reference Number</p>
-                      <p className="font-semibold">{selectedReceipt.referenceNumber}</p>
+                      <p className="font-semibold">{selectedReceipt.referenceNumber || 'N/A'}</p>
                     </div>
                   </div>
 

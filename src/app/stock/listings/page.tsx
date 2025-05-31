@@ -85,40 +85,38 @@ export default function MyListingsPage() {
       console.error("Error removing listing:", error);
       toast.error("Failed to remove listing. Please try again.");
     }
-  };
-
-  // Handle listing edit
+  };  // Handle listing edit - seller can only update quantity, not price
   const handleEditListing = async (
     listingId: string,
-    newPrice: number,
-    newQuantity: number
+    newQuantity: number,
+    currentListing: StockListing
   ) => {
     if (!user?.uid || !listingId) {
       toast.error("Authentication required");
       return;
     }
 
-    if (newPrice <= 0 || newQuantity <= 0) {
-      toast.error("Price and quantity must be greater than 0");
+    if (newQuantity <= 0) {
+      toast.error("Quantity must be greater than 0");
       return;
     }
 
     try {
       setEditingListing(listingId);
       
+      // Only pass the quantity to update, not the price
       const result = await StockService.updateListing(listingId, user.uid, {
-        price: newPrice,
         quantity: newQuantity
       });
 
       if (result.success) {
-        toast.success("Listing updated successfully");
+        toast.success("Listing quantity updated successfully");
       } else {
-        toast.error(result.message || "Failed to update listing");
+        toast.error(result.message || "Failed to update listing quantity");
       }
     } catch (error) {
-      console.error("Error updating listing:", error);
-      toast.error("Failed to update listing. Please try again.");
+      console.error("Error updating listing quantity:", error);
+      toast.error("Failed to update listing quantity. Please try again.");
     } finally {
       setEditingListing(null);
     }
@@ -134,49 +132,8 @@ export default function MyListingsPage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-white">
-      <div className="py-4 px-6 border-b flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-bold text-black">TikTok Shop</h1>
-          <div className="relative">
-            <button className="px-3 py-1 border rounded-md text-sm flex items-center text-black">
-              Category <span className="ml-1">▼</span>
-            </button>
-          </div>
-          <input
-            type="text"
-            placeholder="Search your listings..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 rounded-full bg-gray-100 w-96 text-black placeholder-gray-500 border border-gray-300"
-          />
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <Link href="/cart" className="relative">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-          </Link>
-          <div className="text-sm font-medium text-gray-700">
-            Balance: ${balance.toFixed(2)}
-          </div>
-        </div>
-      </div>
-
       <div className="p-6">
         <h1 className="text-xl font-medium mb-6 text-gray-900">My Listings</h1>
         
@@ -261,17 +218,42 @@ export default function MyListingsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => {
-                            const newPrice = parseFloat(prompt("Enter new price:", listing.price.toString()) || listing.price.toString());
-                            const newQuantity = parseInt(prompt("Enter new quantity:", listing.quantity.toString()) || listing.quantity.toString());
-                            handleEditListing(listing.id!, newPrice, newQuantity);
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">                        <button
+                          onClick={async () => {
+                            try {
+                              // Get current inventory to check maximum available quantity
+                              const inventoryItems = await StockService.getInventoryItems(user.uid);
+                              const inventoryItem = inventoryItems.find(item => item.productId === listing.productId);
+                              
+                              // Calculate max quantity (current listed + available in inventory)
+                              const maxQuantity = listing.quantity + (inventoryItem?.stock || 0);
+                              
+                              if (maxQuantity <= 0) {
+                                toast.error("No inventory available for this product");
+                                return;
+                              }
+                              
+                              const newQuantity = parseInt(
+                                prompt(`Enter new quantity (max available: ${maxQuantity}):`, 
+                                listing.quantity.toString()) || listing.quantity.toString()
+                              );
+                              
+                              // Validate that the quantity doesn't exceed inventory
+                              if (newQuantity > maxQuantity) {
+                                toast.error(`Quantity cannot exceed ${maxQuantity}`);
+                                return;
+                              }
+                              
+                              handleEditListing(listing.id!, newQuantity, listing);
+                            } catch (error) {
+                              console.error("Error checking inventory:", error);
+                              toast.error("Failed to check inventory availability");
+                            }
                           }}
                           disabled={editingListing === listing.id}
                           className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
                         >
-                          {editingListing === listing.id ? "Updating..." : "Edit"}
+                          {editingListing === listing.id ? "Updating..." : "Edit Quantity"}
                         </button>
                         <button
                           onClick={() => handleRemoveListing(listing.id!)}

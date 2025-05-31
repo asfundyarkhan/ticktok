@@ -110,14 +110,14 @@ export default function InventoryPage() {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
-
   // Open sell modal for a product
   const openSellModal = (product: StockItem) => {
     setCurrentProduct(product);
     // For inventory items, stock is now called 'quantity' in Firebase structure
     const availableStock = product.stock || 0;
     setSellQuantity(Math.min(10, availableStock));
-    setSellPrice(product.price);
+    // Calculate 30% markup from original price
+    setSellPrice(product.price * 1.3);
     setShowSellModal(true);
   };
 
@@ -212,71 +212,10 @@ export default function InventoryPage() {
         </div>
       </div>
     );
-  }
-
-  return (
+  }  return (
     <div className="min-h-screen bg-white">
-      {/* Header with TikTok Shop and search */}
-      <div className="py-4 px-6 border-b flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-bold text-black">TikTok Shop</h1>
-          <div className="relative">
-            <button className="px-3 py-1 border rounded-md text-sm flex items-center text-black">
-              Category <span className="ml-1">▼</span>
-            </button>
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search for products..."
-              className="pl-10 pr-4 py-2 rounded-full bg-gray-100 w-96 text-black placeholder-gray-500 border border-gray-300"
-            />
-            <div className="absolute left-3 top-2.5 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Link href="/cart" className="relative">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-700 cursor-pointer hover:text-[#FF0059]"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-              />
-            </svg>
-          </Link>
-          <div className="text-sm font-medium text-gray-700">
-            Balance: ${balance.toFixed(2)}
-          </div>
-          <div className="flex items-center space-x-2 text-sm">
-            <span className="text-gray-700 font-medium">Your Name</span>
-          </div>
-        </div>
-      </div>
-
       <div className="p-6">
-        <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>
+        <h1 className="text-2xl font-medium mb-6">Account</h1>
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
           <Link
@@ -284,8 +223,9 @@ export default function InventoryPage() {
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             General
-          </Link>          <Link
-            href="/receipts"
+          </Link>
+          <Link
+            href="/wallet"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
             Wallet
@@ -308,10 +248,8 @@ export default function InventoryPage() {
           >
             My Listings
           </Link>
-        </div>
-
-        {/* Current Balance Card */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
+        </div>        {/* Current Balance Card */}
+        <div className="bg-white p-4 rounded-lg mb-6 border-l-4 border-[#FF0059]">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-sm font-semibold text-gray-500">
@@ -322,8 +260,8 @@ export default function InventoryPage() {
               </p>
             </div>
             <Link
-              href="/receipts"
-              className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
+              href="/wallet"
+              className="px-4 py-2 bg-[#FF0059] text-white rounded-md font-medium"
             >
               Add Funds
             </Link>
@@ -355,10 +293,10 @@ export default function InventoryPage() {
               </svg>
             </div>
           </div>
-            <div className="flex space-x-2">
+          <div className="flex space-x-2">
             <button
               onClick={debugCheckInventory}
-              className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium"
+              className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md font-medium"
             >
               Refresh Inventory
             </button>
@@ -501,9 +439,7 @@ export default function InventoryPage() {
                     Available: {currentProduct.stock || 0} pcs
                   </p>
                 </div>
-              </div>
-
-              <div className="mb-4">
+              </div>              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Quantity to List
                 </label>
@@ -545,24 +481,18 @@ export default function InventoryPage() {
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price per Unit ($)
+                  Price per Unit ($) - 30% Markup Applied
                 </label>
                 <input
                   type="number"
-                  value={sellPrice}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val) && val >= 0) {
-                      setSellPrice(val);
-                    }
-                  }}
-                  className="px-3 py-2 border rounded-md w-full"
-                  min={0.01}
-                  step={0.01}
+                  value={sellPrice.toFixed(2)}
+                  readOnly
+                  className="px-3 py-2 border rounded-md w-full bg-gray-100 cursor-not-allowed"
                 />
-              </div>
-
-              <div className="mb-4 p-3 bg-gray-50 border rounded-md">
+                <p className="text-xs text-gray-500 mt-1">
+                  Original price: ${currentProduct.price.toFixed(2)} → Sale price: ${sellPrice.toFixed(2)}
+                </p>
+              </div>              <div className="mb-4 p-3 bg-gray-50 border rounded-md">
                 <p className="text-sm font-medium text-gray-700">
                   Listing Summary:
                 </p>
@@ -570,12 +500,6 @@ export default function InventoryPage() {
                   <span className="text-gray-600">Total Value:</span>
                   <span className="font-medium">
                     ${(sellPrice * sellQuantity).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between mt-1 text-sm">
-                  <span className="text-gray-600">Platform Fee (10%):</span>
-                  <span className="font-medium text-green-600">
-                    +${(sellPrice * sellQuantity * 0.1).toFixed(2)}
                   </span>
                 </div>
               </div>

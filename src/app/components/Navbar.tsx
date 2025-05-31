@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Menu, X, LogOut } from "lucide-react";
+import { Menu, X, LogOut, Wallet } from "lucide-react";
 import { useUserBalance } from "./UserBalanceContext";
 import { useCart } from "./NewCartContext";
+import { useAuth } from "@/context/AuthContext";
 import CartDrawer from "./CartDrawer";
 import AnimatedCartIcon from "./AnimatedCartIcon";
 import LogoutButton from "./LogoutButton";
@@ -18,28 +19,33 @@ export default function Navbar() {
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
   const { isCartOpen, setIsCartOpen } = useCart();
-  // We will use the LogoutButton component instead of this function
-  // which correctly handles all logout logic
+  const { userProfile } = useAuth();
+  
+  const isSeller = userProfile?.role === "seller";
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollPos = window.scrollY;      // Always show navbar, just update the style based on scroll
-      setVisible(true);
+      const currentScrollPos = window.scrollY;
+      const visible = prevScrollPos > currentScrollPos || currentScrollPos < 10;
+      setVisible(visible);
       setIsScrolled(currentScrollPos > 0);
       setPrevScrollPos(currentScrollPos);
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [prevScrollPos]);
+
+  // Close menu when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
 
   const isAuthPage = pathname === "/login" || pathname === "/register";
   const isMainPage = pathname === "/";
 
-  // Don't show navbar on auth and dashboard pages
   if (isAuthPage || pathname.startsWith("/dashboard")) return null;
 
-  // Display different navigation based on the path
   const isLoggedInPage =
     pathname.startsWith("/store") ||
     pathname.startsWith("/stock") ||
@@ -48,235 +54,176 @@ export default function Navbar() {
     pathname.startsWith("/receipts");
 
   return (
-    <nav      className={`fixed w-full z-50 transition-all duration-300 ${
-        visible ? "translate-y-0" : "-translate-y-full"
-      } ${
-        isScrolled || !isMainPage
-          ? "bg-white shadow-sm"
-          : "bg-white/80 backdrop-blur-sm"
-      }`}
-      style={{ transition: "transform 0.3s ease-in-out" }}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex-shrink-0">
-            <Link
-              href={isLoggedInPage ? "/store" : "/"}
-              className="flex items-center"
-            >
-              <span
-                className={`text-lg font-bold ${
-                  isScrolled || !isMainPage ? "text-[#FF0059]" : "text-white"
-                }`}
-              >
-                TikTok
-              </span>
-              <span
-                className={`ml-1 text-lg font-semibold ${
-                  isScrolled || !isMainPage ? "text-gray-900" : "text-white"
-                }`}
-              >
-                Shop
-              </span>
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          {isLoggedInPage ? (
-            <div className="hidden md:flex md:items-center md:space-x-6">
+    <>
+      <nav
+        className={`fixed w-full z-50 transition-all duration-300 ${
+          visible ? "translate-y-0" : "-translate-y-full"
+        } ${
+          isScrolled || !isMainPage
+            ? "bg-white/95 backdrop-blur-sm shadow-sm"
+            : "bg-white/90 backdrop-blur-sm"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">            {/* Left section with logo */}
+            <div className="flex items-center">
               <Link
-                href="/store"
-                className={`text-sm font-medium ${
-                  pathname.startsWith("/store")
-                    ? "text-[#FF0059]"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
+                href={isLoggedInPage ? (isSeller ? "/profile" : "/store") : "/"}
+                className="flex items-center"
               >
-                Store
-              </Link>
-              <Link
-                href="/stock"
-                className={`text-sm font-medium ${
-                  pathname.startsWith("/stock")
-                    ? "text-[#FF0059]"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Stock
-              </Link>              <Link
-                href="/receipts"
-                className={`text-sm font-medium ${
-                  pathname.startsWith("/receipts")
-                    ? "text-[#FF0059]"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Wallet
-              </Link>{" "}
-              <div className="px-4 py-2 bg-gray-100 rounded-md text-sm font-medium text-gray-800">
-                Balance: ${balance.toFixed(2)}
-              </div>{" "}
-              <AnimatedCartIcon
-                className="p-2 text-gray-600 hover:text-gray-900"
-                onClick={() => setIsCartOpen(true)}
-              />
-              <Link
-                href="/profile"
-                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700"
-              >
-                Profile
-              </Link>{" "}
-              {/* New Logout Button */}
-              <LogoutButton
-                variant="secondary"
-                className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </LogoutButton>
-            </div>
-          ) : (
-            <div className="hidden md:flex md:items-center md:space-x-6">
-              <Link
-                href="/features"
-                className={`text-sm font-medium ${
-                  isScrolled || !isMainPage
-                    ? "text-gray-600 hover:text-gray-900"
-                    : "text-gray-200 hover:text-white"
-                }`}
-              >
-                Features
-              </Link>
-              <Link
-                href="/pricing"
-                className={`text-sm font-medium ${
-                  isScrolled || !isMainPage
-                    ? "text-gray-600 hover:text-gray-900"
-                    : "text-gray-200 hover:text-white"
-                }`}
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/login"
-                className={`text-sm font-medium ${
-                  isScrolled || !isMainPage
-                    ? "text-gray-600 hover:text-gray-900"
-                    : "text-gray-200 hover:text-white"
-                }`}
-              >
-                Sign in
-              </Link>
-              <Link
-                href="/register"
-                className="ml-8 inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700"
-              >
-                Get Started
+                <span className="text-lg font-bold text-[#FF0059]">TikTok</span>
+                <span className="ml-1 text-lg font-semibold text-gray-900">Shop</span>
               </Link>
             </div>
-          )}
-
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`inline-flex items-center justify-center p-2 rounded-md ${
-                isScrolled || !isMainPage
-                  ? "text-gray-600 hover:text-gray-900"
-                  : "text-gray-200 hover:text-white"
-              }`}
-            >
-              <span className="sr-only">Open main menu</span>
-              {isMenuOpen ? (
-                <X className="block h-6 w-6" />
-              ) : (
-                <Menu className="block h-6 w-6" />
+            
+            {/* Right section */}
+            <div className="flex items-center space-x-4">              {/* Cart icon (if logged in and not a seller) */}
+              {isLoggedInPage && !isSeller && (
+                <AnimatedCartIcon
+                  className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  onClick={() => setIsCartOpen(true)}
+                />
               )}
-            </button>
+
+              {/* Auth buttons with integrated balance */}                {isLoggedInPage ? (
+                <div className="hidden md:flex items-center space-x-2">
+                  {/* Balance display - show for all logged in users */}
+                  <Link
+                    href="/wallet"
+                    className="flex items-center px-3 py-2 bg-gradient-to-r from-pink-50 to-pink-100 rounded-md transition-all hover:shadow-md border border-pink-100"
+                  >
+                    <Wallet className="h-4 w-4 text-[#FF0059] mr-2" />
+                    <span className="text-sm font-medium text-gray-900">${balance.toFixed(2)}</span>
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="px-4 py-2 text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md transition-colors"
+                  >
+                    Profile
+                  </Link>
+                  <LogoutButton
+                    variant="secondary"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-md transition-colors inline-flex items-center"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </LogoutButton>
+                </div>
+              ) : (
+                <div className="hidden md:flex items-center space-x-2">
+                  <Link
+                    href="/login"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="px-4 py-2 text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md transition-colors"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              )}
+
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                aria-expanded={isMenuOpen}
+              >
+                <span className="sr-only">Open menu</span>
+                {isMenuOpen ? (
+                  <X className="h-6 w-6" aria-hidden="true" />
+                ) : (
+                  <Menu className="h-6 w-6" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      </nav>
+
+      {/* Mobile menu overlay */}
+      {isMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
 
       {/* Mobile menu */}
-      <div className={`md:hidden ${isMenuOpen ? "block" : "hidden"}`}>
-        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
-          {isLoggedInPage ? (
-            <>
-              <Link
-                href="/store"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Store
-              </Link>
-              <Link
-                href="/stock"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Stock
-              </Link>
-              <Link
-                href="/wallet"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Wallet
-              </Link>{" "}
-              <div className="px-3 py-2 text-base font-medium text-gray-800 bg-gray-100 rounded-md">
-                Balance: ${balance.toFixed(2)}
+      <div
+        className={`fixed inset-x-0 top-[64px] z-40 transform transition-all duration-200 ease-in-out md:hidden ${
+          isMenuOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="bg-white shadow-lg border-t">
+          <div className="max-w-7xl mx-auto divide-y divide-gray-200">
+            {isLoggedInPage ? (
+              <>                <div className="py-3 px-4 space-y-3">
+                  {/* Balance card for mobile - always show for logged in users */}
+                  <div className="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Wallet className="h-5 w-5 text-[#FF0059] mr-2" />
+                        <div>
+                          <div className="text-xs text-gray-600">Current Balance</div>
+                          <div className="text-lg font-semibold text-gray-900">${balance.toFixed(2)}</div>
+                        </div>
+                      </div>                      <Link
+                        href="/wallet"
+                        className="px-3 py-1 text-sm font-medium text-[#FF0059] bg-white rounded-md shadow-sm hover:bg-pink-50 transition-colors"
+                      >
+                        Add Funds
+                      </Link>
+                    </div>
+                  </div>                  {/* Cart icon for mobile (non-sellers only) */}
+                  {!isSeller && (
+                    <div className="flex items-center px-3 py-2">
+                      <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
+                      <span className="ml-2 text-base font-medium text-gray-600">Cart</span>
+                    </div>
+                  )}
+                </div>
+                <div className="py-3 px-4 space-y-3">
+                  <Link
+                    href="/profile"
+                    className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md transition-colors"
+                  >
+                    Profile
+                  </Link>
+                  <LogoutButton
+                    variant="text"
+                    className="flex w-full items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <LogOut className="h-5 w-5 mr-2" />
+                    Logout
+                  </LogoutButton>
+                </div>
+              </>
+            ) : (
+              <div className="py-3 px-4 space-y-3">
+                <Link
+                  href="/login"
+                  className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/register"
+                  className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md transition-colors"
+                >
+                  Get Started
+                </Link>
               </div>
-              <div className="px-3 py-2 flex items-center">
-                <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
-                <span className="ml-2 text-base font-medium text-gray-600">
-                  Cart
-                </span>
-              </div>
-              <Link
-                href="/profile"
-                className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md"
-              >
-                Profile
-              </Link>{" "}
-              {/* New Logout Button for mobile */}
-              <LogoutButton
-                variant="text"
-                className="flex w-full items-center px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                <LogOut className="h-5 w-5 mr-2" />
-                Logout
-              </LogoutButton>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/features"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Features
-              </Link>
-              <Link
-                href="/pricing"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Pricing
-              </Link>
-              <Link
-                href="/login"
-                className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900"
-              >
-                Sign in
-              </Link>{" "}
-              <Link
-                href="/register"
-                className="block px-3 py-2 text-base font-medium text-white bg-pink-600 hover:bg-pink-700 rounded-md"
-              >
-                Get Started
-              </Link>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* Cart Drawer */}
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
-    </nav>
+      </div>      {/* Cart Drawer - only show for non-sellers */}
+      {isLoggedInPage && !isSeller && (
+        <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      )}
+    </>
   );
 }

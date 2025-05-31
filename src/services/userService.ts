@@ -68,6 +68,11 @@ export class UserService {
     }
   }
 
+  // Alias for getUserById for consistency
+  static async getUserProfile(uid: string): Promise<UserProfile | null> {
+    return this.getUserById(uid);
+  }
+
   // Get user by email
   static async getUserByEmail(email: string): Promise<UserProfile | null> {
     try {
@@ -179,6 +184,7 @@ export class UserService {
       throw error;
     }
   }
+
   // Upload profile picture
   static async uploadProfilePicture(file: File, uid: string): Promise<string> {
     try {
@@ -277,8 +283,7 @@ export class UserService {
       console.error("Error checking if user is a seller:", error);
       throw error;
     }
-  }
-  // Upgrade user to seller role
+  } // Upgrade user to seller role
   static async upgradeToSeller(uid: string): Promise<void> {
     try {
       const userRef = doc(firestore, this.COLLECTION, uid);
@@ -288,6 +293,71 @@ export class UserService {
       });
     } catch (error) {
       console.error("Error upgrading user to seller:", error);
+      throw error;
+    }
+  }
+
+  // Ensure admin/superadmin accounts have sufficient balance for purchasing
+  static async ensureAdminBalance(uid: string): Promise<void> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnap.data() as UserProfile;
+
+      // Only update balance for admin and superadmin roles
+      if (userData.role === "admin" || userData.role === "superadmin") {
+        const adminBalance = 99999;
+
+        // Only update if current balance is less than admin balance
+        if ((userData.balance || 0) < adminBalance) {
+          await updateDoc(userRef, {
+            balance: adminBalance,
+            updatedAt: Timestamp.now(),
+          });
+          console.log(
+            `Updated admin/superadmin ${uid} balance to ${adminBalance}`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error ensuring admin balance:", error);
+      throw error;
+    }
+  }
+
+  // Upgrade user to admin role and set admin balance
+  static async upgradeToAdmin(uid: string): Promise<void> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      await updateDoc(userRef, {
+        role: "admin",
+        balance: 99999, // Set admin balance immediately
+        updatedAt: Timestamp.now(),
+      });
+      console.log(`Upgraded user ${uid} to admin with balance 99999`);
+    } catch (error) {
+      console.error("Error upgrading user to admin:", error);
+      throw error;
+    }
+  }
+
+  // Upgrade user to superadmin role and set admin balance
+  static async upgradeToSuperAdmin(uid: string): Promise<void> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      await updateDoc(userRef, {
+        role: "superadmin",
+        balance: 99999, // Set admin balance immediately
+        updatedAt: Timestamp.now(),
+      });
+      console.log(`Upgraded user ${uid} to superadmin with balance 99999`);
+    } catch (error) {
+      console.error("Error upgrading user to superadmin:", error);
       throw error;
     }
   }

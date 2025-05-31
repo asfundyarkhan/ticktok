@@ -33,8 +33,10 @@ export function ProtectedRoute({
         window.location.href = "/dashboard"; // Superadmins go to main dashboard
       } else if (userProfile.role === "admin") {
         window.location.href = "/dashboard/admin"; // Admin's default page
+      } else if (userProfile.role === "seller") {
+        window.location.href = "/profile"; // Sellers go to profile
       } else {
-        // Redirect both sellers and regular users to store page
+        // Regular users go to store page
         window.location.href = "/store";
       }
       return;

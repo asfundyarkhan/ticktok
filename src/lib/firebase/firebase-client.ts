@@ -72,7 +72,7 @@ if (typeof window !== "undefined") {
       // Initialize Analytics conditionally
       isSupported()
         .then((supported) => {
-          if (supported) {
+          if (supported && app) {
             analytics = getAnalytics(app);
             console.log("[FIREBASE-CLIENT] Firebase analytics initialized");
           } else {

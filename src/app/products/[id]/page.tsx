@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../../../context/AuthContext";
 import { useUserBalance } from "../../components/UserBalanceContext";
 import { ProductService } from "../../../services/productService";
 import { Product } from "@/types/product";
@@ -16,21 +15,34 @@ import Link from "next/link";
 export default function ProductDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);  const router = useRouter();
-  // User object is authenticated but not used in this component
-  const { /* user */ } = useAuth();
+  const [quantity, setQuantity] = useState(1);  const [productId, setProductId] = useState<string>("");
+
+  const router = useRouter();
   const { balance, deductFromBalance } = useUserBalance();
+
+  // Resolve params Promise and set productId
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params;
+      setProductId(resolvedParams.id);
+    };
+    resolveParams();
+  }, [params]);
 
   useEffect(() => {
     const fetchProduct = async () => {
+      if (!productId) {
+        return; // Wait for productId to be set
+      }
+
       try {
         setLoading(true);
-        const productData = await ProductService.getProduct(params.id);
+        const productData = await ProductService.getProduct(productId);
         if (!productData) {
           setError("Product not found");
         } else {
@@ -45,7 +57,7 @@ export default function ProductDetailPage({
     };
 
     fetchProduct();
-  }, [params.id]);
+  }, [productId]);
 
   const handlePurchase = async () => {
     if (!product) return;
@@ -104,23 +116,20 @@ export default function ProductDetailPage({
         </div>
 
         <div className="md:w-1/2 space-y-6">
-          <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
-
-          <div className="flex items-center gap-2">
-            <StarRating rating={product.rating} />
-            <span className="text-gray-500">({product.reviews} reviews)</span>
+          <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>          <div className="flex items-center gap-2">
+            <StarRating rating={product.rating || 0} />
+            <span className="text-gray-500">({Array.isArray(product.reviews) ? product.reviews.length : 0} reviews)</span>
           </div>
 
           <div className="text-2xl font-semibold text-pink-600">
             ${product.price.toFixed(2)}
           </div>
 
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center justify-between">
+          <div className="bg-white p-4 rounded-lg border border-gray-200">            <div className="flex items-center justify-between">
               <div className="font-medium">Availability:</div>
-              {product.stock > 0 ? (
+              {(product.stock || 0) > 0 ? (
                 <div className="text-green-600">
-                  In Stock ({product.stock} available)
+                  In Stock ({product.stock || 0} available)
                 </div>
               ) : (
                 <div className="text-red-600">Out of Stock</div>
@@ -141,9 +150,7 @@ export default function ProductDetailPage({
           <div className="border-t border-gray-200 pt-6">
             <h3 className="text-lg font-semibold mb-2">Description</h3>
             <p className="text-gray-600">{product.description}</p>
-          </div>
-
-          {product.stock > 0 && (
+          </div>          {(product.stock || 0) > 0 && (
             <div className="flex flex-col space-y-4">
               <div className="flex items-center">
                 <label className="mr-4 font-medium">Quantity:</label>
@@ -157,12 +164,12 @@ export default function ProductDetailPage({
                   <input
                     type="number"
                     min="1"
-                    max={product.stock}
+                    max={product.stock || 0}
                     value={quantity}
                     onChange={(e) =>
                       setQuantity(
                         Math.min(
-                          product.stock,
+                          product.stock || 0,
                           Math.max(1, parseInt(e.target.value) || 1)
                         )
                       )
@@ -171,7 +178,7 @@ export default function ProductDetailPage({
                   />
                   <button
                     onClick={() =>
-                      setQuantity(Math.min(product.stock, quantity + 1))
+                      setQuantity(Math.min(product.stock || 0, quantity + 1))
                     }
                     className="px-3 py-1 border-l border-gray-300"
                   >

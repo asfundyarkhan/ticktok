@@ -3,8 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Receipt, ReceiptService } from '../../services/receiptService';
 import { useAuth } from '../../context/AuthContext';
-import Image from 'next/image';
-import { Badge } from './ui/badge';
 import { format } from 'date-fns';
 
 export default function UserReceiptList() {
@@ -76,7 +74,7 @@ export default function UserReceiptList() {
   if (receipts.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm text-center">
-        <p className="text-gray-500">You haven't submitted any receipts yet.</p>
+        <p className="text-gray-500">You haven&apos;t submitted any receipts yet.</p>
       </div>
     );
   }
@@ -105,9 +103,8 @@ export default function UserReceiptList() {
                   <div className="text-xs text-gray-500">
                     {format(receipt.createdAt, 'h:mm a')}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{receipt.referenceNumber}</div>
+                </td>                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm text-gray-900">{receipt.referenceNumber || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">${receipt.amount.toFixed(2)}</div>
@@ -154,10 +151,9 @@ export default function UserReceiptList() {
                     <div>
                       <p className="text-sm text-gray-500">Amount</p>
                       <p className="font-semibold">${selectedReceipt.amount.toFixed(2)}</p>
-                    </div>
-                    <div>
+                    </div>                    <div>
                       <p className="text-sm text-gray-500">Reference Number</p>
-                      <p className="font-semibold">{selectedReceipt.referenceNumber}</p>
+                      <p className="font-semibold">{selectedReceipt.referenceNumber || 'N/A'}</p>
                     </div>
                   </div>
 

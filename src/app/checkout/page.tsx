@@ -10,7 +10,7 @@ import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CheckoutPage() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["user", "admin", "superadmin"]}>
       <CheckoutContent />
     </ProtectedRoute>
   );

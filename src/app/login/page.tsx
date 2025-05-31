@@ -61,7 +61,7 @@ function LoginForm() {
         targetPath = "/dashboard/admin";
         break;
       case "seller":
-        targetPath = "/store";
+        targetPath = "/profile";
         break;
       default:
         targetPath = "/store";

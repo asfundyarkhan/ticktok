@@ -46,15 +46,14 @@ export default function MyListingsPage() {
       } finally {
         setLoading(false);
       }
-    };
-
-    loadSellerProducts();
+    };    loadSellerProducts();
   }, [user, userProfile, router]);
+
   // Filter products based on search query
   const filteredListings = myListings.filter(
     (product) =>
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (product.productCode &&
         product.productCode.toLowerCase().includes(searchQuery.toLowerCase()))
   );

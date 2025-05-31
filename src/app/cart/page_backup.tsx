@@ -13,7 +13,7 @@ import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CartPage() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={['user', 'seller']}>
       <CartContent />
     </ProtectedRoute>
   );

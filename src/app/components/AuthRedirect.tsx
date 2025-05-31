@@ -50,9 +50,8 @@ export default function AuthRedirect({
           case "admin":
             // Force admin redirect to admin dashboard in both dev and production
             targetPath = "/dashboard/admin";
-            break;
-          case "seller":
-            targetPath = "/store";
+            break;          case "seller":
+            targetPath = "/profile";
             break;
           default:
             targetPath = "/store"; // Regular users go to store

@@ -34,15 +34,13 @@ export default function WishlistButton({
         : `Added ${product.name} to wishlist`
     );
   };
-  const addItemToCart = () => {
-    addToCart({
+  const addItemToCart = () => {    addToCart({
       id: productId,
       name: product.name,
       price: product.price,
       category: product.category || "stock",
       rating: product.rating || 0,
       image: product.image,
-      reviews: product.reviews || 0,
       quantity: 1,
       description: product.description,
       sellerId: "",

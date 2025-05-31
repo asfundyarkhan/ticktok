@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
 import ProductGrid from "@/app/components/ProductGrid";
 import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
@@ -32,7 +33,9 @@ const animationSettings = {
 
 export default function StorePage() {
   const [products, setProducts] = useState<StockItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("all");  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [showAnimation, setShowAnimation] = useState(false);
   const [animatedProduct, setAnimatedProduct] = useState<StockItem | null>(null);
@@ -45,6 +48,16 @@ export default function StorePage() {
     y: 0,
   });  const cartIconRef = useRef<HTMLDivElement>(null);
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
+  const { userProfile, loading } = useAuth();
+
+  // Redirect sellers to their profile page
+  useEffect(() => {
+    if (!loading && userProfile?.role === "seller") {
+      console.log("Seller attempted to access store page, redirecting to profile");
+      window.location.href = "/profile";
+      return;
+    }
+  }, [userProfile, loading]);
 
   useEffect(() => {
     // Update cart icon position for animation
@@ -78,9 +91,8 @@ export default function StorePage() {
         category: listing.category,
         listed: true,
         sellerId: listing.sellerId,
-        sellerName: listing.sellerName,
-        rating: listing.rating || 0,
-        reviews: listing.reviews || 0,
+        sellerName: listing.sellerName,        rating: listing.rating || 0,
+        reviews: Array.isArray(listing.reviews) ? listing.reviews : [],
         isSale: false,
         salePercentage: 0,
         createdAt: listing.createdAt,
@@ -100,28 +112,21 @@ export default function StorePage() {
           product.category.toLowerCase() === selectedCategory.toLowerCase());
 
       const matchesPrice =
-        product.price >= priceRange[0] && product.price <= priceRange[1];
-
-      const matchesSize =
-        selectedSizes.length === 0 ||
-        (product.sizes &&
-          product.sizes.some((size) => selectedSizes.includes(size)));
-
-      // Basic search functionality
-      const searchQuery = "";
+        product.price >= priceRange[0] && product.price <= priceRange[1];      const matchesSize =
+        selectedSizes.length === 0; // Remove size filtering since StockItem doesn't have sizes      // Basic search functionality
       const matchesSearch =
         !searchQuery ||
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.category &&
           product.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        ("description" in product &&
+        (product.description &&
           product.description
-            ?.toLowerCase()
+            .toLowerCase()
             .includes(searchQuery.toLowerCase()));
 
       return matchesCategory && matchesPrice && matchesSize && matchesSearch;
     });
-  }, [selectedCategory, priceRange, selectedSizes, products]);
+  }, [selectedCategory, priceRange, selectedSizes, searchQuery, products]);
 
   const handleProductAddToCart = async (
     product: StockItem,

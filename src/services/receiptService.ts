@@ -23,7 +23,7 @@ export interface Receipt {
   userEmail?: string;
   userName?: string;
   amount: number;
-  referenceNumber: string;
+  referenceNumber?: string;
   imageUrl: string;
   status: "pending" | "approved" | "rejected";
   approvedBy?: string;
@@ -46,20 +46,19 @@ export interface ReceiptApprovalResult {
 
 export class ReceiptService {
   static COLLECTION = "receipts";
-
   /**
    * Submit a receipt for approval
    * @param userId User ID submitting the receipt
    * @param amount Amount of the payment
-   * @param referenceNumber Reference number of the payment
    * @param receiptFile Receipt image file
+   * @param referenceNumber Optional reference number of the payment
    * @returns Promise with submission result
    */
   static async submitReceipt(
     userId: string,
     amount: number,
-    referenceNumber: string,
-    receiptFile: File
+    receiptFile: File,
+    referenceNumber?: string
   ): Promise<ReceiptSubmitResult> {
     try {
       // 1. Upload the receipt image to Firebase Storage
@@ -80,18 +79,16 @@ export class ReceiptService {
           success: false,
           message: "User not found. Please try again or contact support.",
         };
-      }
-
-      // 3. Create the receipt record in Firestore
+      } // 3. Create the receipt record in Firestore
       const receipt: Receipt = {
         userId,
         userEmail: user.email,
         userName: user.displayName || user.email,
         amount,
-        referenceNumber,
         imageUrl,
         status: "pending",
         createdAt: new Date(),
+        ...(referenceNumber && { referenceNumber }),
       };
 
       const receiptRef = await addDoc(collection(firestore, this.COLLECTION), {

@@ -79,9 +79,8 @@ export default function AuthDebugPage() {
         break;
       case 'admin':
         window.location.href = '/dashboard/admin';
-        break;
-      case 'seller':
-        window.location.href = '/store';
+        break;      case 'seller':
+        window.location.href = '/profile';
         break;
       default:
         window.location.href = '/store';
@@ -175,7 +174,7 @@ export default function AuthDebugPage() {
           <ul className="list-disc ml-5 space-y-1">
             <li><span className="font-medium">Superadmin</span>: Redirected to <code>/dashboard</code></li>
             <li><span className="font-medium">Admin</span>: Redirected to <code>/dashboard/admin</code></li>
-            <li><span className="font-medium">Seller</span>: Redirected to <code>/store</code></li>
+            <li><span className="font-medium">Seller</span>: Redirected to <code>/profile</code></li>
             <li><span className="font-medium">Regular User</span>: Redirected to <code>/store</code></li>
           </ul>
         </div>

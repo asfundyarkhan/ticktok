@@ -88,11 +88,11 @@ export default function InventoryPage() {
     setCurrentPage(1);
   };
 
-  // Open sell modal for a product
-  const openSellModal = (item: InventoryItem) => {
+  // Open sell modal for a product  const openSellModal = (item: InventoryItem) => {
     setCurrentItem(item);
     setSellQuantity(Math.min(10, item.stock));
-    setSellPrice(item.price);
+    // Calculate 30% markup from original price
+    setSellPrice(item.price * 1.3);
     setShowSellModal(true);
   };
 
@@ -482,28 +482,22 @@ export default function InventoryPage() {
                     +
                   </button>
                 </div>
-              </div>
-
-              <div className="mb-6">
+              </div>              <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price per Unit ($)
+                  Price per Unit ($) - 30% Markup Applied
                 </label>
                 <input
                   type="number"
-                  value={sellPrice}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    if (!isNaN(val) && val >= 0) {
-                      setSellPrice(val);
-                    }
-                  }}
-                  className="px-3 py-2 border rounded-md w-full"
-                  min={0.01}
-                  step={0.01}
+                  value={sellPrice.toFixed(2)}
+                  readOnly
+                  className="px-3 py-2 border rounded-md w-full bg-gray-100 cursor-not-allowed"
                 />
-              </div>
-
-              <div className="mb-4 p-3 bg-gray-50 border rounded-md">
+                <p className="text-xs text-gray-500 mt-1">
+                  Original price: ${currentItem.price.toFixed(
+                    2
+                  )} → Sale price: ${sellPrice.toFixed(2)}
+                </p>
+              </div>              <div className="mb-4 p-3 bg-gray-50 border rounded-md">
                 <p className="text-sm font-medium text-gray-700">
                   Listing Summary:
                 </p>
@@ -513,12 +507,7 @@ export default function InventoryPage() {
                     \${(sellPrice * sellQuantity).toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between mt-1 text-sm">
-                  <span className="text-gray-600">Platform Fee (10%):</span>
-                  <span className="font-medium text-green-600">
-                    +\${(sellPrice * sellQuantity * 0.1).toFixed(2)}
-                  </span>
-                </div>
+              </div>
               </div>
 
               <div className="flex justify-between">

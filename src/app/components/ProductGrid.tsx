@@ -117,10 +117,9 @@ export default function ProductGrid({
             </div>
             <div className="flex justify-between items-center text-sm text-gray-500">
               <span>By {product.sellerName || 'Unknown Seller'}</span>
-              <div className="flex items-center gap-2">
-                <span>{product.stock} in stock</span>
-                {product.reviews > 0 && (
-                  <span>({product.reviews} reviews)</span>
+              <div className="flex items-center gap-2">                <span>{product.stock} in stock</span>
+                {Array.isArray(product.reviews) && product.reviews.length > 0 && (
+                  <span>({product.reviews.length} reviews)</span>
                 )}
               </div>
             </div>

@@ -83,7 +83,7 @@ export default function ReceiptsPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Add Funds
+            Withdraw
           </button>
           <div className="text-sm text-gray-600">
             Add funds to your account by uploading a payment receipt below
@@ -102,13 +102,13 @@ export default function ReceiptsPage() {
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-sm font-medium text-gray-800 mb-2">USDT Payment Option:</p>
                   <p className="text-sm text-gray-900">
-                    <span className="font-semibold">USDT ID:</span> CTSTRhivi8wpe22LR3eHTo3ZEkTZyZmLipd
+                    <span className="font-semibold">Your USDT TRC20 Wallet Address:</span>
                   </p>
                   <p className="text-sm text-gray-900">
                     <span className="font-semibold">Wallet Address:</span>
                   </p>
                   <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 select-all mb-3">
-                    CTSTRhivi8wpe22LR3eHTo3ZEkTZyZmLipd
+                    TSTRhivi8wpe22LR3eHTo3ZEkTZyZmLipd
                   </p>
                   <div className="flex justify-center my-3">
                     <Image 
@@ -125,17 +125,16 @@ export default function ReceiptsPage() {
 
             <div className="mb-6">
               <h3 className="text-xs font-semibold text-gray-800 uppercase mb-4">
-                STEP 2: ADD REFERENCE CODE
+                STEP 2: ADD REFERENCE CODE (OPTIONAL)
               </h3>
               <div className="flex items-start mb-2">
                 <span className="text-amber-500 mr-2 text-lg font-bold"></span>
                 <p className="text-sm text-gray-900">
-                  In your bank&apos;s transfer reference/ message field, please
-                  enter your unique user ID or username.
+                  You can optionally add your unique user ID or username in your bank&apos;s transfer reference/message field to help us identify your deposit faster.
                 </p>
               </div>
               <p className="text-sm text-gray-900 mb-4">
-                This is how we identify your deposit.
+                While not required, this can help speed up the approval process.
               </p>
 
               <div className="mb-2">
@@ -145,9 +144,6 @@ export default function ReceiptsPage() {
               </div>
               <p className="text-sm text-gray-900 font-medium">
                 John DOE
-              </p>
-              <p className="text-sm text-gray-900 font-medium">
-                No reference = No credit update.
               </p>
             </div>
           </div>

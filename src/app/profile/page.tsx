@@ -5,17 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
-import { ProtectedRoute } from "../components/ProtectedRoute";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
 import { Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
   return (
-    <ProtectedRoute>
-      <EmailVerificationCheck enforceVerification={false}>
-        <UserProfileContent />
-      </EmailVerificationCheck>
-    </ProtectedRoute>
+    <EmailVerificationCheck enforceVerification={false}>
+      <UserProfileContent />
+    </EmailVerificationCheck>
   );
 }
 
@@ -35,6 +32,14 @@ function UserProfileContent() {
       country: "",
     },
   });
+
+  // Handle unauthenticated users
+  useEffect(() => {
+    if (!loading && !user) {
+      // Redirect unauthenticated users to login
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    }
+  }, [loading, user]);
 
   // Initialize form data from user profile
   useEffect(() => {
@@ -157,7 +162,7 @@ function UserProfileContent() {
                       userProfile.role.slice(1)}
                   </span>
 
-                  {user.emailVerified ? (
+                  {user?.emailVerified ? (
                     <span className="ml-2 inline-flex items-center text-xs text-green-600">
                       <CheckCircle className="h-3 w-3 mr-1" /> Verified
                     </span>
@@ -170,9 +175,16 @@ function UserProfileContent() {
                     </span>
                   )}
                 </div>
-              </div>
-
-              <div className="flex space-x-2">
+              </div>              <div className="flex space-x-2">
+                {userProfile.role === "seller" && (
+                  <Link
+                    href="/stock/inventory"
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                  >
+                    Inventory
+                  </Link>
+                )}
+                
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"

@@ -588,9 +588,7 @@ export class StockService {
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
             });
-          }
-
-          // Record the purchase
+          } // Record the purchase
           const purchaseRef = collection(
             firestore,
             StockService.PURCHASES_COLLECTION
@@ -598,7 +596,9 @@ export class StockService {
           const newPurchaseDoc = doc(purchaseRef);
           t.set(newPurchaseDoc, {
             userId,
-            productId: stockData.productId,
+            productId: stockData.productId || stockId,
+            productCode: stockData.productCode || `STOCK-${stockId}`,
+            productName: stockData.name || "Unknown Product",
             stockId,
             quantity,
             pricePerUnit: stockData.price,
@@ -616,6 +616,139 @@ export class StockService {
       );
     } catch (error: unknown) {
       console.error("Error processing purchase:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process admin purchase from seller listings (no fees, direct transfer)
+   * @param adminId The admin's ID
+   * @param listingId The listing ID to purchase from
+   * @param quantity Quantity to purchase (typically 1)
+   * @param sellerId The seller's ID
+   * @param price Price per unit
+   * @returns Promise with purchase result
+   */
+  static async processAdminPurchase(
+    adminId: string,
+    listingId: string,
+    quantity: number,
+    sellerId: string,
+    price: number
+  ): Promise<PurchaseResult> {
+    try {
+      return await runTransaction(
+        firestore,
+        async (t: Transaction): Promise<PurchaseResult> => {
+          // Get all references
+          const listingRef = doc(
+            firestore,
+            this.LISTINGS_COLLECTION,
+            listingId
+          );
+          const adminRef = doc(firestore, "users", adminId);
+          const sellerRef = doc(firestore, "users", sellerId);
+
+          // Get current data - ALL READS FIRST
+          const listingDoc = await t.get(listingRef);
+          const adminDoc = await t.get(adminRef);
+          const sellerDoc = await t.get(sellerRef);
+
+          if (
+            !listingDoc.exists() ||
+            !adminDoc.exists() ||
+            !sellerDoc.exists()
+          ) {
+            return {
+              success: false,
+              message: "Listing, admin, or seller not found",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+
+          const listingData = listingDoc.data() as DocumentData;
+          const adminData = adminDoc.data() as DocumentData;
+          const sellerData = sellerDoc.data() as DocumentData;
+
+          // Validate listing data
+          if (listingData.quantity < quantity) {
+            return {
+              success: false,
+              message: "Insufficient stock in listing",
+              quantity: 0,
+              totalCost: price * quantity,
+            };
+          }
+
+          const totalCost = price * quantity;
+
+          // Check admin's balance
+          if (adminData.balance < totalCost) {
+            return {
+              success: false,
+              message: "Insufficient admin balance",
+              quantity: 0,
+              totalCost,
+            };
+          }
+
+          // Now perform all write operations
+
+          // Deduct from admin balance
+          t.update(adminRef, {
+            balance: adminData.balance - totalCost,
+            updatedAt: Timestamp.now(),
+          });
+
+          // Add to seller balance (direct transfer, no fees)
+          t.update(sellerRef, {
+            balance: (sellerData.balance || 0) + totalCost,
+            updatedAt: Timestamp.now(),
+          });
+
+          // Update listing quantity
+          const newQuantity = listingData.quantity - quantity;
+
+          if (newQuantity === 0) {
+            // Delete the listing if quantity reaches zero
+            t.delete(listingRef);
+          } else {
+            // Update listing quantity
+            t.update(listingRef, {
+              quantity: newQuantity,
+              updatedAt: Timestamp.now(),
+            });
+          } // Record the admin purchase
+          const purchaseRef = collection(
+            firestore,
+            StockService.PURCHASES_COLLECTION
+          );
+          const newPurchaseDoc = doc(purchaseRef);
+          t.set(newPurchaseDoc, {
+            userId: adminId,
+            sellerId: sellerId,
+            listingId: listingId,
+            productId: listingData.productId || `listing-${listingId}`,
+            productCode: listingData.productCode || `LISTING-${listingId}`,
+            productName: listingData.name || "Unknown Product",
+            quantity,
+            pricePerUnit: price,
+            totalPrice: totalCost,
+            isAdminPurchase: true, // Flag to identify admin purchases
+            createdAt: Timestamp.now(),
+          });
+
+          return {
+            success: true,
+            message: "Admin purchase successful",
+            quantity,
+            totalCost,
+          };
+        }
+      );
+    } catch (error: unknown) {
+      console.error("Error processing admin purchase:", error);
       throw error;
     }
   }
@@ -1399,16 +1532,26 @@ export class StockService {
             : typeof data.reviews === "number"
             ? Array(data.reviews).fill({})
             : [];
-
           listings.push({
             id: doc.id,
-            ...data,
-            reviews,
-            reviewCount: reviews.length,
+            sellerId: data.sellerId || "",
+            productId: data.productId || "",
+            name: data.name || "",
+            description: data.description || "",
+            image: data.image || data.mainImage || data.images?.[0] || "",
+            images: data.images,
+            mainImage: data.mainImage,
+            category: data.category || "",
+            quantity: data.quantity || 0,
+            price: data.price || 0,
             rating: data.rating || 0,
+            reviews: reviews.length,
+            sellerName: data.sellerName,
+            productCode: data.productCode,
+            reviewCount: reviews.length,
             features: data.features || [],
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
           } as StockListing);
         }
       });

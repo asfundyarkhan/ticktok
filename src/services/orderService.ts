@@ -21,6 +21,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  sellerId: string;
 }
 
 export interface Order {

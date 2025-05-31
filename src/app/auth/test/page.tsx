@@ -18,29 +18,26 @@ export default function TestAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [status, setStatus] = useState("");
-  const [dbUsers, setDbUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [status, setStatus] = useState("");  const [dbUsers, setDbUsers] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
-  const handleSignIn = async (e) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("Signing in...");
     try {
       await signIn(email, password);
-      setStatus("Signed in successfully!");
-    } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus("Signed in successfully!");    } catch (error) {
+      setStatus(`Error: ${(error as Error).message}`);
     }
   };
 
-  const handleSignUp = async (e) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("Signing up...");
     try {
       await signUp(email, password, name);
-      setStatus("Signed up successfully!");
-    } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus("Signed up successfully!");    } catch (error) {
+      setStatus(`Error: ${(error as Error).message}`);
     }
   };
 
@@ -50,25 +47,23 @@ export default function TestAuthPage() {
       await logout();
       setStatus("Logged out successfully!");
     } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus(`Error: ${(error as Error).message}`);
     }
   };
 
-  const checkUserInFirestore = async (uid) => {
+  const checkUserInFirestore = async (uid: string) => {
     try {
       setStatus("Checking user in Firestore...");
       const userRef = doc(firestore, "users", uid);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
+      const userDoc = await getDoc(userRef);      if (userDoc.exists()) {
         setStatus("User exists in Firestore!");
-        setSelectedUser(userDoc.data());
+        setSelectedUser(userDoc.data() as any);
       } else {
         setStatus("User NOT found in Firestore.");
         setSelectedUser(null);
       }
     } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus(`Error: ${(error as Error).message}`);
     }
   };
 
@@ -77,9 +72,7 @@ export default function TestAuthPage() {
       setStatus("Fetching users from Firestore...");
       const usersRef = collection(firestore, "users");
       const q = query(usersRef, where("role", "==", "user"));
-      const querySnapshot = await getDocs(q);
-
-      const users = [];
+      const querySnapshot = await getDocs(q);      const users: typeof dbUsers = [];
       querySnapshot.forEach((doc) => {
         users.push({ id: doc.id, ...doc.data() });
       });
@@ -87,7 +80,7 @@ export default function TestAuthPage() {
       setDbUsers(users);
       setStatus(`Found ${users.length} users in Firestore.`);
     } catch (error) {
-      setStatus(`Error: ${error.message}`);
+      setStatus(`Error: ${(error as Error).message}`);
       setDbUsers([]);
     }
   };

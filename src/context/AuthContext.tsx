@@ -95,8 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  // Fetch user profile from Firestore
+  const [loading, setLoading] = useState(true);  // Fetch user profile from Firestore
   const fetchUserProfile = async (uid: string) => {
     try {
       const userRef = doc(firestore, "users", uid);
@@ -114,6 +113,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             ? data.updatedAt.toDate()
             : new Date(),
         } as UserProfile;
+        
+        // Ensure admin/superadmin accounts have sufficient balance
+        if (userData.role === "admin" || userData.role === "superadmin") {
+          try {
+            await UserService.ensureAdminBalance(uid);
+            // Refresh user data to get updated balance
+            const updatedUserSnap = await getDoc(userRef);
+            if (updatedUserSnap.exists()) {
+              const updatedData = updatedUserSnap.data();
+              userData.balance = updatedData.balance || userData.balance;
+            }
+          } catch (adminBalanceError) {
+            console.error("Error ensuring admin balance:", adminBalanceError);
+            // Continue with existing balance if update fails
+          }
+        }
+        
         setUserProfile(userData);
       } else {
         setUserProfile(null);
