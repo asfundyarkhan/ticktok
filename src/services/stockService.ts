@@ -451,15 +451,13 @@ export class StockService {
     try {
       return await this.runSecureTransaction(
         async (t: Transaction): Promise<PurchaseResult> => {
-          // Get all references
+          // 1. PREPARE ALL REFERENCES
           const stockRef = doc(firestore, StockService.COLLECTION, stockId);
           const userRef = doc(firestore, "users", userId);
-
-          // Prepare inventory path and reference
           const inventoryCollectionPath = `${StockService.INVENTORY_COLLECTION}/${userId}/products`;
           const inventoryRef = collection(firestore, inventoryCollectionPath);
 
-          // Get current data - ALL READS FIRST
+          // 2. PERFORM ALL READS FIRST
           const stockDoc = await t.get(stockRef);
           const userDoc = await t.get(userRef);
 
@@ -474,13 +472,7 @@ export class StockService {
 
           const stockData = stockDoc.data() as DocumentData;
           const userData = userDoc.data() as DocumentData;
-          // Also check if product already exists in seller's inventory - READ OPERATION
-          // Use the product ID from admin stock, not the document ID
-          const productId = stockData.productId || stockId;
-          console.log(`Looking for inventory product with ID: ${productId}`);
-          const productRef = doc(inventoryRef, productId);
-          const productDoc = await t.get(productRef);
-
+          
           // Validate stock data
           if (
             !stockData.productCode ||
@@ -509,9 +501,15 @@ export class StockService {
             };
           }
 
-          // Now perform all write operations
+          // Check inventory for existing product
+          const productId = stockData.productId || stockId;
+          const productRef = doc(inventoryRef, productId);
+          const productDoc = await t.get(productRef);
+          const productExists = productDoc.exists();
+          const productData = productExists ? productDoc.data() : null;
 
-          // Update user balance
+          // 3. PERFORM ALL WRITES
+          // Update user balance 
           t.update(userRef, {
             balance: userData.balance - totalCost,
             updatedAt: Timestamp.now(),
@@ -520,79 +518,55 @@ export class StockService {
           // Calculate new stock quantity
           const newStockQuantity = stockData.stock - quantity;
 
-          // Check if stock will be zero after purchase
+          // Update or delete admin stock
           if (newStockQuantity === 0) {
-            // Delete the admin stock item
             t.delete(stockRef);
           } else {
-            // Update stock quantity
             t.update(stockRef, {
               stock: newStockQuantity,
               updatedAt: Timestamp.now(),
             });
           }
 
-          // Handle inventory - all read operations have been completed
-          console.log(
-            `Processing inventory update for user ${userId}, product ${
-              stockData.productId || stockId
-            }`
-          );
-          console.log(`Inventory path: ${inventoryCollectionPath}`);
-          console.log(`Product exists in inventory: ${productDoc.exists()}`);
-
-          if (productDoc.exists()) {
-            // Update existing inventory item
-            const productData = productDoc.data();
-            console.log(`Existing product data:`, productData);
-            console.log(
-              `Updating quantity from ${productData.stock || 0} to ${
-                (productData.stock || 0) + quantity
-              }`
-            );
+          // Update or create inventory item
+          if (productExists && productData) {
             t.update(productRef, {
               stock: (productData.stock || 0) + quantity,
-              features: stockData.features || productData.features || "", // Preserve existing features or use new ones
+              features: stockData.features || productData.features || "",
               rating: stockData.rating || productData.rating || 0,
               reviews: stockData.reviews || productData.reviews || [],
               updatedAt: Timestamp.now(),
             });
           } else {
-            // Create new inventory item
-            console.log(`Creating new inventory item for ${stockData.name}`);
             t.set(productRef, {
               productId: stockData.productId || stockId,
               productCode: stockData.productCode,
               name: stockData.name,
               description: stockData.description || "",
-              // Include both mainImage and images array for better compatibility
-              mainImage:
-                stockData.mainImage ||
+              mainImage: stockData.mainImage ||
                 (stockData.images && stockData.images.length > 0
                   ? stockData.images[0]
                   : "/images/placeholders/t-shirt.svg"),
               images: stockData.images || [],
-              image:
-                stockData.mainImage ||
+              image: stockData.mainImage ||
                 (stockData.images && stockData.images.length > 0
                   ? stockData.images[0]
                   : "/images/placeholders/t-shirt.svg"),
               category: stockData.category || "general",
               stock: quantity,
               price: stockData.price,
+              purchasePrice: stockData.price,
               features: stockData.features || "",
               rating: stockData.rating || 0,
               reviews: stockData.reviews || [],
-              purchasePrice: stockData.price,
-              listed: false, // Initially not listed in marketplace
+              listed: false,
               createdAt: Timestamp.now(),
               updatedAt: Timestamp.now(),
             });
-          } // Record the purchase
-          const purchaseRef = collection(
-            firestore,
-            StockService.PURCHASES_COLLECTION
-          );
+          }
+
+          // Record the purchase
+          const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
           const newPurchaseDoc = doc(purchaseRef);
           t.set(newPurchaseDoc, {
             userId,
@@ -604,6 +578,21 @@ export class StockService {
             pricePerUnit: stockData.price,
             totalPrice: totalCost,
             createdAt: Timestamp.now(),
+          });
+
+          // Log the activity
+          const activityRef = collection(firestore, 'activities');
+          const newActivityDoc = doc(activityRef);
+          t.set(newActivityDoc, {
+            userId,
+            userDisplayName: userData.displayName || userData.email || 'Unknown User',
+            type: 'stock_purchased',
+            details: {
+              quantity,
+              productName: stockData.name,
+            },
+            status: 'completed',
+            createdAt: Timestamp.now()
           });
 
           return {
@@ -771,7 +760,7 @@ export class StockService {
       return await runTransaction(
         firestore,
         async (t: Transaction): Promise<PurchaseResult> => {
-          // Get the inventory product
+          // 1. GATHER ALL REQUIRED DATA FIRST
           const inventoryRef = doc(
             firestore,
             `${StockService.INVENTORY_COLLECTION}/${sellerId}/products/${productId}`
@@ -799,15 +788,58 @@ export class StockService {
             };
           }
 
-          // Check if product is already listed
+          // Check if product is already listed - READ OPERATION
           const listingQuery = query(
             collection(firestore, StockService.LISTINGS_COLLECTION),
             where("sellerId", "==", sellerId),
             where("productId", "==", productId)
           );
-
           const listingSnapshot = await getDocs(listingQuery);
 
+          // 2. PREPARE THE DATA
+          const listingData = {
+            sellerId,
+            productId,
+            name: inventoryData.name,
+            description: inventoryData.description || "",
+            features: inventoryData.features || "",
+            image: inventoryData.mainImage ||
+              inventoryData.image ||
+              (inventoryData.images && inventoryData.images.length > 0
+                ? inventoryData.images[0]
+                : ""),
+            images: inventoryData.images ||
+              (inventoryData.image ? [inventoryData.image] : []),
+            mainImage: inventoryData.mainImage ||
+              inventoryData.image ||
+              (inventoryData.images && inventoryData.images.length > 0
+                ? inventoryData.images[0]
+                : ""),
+            imageUrl: inventoryData.imageUrl || inventoryData.imageURL || "",
+            imageURL: inventoryData.imageURL || inventoryData.imageUrl || "",
+            category: inventoryData.category,
+            reviews: Array.isArray(inventoryData.reviews)
+              ? inventoryData.reviews
+              : typeof inventoryData.reviews === "number"
+              ? Array(inventoryData.reviews).fill({
+                  rating: inventoryData.rating || 0,
+                  content: "Legacy review",
+                  date: new Date().toISOString(),
+                })
+              : [],
+            rating: inventoryData.rating || 0,
+            reviewCount: Array.isArray(inventoryData.reviews)
+              ? inventoryData.reviews.length
+              : typeof inventoryData.reviews === "number"
+              ? inventoryData.reviews
+              : 0,
+            quantity,
+            price,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+
+          // 3. PERFORM ALL WRITES
           // Update inventory first
           t.update(inventoryRef, {
             stock: inventoryData.stock - quantity,
@@ -817,11 +849,11 @@ export class StockService {
           if (!listingSnapshot.empty) {
             // Update existing listing
             const listingDoc = listingSnapshot.docs[0];
-            const listingData = listingDoc.data();
+            const existingData = listingDoc.data();
             t.update(
               doc(firestore, StockService.LISTINGS_COLLECTION, listingDoc.id),
               {
-                quantity: listingData.quantity + quantity,
+                quantity: existingData.quantity + quantity,
                 price: price, // Update to new price
                 updatedAt: Timestamp.now(),
               }
@@ -831,51 +863,7 @@ export class StockService {
             const listingRef = doc(
               collection(firestore, StockService.LISTINGS_COLLECTION)
             );
-            t.set(listingRef, {
-              sellerId,
-              productId,
-              name: inventoryData.name,
-              description: inventoryData.description,
-              features: inventoryData.features || "", // Copy features from inventory as string
-              image:
-                inventoryData.mainImage ||
-                inventoryData.image ||
-                (inventoryData.images && inventoryData.images.length > 0
-                  ? inventoryData.images[0]
-                  : ""),
-              // Store the full images array and ensure we preserve all image fields
-              images:
-                inventoryData.images ||
-                (inventoryData.image ? [inventoryData.image] : []),
-              mainImage:
-                inventoryData.mainImage ||
-                inventoryData.image ||
-                (inventoryData.images && inventoryData.images.length > 0
-                  ? inventoryData.images[0]
-                  : ""),
-              imageUrl: inventoryData.imageUrl || inventoryData.imageURL || "",
-              imageURL: inventoryData.imageURL || inventoryData.imageUrl || "",
-              category: inventoryData.category,
-              reviews: Array.isArray(inventoryData.reviews)
-                ? inventoryData.reviews
-                : typeof inventoryData.reviews === "number"
-                ? Array(inventoryData.reviews).fill({
-                    rating: inventoryData.rating || 0,
-                    content: "Legacy review",
-                    date: new Date().toISOString(),
-                  })
-                : [],
-              rating: inventoryData.rating || 0,
-              reviewCount: Array.isArray(inventoryData.reviews)
-                ? inventoryData.reviews.length
-                : typeof inventoryData.reviews === "number"
-                ? inventoryData.reviews
-                : 0,
-              quantity,
-              price,
-              createdAt: Timestamp.now(),
-              updatedAt: Timestamp.now(),
-            });
+            t.set(listingRef, listingData);
           }
 
           return {
@@ -1009,6 +997,7 @@ export class StockService {
       return await runTransaction(
         firestore,
         async (t: Transaction): Promise<PurchaseResult> => {
+          // 1. PERFORM ALL READS FIRST
           // Get listing
           const listingRef = doc(
             firestore,
@@ -1028,13 +1017,18 @@ export class StockService {
 
           const listingData = listingDoc.data();
 
-          // Return stock to inventory
+          // Get inventory reference
           const inventoryRef = doc(
             firestore,
             `${StockService.INVENTORY_COLLECTION}/${sellerId}/products/${listingData.productId}`
           );
           const inventoryDoc = await t.get(inventoryRef);
 
+          // 2. PERFORM ALL WRITES
+          // Delete listing first
+          t.delete(listingRef);
+
+          // Return stock to inventory
           if (inventoryDoc.exists()) {
             // Update existing inventory with returned stock
             t.update(inventoryRef, {
@@ -1056,9 +1050,6 @@ export class StockService {
               updatedAt: Timestamp.now(),
             });
           }
-
-          // Delete listing
-          t.delete(listingRef);
 
           return {
             success: true,
@@ -1508,50 +1499,29 @@ export class StockService {
    * Search for listings by product ID
    * @param productId The product ID to search for
    * @returns Promise with array of listings
-   */ static async searchListingsByProductId(
+   */
+  static async searchListingsByProductId(
     productId: string
   ): Promise<StockListing[]> {
     try {
       const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
         where("productId", "==", productId),
-        where("quantity", ">", 0), // Only get active listings
+        where("quantity", ">", 0),
         orderBy("quantity", "desc"),
         orderBy("price", "asc") // Get best deals first
       );
-
+      
       const snapshot = await getDocs(listingsQuery);
       const listings: StockListing[] = [];
-
       snapshot.forEach((doc) => {
         const data = doc.data();
         if (data) {
-          // Convert reviews field to consistently be an array
-          const reviews = Array.isArray(data.reviews)
-            ? data.reviews
-            : typeof data.reviews === "number"
-            ? Array(data.reviews).fill({})
-            : [];
           listings.push({
             id: doc.id,
-            sellerId: data.sellerId || "",
-            productId: data.productId || "",
-            name: data.name || "",
-            description: data.description || "",
-            image: data.image || data.mainImage || data.images?.[0] || "",
-            images: data.images,
-            mainImage: data.mainImage,
-            category: data.category || "",
-            quantity: data.quantity || 0,
-            price: data.price || 0,
-            rating: data.rating || 0,
-            reviews: reviews.length,
-            sellerName: data.sellerName,
-            productCode: data.productCode,
-            reviewCount: reviews.length,
-            features: data.features || [],
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
+            ...data,
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate()
           } as StockListing);
         }
       });

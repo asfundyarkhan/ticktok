@@ -23,6 +23,23 @@ service cloud.firestore {
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
     
+    // Activity feed security rules
+    match /activities/{activityId} {
+      // Users can read activities that they are involved in or that are public
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin']
+      );
+
+      // Only authenticated users can create activities
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+        
+      // Only admins can update activity status
+      allow update: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+    
     // Allow users to read and create their own orders
     match /orders/{orderId} {
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
@@ -32,7 +49,8 @@ service cloud.firestore {
       allow update: if request.auth != null && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-      // Allow users to manage their own receipts
+    
+    // Allow users to manage their own receipts
     match /receipts/{receiptId} {
       // Users can read and create their own receipts
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;

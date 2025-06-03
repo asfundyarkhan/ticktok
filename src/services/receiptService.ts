@@ -6,6 +6,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -351,7 +352,6 @@ export class ReceiptService {
     notes?: string
   ): Promise<ReceiptApprovalResult> {
     try {
-      // 1. Get the receipt details
       const receiptRef = doc(firestore, this.COLLECTION, receiptId);
       const receiptSnap = await getDoc(receiptRef);
 
@@ -364,7 +364,6 @@ export class ReceiptService {
 
       const receiptData = receiptSnap.data() as Receipt;
 
-      // 2. Make sure it's in pending status
       if (receiptData.status !== "pending") {
         return {
           success: false,
@@ -372,13 +371,32 @@ export class ReceiptService {
         };
       }
 
-      // 3. Update the user's balance
+      // Create activity log for the approved withdrawal
+      const activityRef = collection(firestore, "activities");
+      const newActivityDoc = doc(activityRef);
+      await setDoc(newActivityDoc, {
+        userId: receiptData.userId,
+        userDisplayName:
+          receiptData.userName || receiptData.userEmail || "Unknown User",
+        type: "withdrawal_approved",
+        details: {
+          amount: receiptData.amount,
+          receiptId: receiptId,
+          reference: receiptData.referenceNumber,
+          approvedBy: superadminId,
+          notes: notes || "Withdrawal approved",
+        },
+        status: "completed",
+        createdAt: Timestamp.now(),
+      });
+
+      // Update user's balance through TransactionService for proper logging
       const newBalance = await UserService.updateUserBalance(
         receiptData.userId,
         receiptData.amount
       );
 
-      // 4. Update the receipt status
+      // Update the receipt status
       await updateDoc(receiptRef, {
         status: "approved",
         approvedBy: superadminId,
@@ -413,7 +431,6 @@ export class ReceiptService {
     reason: string
   ): Promise<ReceiptApprovalResult> {
     try {
-      // 1. Get the receipt details
       const receiptRef = doc(firestore, this.COLLECTION, receiptId);
       const receiptSnap = await getDoc(receiptRef);
 
@@ -426,7 +443,6 @@ export class ReceiptService {
 
       const receiptData = receiptSnap.data() as Receipt;
 
-      // 2. Make sure it's in pending status
       if (receiptData.status !== "pending") {
         return {
           success: false,
@@ -434,7 +450,26 @@ export class ReceiptService {
         };
       }
 
-      // 3. Update the receipt status
+      // Create activity log for the rejected withdrawal
+      const activityRef = collection(firestore, "activities");
+      const newActivityDoc = doc(activityRef);
+      await setDoc(newActivityDoc, {
+        userId: receiptData.userId,
+        userDisplayName:
+          receiptData.userName || receiptData.userEmail || "Unknown User",
+        type: "withdrawal_rejected",
+        details: {
+          amount: receiptData.amount,
+          receiptId: receiptId,
+          reference: receiptData.referenceNumber,
+          rejectedBy: superadminId,
+          reason: reason,
+        },
+        status: "failed",
+        createdAt: Timestamp.now(),
+      });
+
+      // Update the receipt status
       await updateDoc(receiptRef, {
         status: "rejected",
         approvedBy: superadminId,

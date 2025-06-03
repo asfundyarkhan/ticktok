@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { firestore, storage } from "../lib/firebase/firebase";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import { ActivityService } from "./activityService";
 
 // Export the updateUserProfile function for backward compatibility
 export const updateUserProfile = async (

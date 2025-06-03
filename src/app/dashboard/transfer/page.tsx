@@ -4,8 +4,14 @@ import { useState } from "react";
 import { Building2 } from "lucide-react";
 import TransferTable from "@/app/components/TransferTable";
 import { LoadingSpinner } from "@/app/components/Loading";
+import { collection, doc, setDoc, Timestamp } from "firebase/firestore";
+import { firestore } from "@/lib/firebase/firebase";
+import { useAuth } from "@/context/AuthContext";
+import { useUserBalance } from "@/app/components/UserBalanceContext";
 
 export default function TransferPage() {
+  const { user } = useAuth();
+  const { balance, deductFromBalance } = useUserBalance();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState("");
   const [amount, setAmount] = useState("");
@@ -19,12 +25,63 @@ export default function TransferPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsLoading(false);
-    // Reset form
-    setSelectedAccount("");
-    setAmount("");
+
+    // Get the selected bank account info
+    const bankAccount = savedAccounts.find(
+      (account) => account.id === selectedAccount
+    );
+    if (!bankAccount) {
+      setIsLoading(false);
+      alert("Please select a bank account");
+      return;
+    }
+
+    const transferAmount = parseFloat(amount);
+    if (isNaN(transferAmount) || transferAmount <= 0) {
+      setIsLoading(false);
+      alert("Please enter a valid amount");
+      return;
+    }
+
+    // Check if user has enough balance
+    if (transferAmount > balance) {
+      setIsLoading(false);
+      alert("Insufficient balance for this transfer");
+      return;
+    }
+
+    try {
+      // Create withdrawal activity first
+      const activityRef = collection(firestore, "activities");
+      const newActivityDoc = doc(activityRef);
+      await setDoc(newActivityDoc, {
+        userId: user?.uid,
+        userDisplayName: user?.displayName || user?.email || "Unknown User",
+        type: "funds_withdrawn",
+        details: {
+          amount: transferAmount,
+          bankAccount: `${bankAccount.bank} (${bankAccount.number})`,
+        },
+        status: "pending",
+        createdAt: Timestamp.now(),
+      });
+
+      // Deduct from user balance
+      await deductFromBalance(transferAmount);
+
+      // Reset form
+      setSelectedAccount("");
+      setAmount("");
+      setIsLoading(false);
+
+      alert(
+        "Withdrawal request submitted. It will be processed within 24 hours."
+      );
+    } catch (error) {
+      console.error("Error processing withdrawal:", error);
+      alert("Error processing withdrawal. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
