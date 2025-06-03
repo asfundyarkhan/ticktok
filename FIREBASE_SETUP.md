@@ -16,7 +16,7 @@ Create a `.env.local` file in the root of your project with the following variab
 ```bash
 # Firebase Client Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBwqU1SU4jNWYKjhqkN1tEyyp64HXzmyG8
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=ticktokshop-5f1e9.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tiktokshop.international
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=ticktokshop-5f1e9
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=ticktokshop-5f1e9.firebasestorage.app
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=155434252666

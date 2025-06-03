@@ -11,8 +11,8 @@ The following domains have been authorized in Firebase Authentication:
 - localhost (for local development)
 - ticktokshop-5f1e9.firebaseapp.com
 - ticktokshop-5f1e9.web.app
-- tiktokshophub.co
-- www.tiktokshophub.co
+- tiktokshop.international
+- www.tiktokshop.international
 - tiktok-6upktrfhg-asfundyarkhans-projects.vercel.app
 - tiktok-git-main-asfundyarkhans-projects.vercel.app
 - tiktok-ten-lilac.vercel.app
@@ -32,7 +32,7 @@ The Content Security Policy has been configured in `security-headers.js` to incl
 - `*.googletagmanager.com` (Google Analytics)
 - `*.google-analytics.com` (Google Analytics)
 - `*.gstatic.com` (Google Static assets)
-- `tiktokshophub.co` and `www.tiktokshophub.co` (main domain)
+- `tiktokshop.international` and `www.tiktokshop.international` (main domain)
 
 ### Connect Sources (connect-src)
 

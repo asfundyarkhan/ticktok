@@ -14,9 +14,9 @@ if [ ! -f .env.production ]; then
 # These values are embedded in the client-side code and are safe to be public
 
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBwqU1SU4jNWYKjhqkN1tEyyp64HXzmyG8
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=ticktokshop-5f1e9.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tiktokshop.international
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=ticktokshop-5f1e9
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=ticktokshop-5f1e9.appspot.com
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=ticktokshop-5f1e9.firebasestorage.app
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=155434252666
 NEXT_PUBLIC_FIREBASE_APP_ID=1:155434252666:web:fa5051f4cb33f3a784bec3
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-5BRMHTMXHR
