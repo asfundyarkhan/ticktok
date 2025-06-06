@@ -13,6 +13,7 @@ export default function StockPage() {
   const { balance } = useUserBalance();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [adminProducts, setAdminProducts] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedQuantities, setSelectedQuantities] = useState<
@@ -45,25 +46,37 @@ export default function StockPage() {
 
     return () => unsubscribe();
   }, []);
-
-  // Filter products based on search query
+  // Filter products based on search query and category
   const filteredProducts = adminProducts.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.productCode.toLowerCase().includes(searchQuery.toLowerCase())
+    (product) => {
+      // Category filter
+      const matchesCategory = selectedCategory === "all" || 
+        product.category?.toLowerCase() === selectedCategory.toLowerCase();
+      
+      // Search filter
+      const matchesSearch = 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.productCode.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      return matchesCategory && matchesSearch;
+    }
   );
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-
   // Pagination calculations
   const totalItems = filteredProducts.length;
   const totalPages = Math.ceil(totalItems / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory]);
   
   const handleQuantityChange = (productId: string, quantity: number) => {
     setSelectedQuantities({
@@ -270,10 +283,9 @@ export default function StockPage() {
               Add Funds
             </Link>
           </div>
-        </div>
-
-        {/* Search stock */}
-        <div className="mb-6">
+        </div>        {/* Search and Filter Section */}
+        <div className="mb-6 space-y-4">
+          {/* Search Bar */}
           <div className="relative">
             <input
               type="text"
@@ -299,13 +311,92 @@ export default function StockPage() {
               </svg>
             </div>
           </div>
+
+          {/* Category Filter */}
+          <div className="flex items-center space-x-4">
+            <label htmlFor="category-filter" className="text-sm font-medium text-gray-700">
+              Filter by category:
+            </label>
+            <div className="relative">
+              <select
+                id="category-filter"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900 min-w-[200px]"
+              >                <option value="all">All Categories</option>
+                <option value="clothing">Clothing</option>
+                <option value="electronics">Electronics</option>
+                <option value="home">Home & Kitchen</option>
+                <option value="beauty">Beauty</option>
+                <option value="toys">Toys & Games</option>
+                <option value="books">Books</option>
+                <option value="accessories">Accessories</option>
+                <option value="sports">Sports</option>
+                <option value="liquor">Liquor</option>
+                <option value="gym">Gym</option>
+                <option value="sex">Sex</option>
+                <option value="makeup">Makeup</option>
+                <option value="luxury">Luxury</option>
+                <option value="general">General</option>
+                <option value="other">Other</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                <svg
+                  className="h-4 w-4 text-gray-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>        {/* Filter Summary */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              Showing {totalItems} of {adminProducts.length} products
+            </span>
+            {(selectedCategory !== "all" || searchQuery) && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">Filters:</span>
+                {selectedCategory !== "all" && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs capitalize">
+                    {selectedCategory}
+                  </span>
+                )}                {searchQuery && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                    Search: &ldquo;{searchQuery}&rdquo;
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          {(selectedCategory !== "all" || searchQuery) && (
+            <button
+              onClick={() => {
+                setSelectedCategory("all");
+                setSearchQuery("");
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear all filters
+            </button>
+          )}
         </div>
 
         {/* Table Header */}
         <div className="bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
           <div className="col-span-2">Product Image</div>
           <div className="col-span-2">Product Name</div>
-          <div className="col-span-3">Description</div>
+          <div className="col-span-2">Description</div>
+          <div className="col-span-1">Category</div>
           <div className="col-span-2">Prices</div>
           <div className="col-span-2">Units</div>
           <div className="col-span-1">Actions</div>
@@ -329,12 +420,16 @@ export default function StockPage() {
                       height={96}
                     />
                   </div>
-                </div>
-                <div className="col-span-2 font-semibold text-gray-900">
+                </div>                <div className="col-span-2 font-semibold text-gray-900">
                   {product.name}
                 </div>
-                <div className="col-span-3 text-gray-800">
+                <div className="col-span-2 text-gray-800">
                   {product.description}
+                </div>
+                <div className="col-span-1 text-gray-600">
+                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize">
+                    {product.category || 'Uncategorized'}
+                  </span>
                 </div>
                 <div className="col-span-2 font-semibold text-gray-900">
                   ${product.price.toFixed(2)}

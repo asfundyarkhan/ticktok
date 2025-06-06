@@ -338,7 +338,6 @@ export class ReceiptService {
       callback(receipts);
     });
   }
-
   /**
    * Approve a receipt (for superadmin)
    * @param receiptId Receipt ID to approve
@@ -352,68 +351,92 @@ export class ReceiptService {
     notes?: string
   ): Promise<ReceiptApprovalResult> {
     try {
-      const receiptRef = doc(firestore, this.COLLECTION, receiptId);
-      const receiptSnap = await getDoc(receiptRef);
+      // Import runTransaction here to avoid circular dependency issues
+      const { runTransaction } = await import("firebase/firestore");
+      
+      return await runTransaction(firestore, async (transaction) => {
+        // Get the receipt document
+        const receiptRef = doc(firestore, this.COLLECTION, receiptId);
+        const receiptSnap = await transaction.get(receiptRef);
 
-      if (!receiptSnap.exists()) {
-        return {
-          success: false,
-          message: "Receipt not found",
-        };
-      }
+        if (!receiptSnap.exists()) {
+          throw new Error("Receipt not found");
+        }
 
-      const receiptData = receiptSnap.data() as Receipt;
+        const receiptData = receiptSnap.data() as Receipt;
 
-      if (receiptData.status !== "pending") {
-        return {
-          success: false,
-          message: `Receipt is already ${receiptData.status}`,
-        };
-      }
+        if (receiptData.status !== "pending") {
+          throw new Error(`Receipt is already ${receiptData.status}`);
+        }
 
-      // Create activity log for the approved withdrawal
-      const activityRef = collection(firestore, "activities");
-      const newActivityDoc = doc(activityRef);
-      await setDoc(newActivityDoc, {
-        userId: receiptData.userId,
-        userDisplayName:
-          receiptData.userName || receiptData.userEmail || "Unknown User",
-        type: "withdrawal_approved",
-        details: {
+        // Get the user document to update balance
+        const userRef = doc(firestore, "users", receiptData.userId);
+        const userSnap = await transaction.get(userRef);
+
+        if (!userSnap.exists()) {
+          throw new Error("User not found");
+        }
+
+        const userData = userSnap.data();
+        const currentBalance = userData.balance || 0;
+        const newBalance = currentBalance + receiptData.amount;
+
+        // Update user's balance
+        transaction.update(userRef, {
+          balance: newBalance,
+          updatedAt: Timestamp.now(),
+        });
+
+        // Update the receipt status
+        transaction.update(receiptRef, {
+          status: "approved",
+          approvedBy: superadminId,
+          approvedAt: Timestamp.now(),
+          notes: notes || "Receipt approved",
+        });        // Create activity log for the approved withdrawal
+        const activityRef = collection(firestore, "activities");
+        const newActivityDoc = doc(activityRef);
+        
+        // Prepare activity details, filtering out undefined values
+        const activityDetails: {
+          amount: number;
+          receiptId: string;
+          approvedBy: string;
+          notes: string;
+          reference?: string;
+        } = {
           amount: receiptData.amount,
           receiptId: receiptId,
-          reference: receiptData.referenceNumber,
           approvedBy: superadminId,
           notes: notes || "Withdrawal approved",
-        },
-        status: "completed",
-        createdAt: Timestamp.now(),
+        };
+        
+        // Only add reference if it exists
+        if (receiptData.referenceNumber) {
+          activityDetails.reference = receiptData.referenceNumber;
+        }
+        
+        transaction.set(newActivityDoc, {
+          userId: receiptData.userId,
+          userDisplayName:
+            receiptData.userName || receiptData.userEmail || "Unknown User",
+          type: "withdrawal_approved",
+          details: activityDetails,
+          status: "completed",
+          createdAt: Timestamp.now(),
+        });
+
+        return {
+          success: true,
+          message: "Receipt approved and funds added to user's account",
+          newBalance,
+        };
       });
-
-      // Update user's balance through TransactionService for proper logging
-      const newBalance = await UserService.updateUserBalance(
-        receiptData.userId,
-        receiptData.amount
-      );
-
-      // Update the receipt status
-      await updateDoc(receiptRef, {
-        status: "approved",
-        approvedBy: superadminId,
-        approvedAt: Timestamp.now(),
-        notes: notes || "Receipt approved",
-      });
-
-      return {
-        success: true,
-        message: "Receipt approved and funds added to user's account",
-        newBalance,
-      };
     } catch (error) {
       console.error("Error approving receipt:", error);
       return {
         success: false,
-        message: "An error occurred while approving the receipt",
+        message: error instanceof Error ? error.message : "An error occurred while approving the receipt",
       };
     }
   }
@@ -448,23 +471,35 @@ export class ReceiptService {
           success: false,
           message: `Receipt is already ${receiptData.status}`,
         };
-      }
-
-      // Create activity log for the rejected withdrawal
+      }      // Create activity log for the rejected withdrawal
       const activityRef = collection(firestore, "activities");
       const newActivityDoc = doc(activityRef);
+      
+      // Prepare activity details, filtering out undefined values
+      const activityDetails: {
+        amount: number;
+        receiptId: string;
+        rejectedBy: string;
+        reason: string;
+        reference?: string;
+      } = {
+        amount: receiptData.amount,
+        receiptId: receiptId,
+        rejectedBy: superadminId,
+        reason: reason,
+      };
+      
+      // Only add reference if it exists
+      if (receiptData.referenceNumber) {
+        activityDetails.reference = receiptData.referenceNumber;
+      }
+      
       await setDoc(newActivityDoc, {
         userId: receiptData.userId,
         userDisplayName:
           receiptData.userName || receiptData.userEmail || "Unknown User",
         type: "withdrawal_rejected",
-        details: {
-          amount: receiptData.amount,
-          receiptId: receiptId,
-          reference: receiptData.referenceNumber,
-          rejectedBy: superadminId,
-          reason: reason,
-        },
+        details: activityDetails,
         status: "failed",
         createdAt: Timestamp.now(),
       });

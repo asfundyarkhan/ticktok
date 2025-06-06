@@ -282,8 +282,7 @@ export default function EditProductPage({
               className="block text-sm font-medium text-gray-700"
             >
               Category
-            </label>
-            <select
+            </label>            <select
               id="category"
               name="category"
               value={product.category || "other"}
@@ -296,6 +295,14 @@ export default function EditProductPage({
               <option value="beauty">Beauty</option>
               <option value="toys">Toys & Games</option>
               <option value="books">Books</option>
+              <option value="accessories">Accessories</option>
+              <option value="sports">Sports</option>
+              <option value="liquor">Liquor</option>
+              <option value="gym">Gym</option>
+              <option value="sex">Sex</option>
+              <option value="makeup">Makeup</option>
+              <option value="luxury">Luxury</option>
+              <option value="general">General</option>
               <option value="other">Other</option>
             </select>
           </div>

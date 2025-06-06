@@ -448,18 +448,27 @@ export default function EditStockPage({
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                 Category
-              </label>
-              <select
+              </label>              <select
                 id="category"
                 value={formData.category}
                 onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500"
               >
-                <option value="general">All</option>
-                <option value="casual">Casual</option>
-                <option value="formal">Formal</option>
-                <option value="party">Party</option>
+                <option value="clothing">Clothing</option>
+                <option value="electronics">Electronics</option>
+                <option value="home">Home & Kitchen</option>
+                <option value="beauty">Beauty</option>
+                <option value="toys">Toys & Games</option>
+                <option value="books">Books</option>
+                <option value="accessories">Accessories</option>
+                <option value="sports">Sports</option>
+                <option value="liquor">Liquor</option>
                 <option value="gym">Gym</option>
+                <option value="sex">Sex</option>
+                <option value="makeup">Makeup</option>
+                <option value="luxury">Luxury</option>
+                <option value="general">General</option>
+                <option value="other">Other</option>
               </select>
             </div>
 

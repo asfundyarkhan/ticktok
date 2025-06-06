@@ -16,11 +16,11 @@ interface ListingWithSeller extends StockListing {
 }
 
 function AdminBuyPageContent() {
-  const { user } = useAuth();
-  const [listings, setListings] = useState<ListingWithSeller[]>([]);
+  const { user } = useAuth();  const [listings, setListings] = useState<ListingWithSeller[]>([]);
   const [filteredListings, setFilteredListings] = useState<ListingWithSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedListing, setSelectedListing] = useState<ListingWithSeller | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
@@ -67,19 +67,26 @@ function AdminBuyPageContent() {
 
     return unsubscribe;
   }, [user]);
-
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() && selectedCategory === "all") {
       setFilteredListings(listings);
     } else {
-      const filtered = listings.filter(listing =>        listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.productId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.category.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const filtered = listings.filter(listing => {
+        const matchesSearch = !searchQuery.trim() || (
+          listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          listing.productId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          listing.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          listing.category.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        
+        const matchesCategory = selectedCategory === "all" || 
+          listing.category?.toLowerCase() === selectedCategory.toLowerCase();
+        
+        return matchesSearch && matchesCategory;
+      });
       setFilteredListings(filtered);
     }
-  }, [searchQuery, listings]);
+  }, [searchQuery, selectedCategory, listings]);
 
   const handleViewDetails = (listing: ListingWithSeller) => {
     setSelectedListing(listing);
@@ -139,10 +146,8 @@ function AdminBuyPageContent() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Buy</h1>
         <p className="text-gray-600">Purchase any listing created by sellers</p>
-      </div>
-
-      {/* Search Bar */}
-      <div className="mb-6">
+      </div>      {/* Search and Filter Bar */}
+      <div className="mb-6 space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <input
@@ -153,6 +158,57 @@ function AdminBuyPageContent() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
           />
         </div>
+        
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="category-filter" className="text-sm font-medium text-gray-700">
+              Category:
+            </label>
+            <select
+              id="category-filter"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            >
+              <option value="all">All Categories</option>
+              <option value="clothing">Clothing</option>
+              <option value="electronics">Electronics</option>
+              <option value="home">Home & Kitchen</option>
+              <option value="beauty">Beauty</option>
+              <option value="toys">Toys & Games</option>
+              <option value="books">Books</option>
+              <option value="accessories">Accessories</option>
+              <option value="sports">Sports</option>
+              <option value="liquor">Liquor</option>
+              <option value="gym">Gym</option>
+              <option value="sex">Sex</option>
+              <option value="makeup">Makeup</option>
+              <option value="luxury">Luxury</option>
+              <option value="general">General</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          {(searchQuery || selectedCategory !== "all") && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("all");
+              }}
+              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+        
+        {(searchQuery || selectedCategory !== "all") && (
+          <div className="text-sm text-gray-600">
+            Showing {filteredListings.length} of {listings.length} listings
+            {searchQuery && ` matching "${searchQuery}"`}
+            {selectedCategory !== "all" && ` in ${selectedCategory}`}
+          </div>
+        )}
       </div>
 
       {/* Stats */}
