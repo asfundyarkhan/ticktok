@@ -472,7 +472,7 @@ export class StockService {
 
           const stockData = stockDoc.data() as DocumentData;
           const userData = userDoc.data() as DocumentData;
-          
+
           // Validate stock data
           if (
             !stockData.productCode ||
@@ -509,7 +509,7 @@ export class StockService {
           const productData = productExists ? productDoc.data() : null;
 
           // 3. PERFORM ALL WRITES
-          // Update user balance 
+          // Update user balance
           t.update(userRef, {
             balance: userData.balance - totalCost,
             updatedAt: Timestamp.now(),
@@ -543,12 +543,14 @@ export class StockService {
               productCode: stockData.productCode,
               name: stockData.name,
               description: stockData.description || "",
-              mainImage: stockData.mainImage ||
+              mainImage:
+                stockData.mainImage ||
                 (stockData.images && stockData.images.length > 0
                   ? stockData.images[0]
                   : "/images/placeholders/t-shirt.svg"),
               images: stockData.images || [],
-              image: stockData.mainImage ||
+              image:
+                stockData.mainImage ||
                 (stockData.images && stockData.images.length > 0
                   ? stockData.images[0]
                   : "/images/placeholders/t-shirt.svg"),
@@ -566,7 +568,10 @@ export class StockService {
           }
 
           // Record the purchase
-          const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
+          const purchaseRef = collection(
+            firestore,
+            StockService.PURCHASES_COLLECTION
+          );
           const newPurchaseDoc = doc(purchaseRef);
           t.set(newPurchaseDoc, {
             userId,
@@ -581,18 +586,19 @@ export class StockService {
           });
 
           // Log the activity
-          const activityRef = collection(firestore, 'activities');
+          const activityRef = collection(firestore, "activities");
           const newActivityDoc = doc(activityRef);
           t.set(newActivityDoc, {
             userId,
-            userDisplayName: userData.displayName || userData.email || 'Unknown User',
-            type: 'stock_purchased',
+            userDisplayName:
+              userData.displayName || userData.email || "Unknown User",
+            type: "stock_purchased",
             details: {
               quantity,
               productName: stockData.name,
             },
-            status: 'completed',
-            createdAt: Timestamp.now()
+            status: "completed",
+            createdAt: Timestamp.now(),
           });
 
           return {
@@ -803,14 +809,17 @@ export class StockService {
             name: inventoryData.name,
             description: inventoryData.description || "",
             features: inventoryData.features || "",
-            image: inventoryData.mainImage ||
+            image:
+              inventoryData.mainImage ||
               inventoryData.image ||
               (inventoryData.images && inventoryData.images.length > 0
                 ? inventoryData.images[0]
                 : ""),
-            images: inventoryData.images ||
+            images:
+              inventoryData.images ||
               (inventoryData.image ? [inventoryData.image] : []),
-            mainImage: inventoryData.mainImage ||
+            mainImage:
+              inventoryData.mainImage ||
               inventoryData.image ||
               (inventoryData.images && inventoryData.images.length > 0
                 ? inventoryData.images[0]
@@ -1511,7 +1520,7 @@ export class StockService {
         orderBy("quantity", "desc"),
         orderBy("price", "asc") // Get best deals first
       );
-      
+
       const snapshot = await getDocs(listingsQuery);
       const listings: StockListing[] = [];
       snapshot.forEach((doc) => {
@@ -1521,7 +1530,7 @@ export class StockService {
             id: doc.id,
             ...data,
             createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate()
+            updatedAt: data.updatedAt?.toDate(),
           } as StockListing);
         }
       });

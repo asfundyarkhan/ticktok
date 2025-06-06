@@ -1,4 +1,4 @@
-import { ActivityService } from '../services/activityService';
+import { ActivityService } from "../services/activityService";
 
 // Example function to demonstrate activity logging
 async function demonstrateActivity() {
@@ -10,9 +10,9 @@ async function demonstrateActivity() {
       type: "stock_purchased",
       details: {
         quantity: 5,
-        productName: "Premium T-Shirt"
+        productName: "Premium T-Shirt",
       },
-      status: "completed"
+      status: "completed",
     });
 
     console.log(`Activity created with ID: ${activityId}`);
@@ -21,7 +21,7 @@ async function demonstrateActivity() {
     const unsubscribe = ActivityService.subscribeToActivities(
       (activities) => {
         console.log("\nCurrent activities:");
-        activities.forEach(activity => {
+        activities.forEach((activity) => {
           const message = ActivityService.formatActivityMessage(activity);
           console.log(message);
         });
@@ -37,7 +37,6 @@ async function demonstrateActivity() {
       unsubscribe();
       console.log("\nUnsubscribed from activity updates");
     }, 10000);
-
   } catch (error) {
     console.error("Error in activity demonstration:", error);
   }

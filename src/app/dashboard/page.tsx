@@ -10,10 +10,12 @@ import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
 import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
+import AdminReferralBalanceCard from "../components/AdminReferralBalanceCard";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const router = useRouter();  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
   const [referralCount, setReferralCount] = useState(0);
   const [referralBalance, setReferralBalance] = useState(0);
 
@@ -22,7 +24,8 @@ export default function DashboardPage() {
     if (!authLoading && !user) {
       window.location.href = "/login?redirect=/dashboard";
       return;
-    }    // Check if user is an admin or superadmin, redirect appropriately for other roles
+    }
+    // Check if user is an admin or superadmin, redirect appropriately for other roles
     if (
       !authLoading &&
       userProfile &&
@@ -36,10 +39,10 @@ export default function DashboardPage() {
         window.location.href = "/store"; // Regular users go to store
       }
       return;
-    }// Load dashboard data
+    } // Load dashboard data
     const loadDashboardData = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
 
@@ -47,26 +50,29 @@ export default function DashboardPage() {
         const referredUsersQuery = query(
           collection(firestore, "users"),
           where("referredBy", "==", user.uid)
-        );        const unsubscribe = onSnapshot(referredUsersQuery, (snapshot) => {
-          const referredUsers = snapshot.docs.map(doc => {
+        );
+        const unsubscribe = onSnapshot(referredUsersQuery, (snapshot) => {
+          const referredUsers = snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
               ...data,
               uid: doc.id,
-              balance: data.balance || 0
+              balance: data.balance || 0,
             };
           });
-          
+
           setReferralCount(referredUsers.length);
-          
+
           // Calculate total balance from all referred users in real-time
-          const totalBalance = referredUsers.reduce((total, user) => total + user.balance, 0);
+          const totalBalance = referredUsers.reduce(
+            (total, user) => total + user.balance,
+            0
+          );
           setReferralBalance(totalBalance);
         });
 
         // Store unsubscribe function for cleanup
         return unsubscribe;
-
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -76,11 +82,11 @@ export default function DashboardPage() {
 
     if (user) {
       const unsubscribe = loadDashboardData();
-      
+
       // Cleanup listeners on unmount
       return () => {
         if (unsubscribe) {
-          unsubscribe.then(unsub => unsub && unsub());
+          unsubscribe.then((unsub) => unsub && unsub());
         }
       };
     }
@@ -104,7 +110,7 @@ export default function DashboardPage() {
       description: "Combined balance of referred sellers",
     },
     {
-      title: "My Balance", 
+      title: "My Balance",
       value: `$${userProfile?.balance?.toFixed(2) || "0.00"}`,
       icon: CreditCard,
       description: "Your current balance including commissions",
@@ -121,19 +127,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6">
-      {/* User Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            {userProfile?.displayName || "User Dashboard"}
-          </h1>
-          <span className="px-2 py-1 text-sm bg-gray-100 rounded-md">
-            {userProfile?.role || "user"}
-          </span>
+    <div className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
+
+      {/* Display AdminReferralBalanceCard only for superadmins */}
+      {userProfile?.role === "superadmin" && (
+        <div className="mb-6">
+          <AdminReferralBalanceCard />
         </div>
-      </div>      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         {stats.map((stat, index) => (
           <StatsCard
             key={index}
@@ -144,31 +149,18 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Coming Soon Message */}
-      <div className="mb-8">
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-lg p-6 text-center">
-          <h2 className="text-2xl font-bold text-pink-600 mb-2">Coming Soon!</h2>
-          <p className="text-gray-600">New features and enhanced analytics are on the way</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Activity Table */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+          <ActivityTable title="Recent Activity" />
         </div>
-      </div>
 
-      {/* Activity Table */}
-      <div className="mb-8">
-        <ActivityTable title="Recent Activity" />
-      </div>{/* Transaction History Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* User's own transactions */}
-        <TransactionHistory 
-          maxItems={5}
-          showCommissions={false}
-        />
-        
-        {/* Commission earnings (for admins/agents) */}
-        {userProfile?.role === "admin" || userProfile?.role === "superadmin" ? (
-          <TransactionHistory 
-            maxItems={5}
-            showCommissions={true}
-          />        ) : null}
+        {/* Transaction History */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
+          <TransactionHistory />
+        </div>
       </div>
     </div>
   );

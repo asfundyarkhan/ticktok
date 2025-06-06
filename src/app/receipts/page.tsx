@@ -1,17 +1,43 @@
 "use client";
 
 import { useState } from "react";
-import ReceiptUploadForm from "../components/ReceiptUploadForm";
-import UserReceiptList from "../components/UserReceiptList";
-import { useUserBalance } from "../components/UserBalanceContext";
-import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
+import { useAuth } from "../../context/AuthContext";
+import { useUserBalance } from "../components/UserBalanceContext";
+import UserReceiptList from "../components/UserReceiptList";
+import ReceiptUploadForm from "../components/ReceiptUploadForm";
 import Image from "next/image";
+import { ActivityService } from "@/services/activityService";
+import { toast } from "react-hot-toast";
 
 export default function ReceiptsPage() {
   const [activeTab, setActiveTab] = useState<string>("upload");
   const { balance } = useUserBalance();
   const { user } = useAuth();
+
+  const handleWithdraw = async () => {
+    if (!user || !balance || balance <= 0) {
+      toast.error("No funds available to withdraw");
+      return;
+    }
+
+    try {
+      // Create withdrawal request activity
+      await ActivityService.createActivity({
+        userId: user.uid,
+        userDisplayName: user.displayName || user.email || "Unknown User",
+        type: "withdrawal_request",
+        details: {
+          amount: balance
+        },
+        status: "pending"
+      });
+      toast.success("Withdrawal request submitted successfully.");
+    } catch (error) {
+      console.error("Error submitting withdrawal request:", error);
+      toast.error("Failed to submit withdrawal request. Please try again.");
+    }
+  };
 
   if (!user) {
     return (
@@ -34,39 +60,23 @@ export default function ReceiptsPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6">
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/profile" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             General
           </Link>
-          <Link
-            href="/receipts"
-            className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]"
-          >
+          <Link href="/receipts" className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]">
             Wallet
           </Link>
-          <Link
-            href="/stock"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/stock" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             Buy stock
           </Link>
-          <Link
-            href="/stock/inventory"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/stock/inventory" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             Inventory
           </Link>
-          <Link
-            href="/stock/listings"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+          <Link href="/stock/listings" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
             My Listings
           </Link>
         </div>
         
-        {/* Balance Summary */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059] flex justify-between items-center">
           <div>
             <h3 className="text-sm font-semibold text-gray-500">
@@ -78,7 +88,7 @@ export default function ReceiptsPage() {
           </div>
           <button
             className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#e00051] flex items-center"
-            onClick={() => setActiveTab("upload")}
+            onClick={handleWithdraw}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

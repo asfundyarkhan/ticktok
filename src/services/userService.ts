@@ -600,4 +600,48 @@ export class UserService {
       throw error;
     }
   }
+
+  // Calculate total admin referral balance
+  static async getTotalAdminReferralBalance(): Promise<{
+    totalBalance: number;
+    adminsCount: number;
+  }> {
+    try {
+      // Get all admin users
+      const adminQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "in", ["admin"])
+      );
+
+      const querySnapshot = await getDocs(adminQuery);
+      let totalBalance = 0;
+      const adminsCount = querySnapshot.size;
+
+      // Get all users that were referred by any admin
+      const referredUsersQuery = query(
+        collection(firestore, this.COLLECTION),
+        where(
+          "referredBy",
+          "in",
+          querySnapshot.docs.map((doc) => doc.id)
+        )
+      );
+
+      const referredUsersSnapshot = await getDocs(referredUsersQuery);
+
+      // Sum up the balances
+      referredUsersSnapshot.forEach((doc) => {
+        const userData = doc.data() as UserProfile;
+        totalBalance += userData.balance || 0;
+      });
+
+      return {
+        totalBalance,
+        adminsCount,
+      };
+    } catch (error) {
+      console.error("Error getting total admin referral balance:", error);
+      throw error;
+    }
+  }
 }
