@@ -14,6 +14,7 @@ import type { StockItem } from "@/types/marketplace";
 import "rc-pagination/assets/index.css";
 import { toast } from "react-hot-toast";
 import { getBestProductImage, normalizeProductImages } from "../utils/imageHelpers";
+import { generateUniqueId } from "@/utils/idGenerator";
 
 // Keep the same categories
 const categories = [
@@ -151,11 +152,10 @@ export default function StorePage() {
 
     // Show animation
     setShowAnimation(true);    // Add to cart with a slight delay to allow animation to complete
-    setTimeout(() => {
-      // Create a clean cart item from the product
+    setTimeout(() => {      // Create a clean cart item from the product
       const cartItem = {
-        id: product.id || product.productId || `item-${Date.now()}`,
-        productId: product.productId || product.id || `prod-${Date.now()}`,
+        id: product.id || product.productId || generateUniqueId('item'),
+        productId: product.productId || product.id || generateUniqueId('prod'),
         name: product.name || "Unknown Product",
         price: typeof product.price === 'number' ? product.price : 0,
         salePrice: product.salePrice && typeof product.salePrice === 'number' ? product.salePrice : undefined,

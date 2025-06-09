@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
+import QuantityCounter from "../components/QuantityCounter";
 
 export default function StockPage() {
   const { balance } = useUserBalance();
@@ -72,73 +73,16 @@ export default function StockPage() {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(startIndex + rowsPerPage, totalItems);
   const currentProducts = filteredProducts.slice(startIndex, endIndex);
-
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory]);
-  
+
   const handleQuantityChange = (productId: string, quantity: number) => {
     setSelectedQuantities({
       ...selectedQuantities,
       [productId]: quantity,
     });
-  };
-
-  // Generate quantity options based on available stock
-  const generateQuantityOptions = (stock: number): number[] => {
-    const options: number[] = [];
-    
-    // For very small stock, offer options in smaller increments
-    if (stock <= 50) {
-      // Offer options in increments of 5, up to the available stock
-      for (let i = 5; i <= stock; i += 5) {
-        options.push(i);
-      }
-      // Add the full stock amount if it's not already included
-      if (stock % 5 !== 0 && !options.includes(stock)) {
-        options.push(stock);
-      }
-    } else if (stock <= 200) {
-      // For medium stock, offer options in increments of 10, then 25, then 50
-      for (let i = 10; i <= Math.min(50, stock); i += 10) {
-        options.push(i);
-      }
-      for (let i = 50; i <= Math.min(100, stock); i += 25) {
-        if (!options.includes(i)) options.push(i);
-      }
-      for (let i = 100; i <= stock; i += 50) {
-        if (!options.includes(i)) options.push(i);
-      }
-      // Add the full stock amount if it's not already included
-      if (!options.includes(stock) && options[options.length - 1] < stock) {
-        options.push(stock);
-      }
-    } else {
-      // For larger stock, offer more spaced-out options
-      options.push(50, 100, 200);
-      
-      // Add increments of 100 up to 1000
-      if (stock > 200) {
-        for (let i = 300; i <= Math.min(1000, stock); i += 100) {
-          options.push(i);
-        }
-      }
-      
-      // Add increments of 500 for very large stock
-      if (stock > 1000) {
-        for (let i = 1500; i <= stock; i += 500) {
-          options.push(i);
-        }
-      }
-      
-      // Add the full stock amount if it's a "round" number and not already included
-      if (!options.includes(stock) && stock % 100 === 0) {
-        options.push(stock);
-      }
-    }
-    
-    return options;
   };
 
   // Pagination handlers
@@ -147,18 +91,18 @@ export default function StockPage() {
       setCurrentPage(currentPage - 1);
     }
   };
-
   const goToNextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
   };
+
   const handleBuyStock = async (productId: string) => {
     const product = adminProducts.find((p) => p.productId === productId);
     const quantity = selectedQuantities[productId];
 
-    if (!product || !quantity) {
-      toast.error("Please select a quantity");
+    if (!product || !quantity || quantity === 0) {
+      toast.error("Please select a quantity greater than 0");
       return;
     }
 
@@ -181,9 +125,7 @@ export default function StockPage() {
       await StockService.processStockPurchase(user.uid, product.id || "", quantity);
       
       // Reset quantity
-      handleQuantityChange(productId, 0);
-
-      // Show success notification and redirect to inventory
+      handleQuantityChange(productId, 0);      // Show success notification and redirect to inventory
       toast.success(
         `Added ${quantity} units of ${product.name} to your inventory!`
       );
@@ -191,7 +133,8 @@ export default function StockPage() {
       // Use setTimeout to wait for toast to appear before redirecting
       setTimeout(() => {
         window.location.href = "/stock/inventory";
-      }, 1500);    } catch (error) {
+      }, 1500);
+    } catch (error) {
       console.error("Error purchasing stock:", error);
       // Show more detailed error message to help with debugging
       const errorMessage = error instanceof Error 
@@ -236,10 +179,10 @@ export default function StockPage() {
         <div className="flex space-x-8 border-b border-gray-200 mb-6">
           <Link
             href="/profile"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
-          >
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"          >
             General
-          </Link>          <Link
+          </Link>
+          <Link
             href="/receipts"
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
           >
@@ -433,54 +376,52 @@ export default function StockPage() {
                 </div>
                 <div className="col-span-2 font-semibold text-gray-900">
                   ${product.price.toFixed(2)}
-                </div>
-                <div className="col-span-2">
-                  <div className="relative">                    <select
-                      className="w-full appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900"
-                      value={selectedQuantities[product.productId] || 0}
-                      onChange={(e) =>
-                        handleQuantityChange(
-                          product.productId,
-                          parseInt(e.target.value)
-                        )
-                      }
-                    >
-                      <option value={0}>Choose unit</option>
-                      {generateQuantityOptions(product.stock).map((quantity) => (
-                        <option key={quantity} value={quantity}>
-                          {quantity}pcs
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                      <svg
-                        className="h-4 w-4 text-gray-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
+                </div>                <div className="col-span-2">
+                  {product.stock > 0 ? (
+                    <>
+                      <QuantityCounter
+                        quantity={selectedQuantities[product.productId] || 0}
+                        onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
+                        min={1}
+                        max={product.stock}
+                        size="md"
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        Max: {product.stock} units available
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-red-600 mb-1">
+                        Out of Stock
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        0 units available
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 <div className="col-span-1">
-                  <button
-                    onClick={() => handleBuyStock(product.productId)}
-                    disabled={!selectedQuantities[product.productId]}
-                    className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
-                      selectedQuantities[product.productId]
-                        ? "bg-[#FF0059] hover:bg-[#E0004D]"
-                        : "bg-gray-400"
-                    }`}
-                  >
-                    <span>Buy Stock</span>
-                  </button>
+                  {product.stock > 0 ? (
+                    <button
+                      onClick={() => handleBuyStock(product.productId)}
+                      disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
+                      className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
+                        selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
+                          ? "bg-[#FF0059] hover:bg-[#E0004D]"
+                          : "bg-gray-400"
+                      }`}
+                    >
+                      <span>Buy Stock</span>
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="py-2 px-6 text-gray-500 bg-gray-200 rounded-md text-sm font-semibold flex items-center justify-center cursor-not-allowed"
+                    >
+                      <span>Restock Needed</span>
+                    </button>                  )}
                 </div>
               </div>
             ))}

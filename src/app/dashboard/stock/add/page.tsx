@@ -8,6 +8,8 @@ import toast from "react-hot-toast";
 import { useAuth } from "../../../../context/AuthContext";
 import { StockService } from "../../../../services/stockService";
 import { StockItem } from "../../../../types/marketplace";
+import { AdminRoute } from "../../../components/AdminRoute";
+import { generateAdminProductId, generateProductCode } from "../../../../utils/idGenerator";
 
 const calculateSalePrice = (price: string, isSale: boolean, salePercentage: string) => {
   if (!isSale || !salePercentage || !price) return 0;
@@ -17,7 +19,7 @@ const calculateSalePrice = (price: string, isSale: boolean, salePercentage: stri
   return basePrice * (1 - percentage / 100);
 };
 
-export default function AddStockPage() {
+function AddStockPageContent() {
   const router = useRouter();
   const { user, userProfile } = useAuth();
   
@@ -72,12 +74,11 @@ export default function AddStockPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const salePrice = formData.isSale ? calculateSalePrice(formData.price, formData.isSale, formData.salePercentage) : 0;
+      const salePrice = formData.isSale ? calculateSalePrice(formData.price, formData.isSale, formData.salePercentage) : 0;
     
     const productData: StockItem = {
-      productId: `admin-${Date.now()}`,
-      productCode: formData.productCode || `PROD-${Date.now()}`,
+      productId: generateAdminProductId(),
+      productCode: formData.productCode || generateProductCode(),
       name: formData.name,
       description: formData.description,
       features: formData.features,
@@ -533,9 +534,15 @@ export default function AddStockPage() {
             className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:bg-pink-300"
           >
             {isSubmitting ? "Adding Product..." : "Add Product"}
-          </button>
-        </div>
-      </form>
-    </div>
+          </button>        </div>
+      </form>    </div>
+  );
+}
+
+export default function AddStockPage() {
+  return (
+    <AdminRoute>
+      <AddStockPageContent />
+    </AdminRoute>
   );
 }

@@ -19,9 +19,7 @@ export default function ProfilePage() {
     fullName: "",
     email: "",
     phone: "",
-  });
-
-  // Redirect if not authenticated
+  });  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login?redirect=/dashboard/profile");

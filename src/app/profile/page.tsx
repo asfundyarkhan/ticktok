@@ -32,14 +32,27 @@ function UserProfileContent() {
       country: "",
     },
   });
-
-  // Handle unauthenticated users
+  // Handle unauthenticated users and admin/superadmin redirection
   useEffect(() => {
     if (!loading && !user) {
       // Redirect unauthenticated users to login
       window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
     }
-  }, [loading, user]);
+    
+    // Redirect admin and superadmin users to their respective dashboards
+    if (!loading && userProfile) {
+      if (userProfile.role === 'admin') {
+        console.log('Admin user attempting to access profile page, redirecting to admin dashboard');
+        window.location.href = '/dashboard/admin';
+        return;
+      } else if (userProfile.role === 'superadmin') {
+        console.log('Superadmin user attempting to access profile page, redirecting to main dashboard');
+        window.location.href = '/dashboard';
+        return;
+      }
+    }
+  }, [loading, user, userProfile]);
 
   // Initialize form data from user profile
   useEffect(() => {

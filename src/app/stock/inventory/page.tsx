@@ -13,6 +13,7 @@ import { toast } from "react-hot-toast";
 import { collection, getDocs } from "firebase/firestore";
 import { firestore } from "../../../lib/firebase/firebase";
 import { getBestProductImage } from "../../utils/imageHelpers";
+import QuantityCounter from "../../components/QuantityCounter";
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -38,19 +39,7 @@ export default function InventoryPage() {
         console.log("Cleanup function called for non-authenticated user");
       };
     }
-    
-    console.log(`Setting up inventory subscription for user ${user.uid}`);
-    
-    // Clean up zero-quantity items before loading inventory
-    StockService.deleteZeroQuantityInventoryItems(user.uid)
-      .then(numRemoved => {
-        if (numRemoved > 0) {
-          console.log(`Cleaned up ${numRemoved} zero-quantity inventory items`);
-        }
-      })
-      .catch(error => {
-        console.error("Error cleaning up inventory:", error);
-      });
+      console.log(`Setting up inventory subscription for user ${user.uid}`);
     
     // Subscribe to real-time inventory updates
     const unsubscribe = StockService.subscribeToInventory(user.uid,
@@ -82,7 +71,6 @@ export default function InventoryPage() {
       unsubscribe();
     };
   }, [user]);
-
   // Filter products based on search query
   const filteredProducts = inventoryItems.filter(
     (product) =>
@@ -91,18 +79,12 @@ export default function InventoryPage() {
       product.productCode.toLowerCase().includes(searchQuery.toLowerCase()) 
   );
 
-  // Further filter out products with zero stock that should have been deleted
-  // This is a fallback in case the automatic deletion didn't work
-  const productsWithStock = filteredProducts.filter(
-    (product) => (product.stock || 0) > 0
-  );
-
-  const totalItems = productsWithStock.length;
+  const totalItems = filteredProducts.length;
   const validRowsPerPage = isNaN(rowsPerPage) || rowsPerPage <= 0 ? 5 : rowsPerPage;
   const totalPages = Math.ceil(totalItems / validRowsPerPage);
   const startIndex = (currentPage - 1) * validRowsPerPage;
   const endIndex = Math.min(startIndex + validRowsPerPage, totalItems);
-  const currentProducts = productsWithStock.slice(startIndex, endIndex);
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
 
 
   // Reset to first page when search query changes
@@ -347,32 +329,34 @@ export default function InventoryPage() {
                     </td>
                     <td className="py-4 px-6 text-gray-800">
                       {product.description}
-                    </td>
-                    <td className="py-4 px-6 text-gray-900">
+                    </td>                    <td className="py-4 px-6 text-gray-900">
                       <div className="flex items-center">
-                        <span className="px-4 py-1 bg-gray-100 rounded-md">
-                          {product.stock || 0}
+                        <span className={`px-4 py-1 rounded-md ${
+                          (product.stock || 0) === 0 
+                            ? 'bg-red-100 text-red-800 border border-red-200' 
+                            : 'bg-gray-100'
+                        }`}>
+                          {(product.stock || 0) === 0 ? 'Out of Stock' : `${product.stock || 0}`}
                         </span>
-                        <span className="ml-2">pcs</span>
+                        {(product.stock || 0) > 0 && <span className="ml-2">pcs</span>}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-gray-900">
                       {product.productCode}
-                    </td>
-                    <td className="py-4 px-6">
+                    </td>                    <td className="py-4 px-6">
                       {(product.stock || 0) === 0 ? (
                         <button
                           onClick={() => handleRestock(product.productCode)}
-                          className="px-4 py-1.5 bg-gray-400 text-white rounded-md text-sm font-medium"
+                          className="px-4 py-1.5 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
                         >
-                          Restock
+                          Restock Needed
                         </button>
                       ) : (
                         <button
                           onClick={() => openSellModal(product)}
-                          className="px-4 py-1.5 bg-[#FF0059] text-white rounded-md text-sm font-medium"
+                          className="px-4 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
                         >
-                          Sell
+                          List for Sale
                         </button>
                       )}
                     </td>
@@ -443,40 +427,14 @@ export default function InventoryPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Quantity to List
                 </label>
-                <div className="flex items-center">
-                  <button
-                    onClick={() =>
-                      setSellQuantity(Math.max(1, sellQuantity - 1))
-                    }
-                    className="px-3 py-1 bg-gray-200 rounded-l-md"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    value={sellQuantity}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      const maxStock = currentProduct.stock || 0;
-                      if (!isNaN(val) && val >= 1 && val <= maxStock) {
-                        setSellQuantity(val);
-                      }
-                    }}
-                    className="px-3 py-1 border-t border-b text-center w-20"
-                    min={1}
-                    max={currentProduct.stock || 0}
-                  />
-                  <button
-                    onClick={() =>
-                      setSellQuantity(
-                        Math.min(currentProduct.stock || 0, sellQuantity + 1)
-                      )
-                    }
-                    className="px-3 py-1 bg-gray-200 rounded-r-md"
-                  >
-                    +
-                  </button>
-                </div>
+                <QuantityCounter
+                  quantity={sellQuantity}
+                  onQuantityChange={setSellQuantity}
+                  min={1}
+                  max={currentProduct.stock || 0}
+                  size="md"
+                  className="w-fit"
+                />
               </div>
 
               <div className="mb-6">

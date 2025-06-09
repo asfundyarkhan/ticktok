@@ -3,22 +3,19 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useUserBalance } from "../../components/UserBalanceContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
 import { StockService } from "../../../services/stockService";
 import { StockListing } from "../../../types/marketplace";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../../context/AuthContext";
-import { getBestProductImage, getFirestoreImage } from "../../utils/imageHelpers";
+import { getBestProductImage } from "../../utils/imageHelpers";
 
 export default function MyListingsPage() {
   const [myListings, setMyListings] = useState<StockListing[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [loading, setLoading] = useState(true);
+  const [rowsPerPage, setRowsPerPage] = useState(5);  const [loading, setLoading] = useState(true);
   const [editingListing, setEditingListing] = useState<string | null>(null);
-  const { balance } = useUserBalance();
   const { user } = useAuth();
 
   // Subscribe to Firebase real-time listings updates
@@ -43,16 +40,12 @@ export default function MyListingsPage() {
 
     return () => unsubscribe();
   }, [user?.uid]);
-
   // Filter listings based on search query
   const filteredListings = myListings.filter(
     (listing) =>
-      listing.quantity > 0 && 
-      (
-        listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        listing.productId.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      listing.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      listing.productId.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Pagination calculations
@@ -83,13 +76,13 @@ export default function MyListingsPage() {
       }
     } catch (error) {
       console.error("Error removing listing:", error);
-      toast.error("Failed to remove listing. Please try again.");
-    }
-  };  // Handle listing edit - seller can only update quantity, not price
+      toast.error("Failed to remove listing. Please try again.");    }
+  };
+
+  // Handle listing edit - seller can only update quantity, not price
   const handleEditListing = async (
     listingId: string,
-    newQuantity: number,
-    currentListing: StockListing
+    newQuantity: number
   ) => {
     if (!user?.uid || !listingId) {
       toast.error("Authentication required");
@@ -153,7 +146,24 @@ export default function MyListingsPage() {
           </Link>
           <Link href="/stock/listings" className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]">
             My Listings
-          </Link>
+          </Link>        </div>
+
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search listings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent"
+            />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         {/* Listings Table */}
@@ -203,8 +213,7 @@ export default function MyListingsPage() {
                         <div className="text-sm text-gray-900">
                           ${listing.price.toFixed(2)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </td>                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           listing.quantity > 10
                             ? "bg-green-100 text-green-800"
@@ -212,55 +221,75 @@ export default function MyListingsPage() {
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-red-100 text-red-800"
                         }`}>
-                          {listing.quantity} units
+                          {listing.quantity === 0 ? "Out of Stock" : `${listing.quantity} units`}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">                        <button
-                          onClick={async () => {
-                            try {
-                              // Get current inventory to check maximum available quantity
-                              const inventoryItems = await StockService.getInventoryItems(user.uid);
-                              const inventoryItem = inventoryItems.find(item => item.productId === listing.productId);
-                              
-                              // Calculate max quantity (current listed + available in inventory)
-                              const maxQuantity = listing.quantity + (inventoryItem?.stock || 0);
-                              
-                              if (maxQuantity <= 0) {
-                                toast.error("No inventory available for this product");
-                                return;
-                              }
-                              
-                              const newQuantity = parseInt(
-                                prompt(`Enter new quantity (max available: ${maxQuantity}):`, 
-                                listing.quantity.toString()) || listing.quantity.toString()
-                              );
-                              
-                              // Validate that the quantity doesn't exceed inventory
-                              if (newQuantity > maxQuantity) {
-                                toast.error(`Quantity cannot exceed ${maxQuantity}`);
-                                return;
-                              }
-                              
-                              handleEditListing(listing.id!, newQuantity, listing);
-                            } catch (error) {
-                              console.error("Error checking inventory:", error);
-                              toast.error("Failed to check inventory availability");
-                            }
-                          }}
-                          disabled={editingListing === listing.id}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
-                        >
-                          {editingListing === listing.id ? "Updating..." : "Edit Quantity"}
-                        </button>
-                        <button
-                          onClick={() => handleRemoveListing(listing.id!)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Remove
-                        </button>
+                      </td>                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        {listing.quantity === 0 ? (
+                          <button
+                            onClick={() => {
+                              // Navigate to stock purchase page and highlight this product
+                              localStorage.setItem("productToRestock", listing.productId);
+                              window.location.href = "/stock";
+                            }}
+                            className="px-3 py-1 bg-gray-400 text-white rounded-md text-sm font-medium hover:bg-gray-500"
+                          >
+                            Restock Needed
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  // Get current inventory to check maximum available quantity
+                                  if (!user?.uid) {
+                                    toast.error("Authentication required");
+                                    return;
+                                  }
+                                  
+                                  const inventoryItems = await StockService.getInventoryItems(user.uid);
+                                  const inventoryItem = inventoryItems.find(item => item.productId === listing.productId);
+                                  
+                                  // Calculate max quantity (current listed + available in inventory)
+                                  const maxQuantity = listing.quantity + (inventoryItem?.stock || 0);
+                                  
+                                  if (maxQuantity <= 0) {
+                                    toast.error("No inventory available for this product");
+                                    return;
+                                  }
+                                  
+                                  const newQuantity = parseInt(
+                                    prompt(`Enter new quantity (max available: ${maxQuantity}):`, 
+                                    listing.quantity.toString()) || listing.quantity.toString()
+                                  );
+                                  
+                                  // Validate that the quantity doesn't exceed inventory
+                                  if (newQuantity > maxQuantity) {
+                                    toast.error(`Quantity cannot exceed ${maxQuantity}`);
+                                    return;
+                                  }
+                                  
+                                  handleEditListing(listing.id!, newQuantity);
+                                } catch (error) {
+                                  console.error("Error checking inventory:", error);
+                                  toast.error("Failed to check inventory availability");
+                                }
+                              }}
+                              disabled={editingListing === listing.id}
+                              className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
+                            >
+                              {editingListing === listing.id ? "Updating..." : "Edit Quantity"}
+                            </button>
+                            <button
+                              onClick={() => handleRemoveListing(listing.id!)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -5,6 +5,7 @@ import { useCart } from "./NewCartContext";
 import { toast } from "react-hot-toast";
 import { ShoppingCart, Check } from "lucide-react";
 import { motion } from "framer-motion";
+import { generateUniqueId } from "../../utils/idGenerator";
 
 interface EnhancedQuickAddButtonProps {
   product: {
@@ -58,11 +59,10 @@ export default function EnhancedQuickAddButton({
 
     // Call the onClick prop if provided (for animation)
     if (onClick) {
-      onClick(e);    } else {
-      // Add product to cart directly if no onClick handler
+      onClick(e);    } else {      // Add product to cart directly if no onClick handler
       const cartItem = {
-        id: product.id || product.productId || `item-${Date.now()}`,
-        productId: product.productId || `prod-${Date.now()}`,
+        id: product.id || product.productId || generateUniqueId('item'),
+        productId: product.productId || generateUniqueId('prod'),
         name: product.name || "Unknown Product",
         price: typeof product.price === 'number' ? product.price : 0,
         salePrice: product.salePrice && typeof product.salePrice === 'number' ? product.salePrice : undefined,

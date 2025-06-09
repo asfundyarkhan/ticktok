@@ -1,101 +1,112 @@
-# Zero Quantity Stock Deletion
+# Zero Quantity Stock Behavior (DISABLED)
 
 ## Overview
 
-This document explains the implementation of automatic deletion of stock items that reach zero quantity in the TikTok Shop application.
+**Note: As of June 2025, the automatic deletion of zero-quantity stock items has been DISABLED.** Items now remain visible when they reach zero quantity, showing appropriate "Out of Stock" messaging and "Restock Needed" functionality instead of being deleted.
 
-## Problem Statement
+## Previous Behavior (Now Disabled)
 
-When stock items reach zero quantity, they need to be deleted from stock listings and admin stocks to allow users to create new stock with the same details.
+Previously, the system automatically deleted stock items when their quantity reached zero. This has been changed to improve user experience and maintain data consistency.
+
+## Current Behavior
+
+### Stock Display When Zero Quantity
+
+1. **Admin Stock**: Zero-stock items remain visible in the admin stock interface with "Out of Stock" status and "Restock Needed" button
+2. **Seller Listings**: Zero-quantity listings remain visible with "Out of Stock" status and "Restock Needed" button  
+3. **Inventory Items**: Zero-stock inventory items remain visible with "Out of Stock" badge and "Restock Needed" button
+
+### UI Changes Made
+
+#### Stock Purchase Pages
+- Zero-stock items show red "Out of Stock" text instead of quantity counter
+- "Restock Needed" button appears instead of "Buy Stock" button
+- Items remain in the interface for easy restocking
+
+#### Inventory Page  
+- Zero-stock items display with red "Out of Stock" badge
+- "Restock Needed" button replaces "List for Sale" button
+- All items remain visible regardless of stock level
+
+#### Listings Page
+- Zero-quantity listings show "Out of Stock" status
+- "Restock Needed" button appears instead of edit/remove options
+- Listings remain visible to allow easy restocking
 
 ## Implementation Details
 
-### Core Functionality
+### Disabled Components
 
-The system now automatically deletes stock items when their quantity reaches zero. This applies to:
-
-1. **Admin Stock**: When admin stock items reach zero quantity (after a seller purchases the last unit), the item is automatically deleted.
-2. **Seller Listings**: When a seller's listing reaches zero quantity, it is automatically deleted.
-3. **Inventory Items**: Zero-quantity inventory items are also deleted during inventory page load.
+1. **StockCleanupService**: Commented out in layout.tsx - no longer runs periodic cleanup
+2. **Automatic Deletion Logic**: Removed from updateStockItem(), updateListing(), and processAdminPurchase() methods
+3. **Zero-Quantity Filtering**: Removed from subscribeToAdminStock(), subscribeToAllListings(), and inventory display
 
 ### Changes Made
 
-#### Stock Service Modifications
+### Changes Made
 
-1. **processStockPurchase Method**:
+#### Stock Service Modifications (DISABLED)
 
-   - Now checks if admin stock will reach zero after purchase
-   - Deletes the admin stock document if quantity becomes zero
-
-2. **updateStockItem Method**:
-
-   - Now checks if update would result in zero quantity
-   - Deletes the stock item instead of updating if quantity is zero
-
-3. **updateListing Method**:
-
-   - Now checks if listing quantity is being updated to zero
-   - Deletes the listing instead of updating if quantity is zero
-
-4. **New Helper Methods**:
-
-   - `cleanupZeroQuantityItems()`: Finds and removes all zero-quantity admin stock items and listings
-   - `deleteZeroQuantityInventoryItems(sellerId)`: Removes zero-quantity inventory items for a specific seller
-   - `cleanupAllSellersZeroInventory()`: Performs cleanup across all sellers' inventories
-   - `initializePeriodicCleanup(intervalMinutes)`: Sets up periodic automatic cleanup
-
-5. **Filtering Methods**:
-   - Updated `getAllStockItems()` and `subscribeToAdminStock()` to explicitly filter out zero-quantity items
-   - Added client-side filtering in inventory and listings pages for additional safety
+1. **processStockPurchase Method**: Automatic deletion logic removed - now performs normal quantity updates
+2. **updateStockItem Method**: Automatic deletion logic removed - now performs normal updates regardless of quantity
+3. **updateListing Method**: Automatic deletion logic removed - now updates listings even when quantity reaches zero
+4. **subscribeToAdminStock()**: Removed `where("stock", ">", 0)` filter - now includes zero-stock items
+5. **subscribeToAllListings()**: Removed `where("quantity", ">", 0)` filter - now includes zero-quantity listings
+6. **searchListingsByProductId()**: Removed zero-quantity filtering
 
 #### UI Component Changes
 
-1. **StockCleanupService**:
+1. **StockCleanupService**: **DISABLED** - Component commented out in layout.tsx to stop periodic cleanup
 
-   - New client-side component that initializes periodic cleanup every 15 minutes
-   - Runs an initial comprehensive cleanup of:
-     - All admin stock items with zero quantity
-     - All seller listings with zero quantity
-     - All sellers' inventory items with zero quantity
-   - Added to the main app layout for global application
+2. **Stock Purchase Pages** (`stock/page.tsx`, `stock/page_new.tsx`):
+   - Added conditional rendering for zero-stock items
+   - Zero-stock items show "Out of Stock" message and "Restock Needed" button
+   - Items remain visible and navigable
 
-2. **Inventory Page**:
+3. **Inventory Page** (`stock/inventory/page.tsx`):
+   - Removed zero-quantity filtering from display
+   - Added "Out of Stock" badge for zero-stock items
+   - Added "Restock Needed" button for zero-stock items
+   - Removed automatic cleanup call on page load
 
-   - Now filters out zero-quantity items for display
-   - Calls `deleteZeroQuantityInventoryItems()` when loading to clean up any lingering zero-quantity items
+4. **Listings Page** (`stock/listings/page.tsx`):
+   - Removed `listing.quantity > 0` filter from display
+   - Added "Out of Stock" status for zero-quantity listings
+   - Added "Restock Needed" button for zero-quantity listings
 
-3. **Listings Page**:
-   - Now filters out zero-quantity listings for display
+#### Filtering Changes
 
-### Periodic Cleaning Schedule
+All zero-quantity filtering has been removed from:
+- Admin stock subscriptions
+- Listings subscriptions  
+- Inventory display
+- Client-side filtering logic
 
-1. **Regular Cleanup (15-minute intervals)**:
+### Periodic Cleaning Schedule (DISABLED)
 
-   - Cleans up zero-quantity admin stock items
-   - Cleans up zero-quantity listings
+The periodic cleanup system has been completely disabled:
+- StockCleanupService component is commented out
+- No automatic cleanup runs
+- All zero-quantity items remain in the database
 
-2. **Comprehensive Cleanup (Random - ~33% chance each cycle)**:
-   - Performs the above plus cleanup of all sellers' inventory items
-   - Less frequent to avoid excessive database operations
+## Benefits of New Approach
 
-## Benefits
-
-1. **Data Consistency**: Ensures that depleted stock is properly removed from the database
-2. **Resource Efficiency**: Prevents accumulation of unused stock items in the database
-3. **Improved User Experience**: Allows users to recreate stock items with the same details after depletion
-4. **Automatic Maintenance**: Periodic cleanup ensures the database stays clean even if real-time deletions fail
-5. **Comprehensive Cleanup**: Handles all three types of zero-quantity items (admin stock, listings, and inventory)
+1. **Improved User Experience**: Users can see out-of-stock items and easily restock them
+2. **Data Persistence**: No loss of product information when stock reaches zero
+3. **Clear Visual Indicators**: Obvious "Out of Stock" and "Restock Needed" messaging
+4. **Simplified Workflow**: Easy navigation from out-of-stock items to restocking interface
 
 ## Testing
 
 To verify this functionality:
 
-1. Purchase the last available unit of an admin stock item
-2. Observe that the item is deleted from admin stock
-3. Try creating a new stock item with the same details
-4. Confirm the new item can be created successfully
-5. Check console logs to verify periodic cleanup is running
+1. Purchase all available units of an admin stock item
+2. Observe that the item remains visible with "Out of Stock" status
+3. Click "Restock Needed" button to navigate to restocking page
+4. Verify zero-quantity listings remain visible in listings page
+5. Check that inventory items with zero stock show "Restock Needed" option
 
 ## Implementation Date
 
-May 26, 2025
+**Original Implementation**: May 26, 2025  
+**Behavior Changed (Deletion Disabled)**: June 9, 2025

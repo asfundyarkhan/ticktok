@@ -9,6 +9,7 @@ import { toast } from "react-hot-toast";
 import { StockService } from "../../../../../services/stockService";
 import { StockItem } from "../../../../../types/marketplace";
 import { LoadingSpinner } from "../../../../components/Loading";
+import { AdminRoute } from "../../../../components/AdminRoute";
 
 const calculateSalePrice = (price: string, isSale: boolean, salePercentage: string) => {
   if (!isSale || !salePercentage || !price) return 0;
@@ -19,6 +20,18 @@ const calculateSalePrice = (price: string, isSale: boolean, salePercentage: stri
 };
 
 export default function EditStockPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <AdminRoute>
+      <EditStockPageContent params={params} />
+    </AdminRoute>
+  );
+}
+
+function EditStockPageContent({
   params,
 }: {
   params: Promise<{ id: string }>;

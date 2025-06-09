@@ -53,6 +53,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 // Create Auth Context
@@ -468,7 +469,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error("An unknown error occurred during password reset");
     }
   };
-
   // Update user profile function
   const updateUserProfile = async (
     data: Partial<UserProfile>
@@ -510,6 +510,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Refresh user profile function - manually re-fetch user profile from Firestore
+  const refreshUserProfile = async (): Promise<void> => {
+    if (!user) throw new Error("No authenticated user");
+
+    try {
+      console.log("Refreshing user profile for:", user.uid);
+      await fetchUserProfile(user.uid);
+      console.log("User profile refreshed successfully");
+    } catch (error: unknown) {
+      console.error("Error refreshing user profile:", error);
+      if (error instanceof FirebaseError || error instanceof Error) {
+        throw new Error(formatAuthError(error));
+      }
+      throw new Error("An unknown error occurred while refreshing profile");
+    }
+  };
   // Auth context value
   const value = {
     user,
@@ -520,6 +536,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     logout,
     resetPassword,
     updateUserProfile,
+    refreshUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

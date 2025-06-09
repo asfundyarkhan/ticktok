@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
+import QuantityCounter from "../components/QuantityCounter";
 
 export default function StockPage() {
   const { balance } = useUserBalance();
@@ -84,13 +85,12 @@ export default function StockPage() {
       setCurrentPage(currentPage + 1);
     }
   };
-
   const handleBuyStock = async (productId: string) => {
     const product = adminProducts.find((p) => p.productId === productId);
     const quantity = selectedQuantities[productId];
 
-    if (!product || !quantity) {
-      toast.error("Please select a quantity");
+    if (!product || !quantity || quantity === 0) {
+      toast.error("Please select a quantity greater than 0");
       return;
     }
 
@@ -353,53 +353,52 @@ export default function StockPage() {
                 </div>
                 <div className="col-span-2 font-semibold text-gray-900">
                   ${product.price.toFixed(2)}
-                </div>
-                <div className="col-span-2">
-                  <div className="relative">
-                    <select
-                      className="w-full appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900"
-                      value={selectedQuantities[product.productId] || 0}
-                      onChange={(e) =>
-                        handleQuantityChange(
-                          product.productId,
-                          parseInt(e.target.value)
-                        )
-                      }
-                    >
-                      <option value={0}>Choose unit</option>
-                      <option value={50}>50pcs</option>
-                      <option value={100}>100pcs</option>
-                      <option value={200}>200pcs</option>
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                      <svg
-                        className="h-4 w-4 text-gray-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
+                </div>                <div className="col-span-2">
+                  {product.stock > 0 ? (
+                    <>
+                      <QuantityCounter
+                        quantity={selectedQuantities[product.productId] || 0}
+                        onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
+                        min={1}
+                        max={product.stock}
+                        size="md"
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        Max: {product.stock} units available
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-red-600 mb-1">
+                        Out of Stock
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        0 units available
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 <div className="col-span-1">
-                  <button
-                    onClick={() => handleBuyStock(product.productId)}
-                    disabled={!selectedQuantities[product.productId]}
-                    className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
-                      selectedQuantities[product.productId]
-                        ? "bg-[#FF0059] hover:bg-[#E0004D]"
-                        : "bg-gray-400"
-                    }`}
-                  >
-                    <span>Buy Stock</span>
-                  </button>
+                  {product.stock > 0 ? (
+                    <button
+                      onClick={() => handleBuyStock(product.productId)}
+                      disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
+                      className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
+                        selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
+                          ? "bg-[#FF0059] hover:bg-[#E0004D]"
+                          : "bg-gray-400"
+                      }`}
+                    >
+                      <span>Buy Stock</span>
+                    </button>
+                  ) : (
+                    <button
+                      disabled
+                      className="py-2 px-6 text-gray-500 bg-gray-200 rounded-md text-sm font-semibold flex items-center justify-center cursor-not-allowed"
+                    >
+                      <span>Restock Needed</span>
+                    </button>                  )}
                 </div>
               </div>
             ))}

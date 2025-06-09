@@ -6,9 +6,8 @@ import { useAuth } from "../../../context/AuthContext";
 import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { LoadingSpinner } from "../../components/Loading";
 
-function RoleManagerContent() {
-  // Only use the loading state from useAuth
-  const { loading } = useAuth();
+function RoleManagerContent() {  // Use both loading and refreshUserProfile from useAuth
+  const { loading, userProfile, refreshUserProfile } = useAuth();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"user" | "seller" | "admin" | "superadmin">("user");
   const [message, setMessage] = useState({ text: "", type: "" });
@@ -48,12 +47,24 @@ function RoleManagerContent() {
         // Use the general update method for user role
         await UserService.updateUserProfile(userByEmail.uid, { role });
       }
-      
-      setMessage({
+        setMessage({
         text: `User ${email} has been updated to ${role} role`,
         type: "success",
       });
-      setEmail("");} catch (error: unknown) {
+      setEmail("");
+
+      // Check if the updated user is the current logged-in user
+      // If so, refresh their profile to update navigation immediately
+      if (userProfile && userProfile.email === email.toLowerCase()) {
+        console.log("Role updated for current user, refreshing profile...");
+        try {
+          await refreshUserProfile();
+          console.log("Current user profile refreshed successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing current user profile:", refreshError);
+          // Don't show error to user since the role update was successful
+        }
+      }} catch (error: unknown) {
       console.error("Error updating role:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to update role";
       setMessage({
@@ -89,12 +100,24 @@ function RoleManagerContent() {
       
       // Update their balance to 99999
       await UserService.ensureAdminBalance(userByEmail.uid);
-      
-      setBalanceMessage({
+        setBalanceMessage({
         text: `Admin balance updated for ${balanceEmail} (set to 99999)`,
         type: "success",
       });
       setBalanceEmail("");
+
+      // Check if the updated user is the current logged-in user
+      // If so, refresh their profile to update balance immediately
+      if (userProfile && userProfile.email === balanceEmail.toLowerCase()) {
+        console.log("Balance updated for current user, refreshing profile...");
+        try {
+          await refreshUserProfile();
+          console.log("Current user profile refreshed successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing current user profile:", refreshError);
+          // Don't show error to user since the balance update was successful
+        }
+      }
     } catch (error: unknown) {
       console.error("Error updating balance:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to update balance";

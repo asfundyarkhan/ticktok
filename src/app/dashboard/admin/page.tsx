@@ -503,9 +503,7 @@ export default function AdminPage() {
   if (typeof window !== 'undefined') {
     localStorage.setItem('admin_page_loaded', 'true');
     localStorage.setItem('admin_page_loaded_time', new Date().toString());
-  }
-  
-  return (
+  }    return (
     <SuperAdminRoute>
       <AdminPageContent />
     </SuperAdminRoute>

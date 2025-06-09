@@ -2,17 +2,19 @@
 /**
  * StockService - Manages stock items, inventory, and listings
  *
- * IMPORTANT: Zero-quantity handling
- * This service now automatically deletes stock items when their quantity reaches zero.
- * This applies to:
+ * IMPORTANT: Zero-quantity handling (UPDATED BEHAVIOR)
+ * As of June 2025, this service NO LONGER automatically deletes stock items when their quantity reaches zero.
+ * Items now remain visible with "Out of Stock" status and "Restock Needed" functionality.
+ * 
+ * This change applies to:
  * - Admin stock items that reach zero quantity
- * - Seller listings that reach zero quantity
+ * - Seller listings that reach zero quantity  
  * - Inventory items that reach zero quantity
  *
- * This ensures that when stock is depleted, it is removed from the database,
- * allowing users to create new stock with the same details later.
+ * This ensures that when stock is depleted, product information is preserved,
+ * allowing users to easily restock items and maintain data consistency.
  *
- * Automatic cleanup runs periodically through the StockCleanupService component.
+ * The StockCleanupService component has been disabled to prevent automatic cleanup.
  */
 import {
   collection,
@@ -238,12 +240,9 @@ export class StockService {
    * @returns Promise with array of stock items
    */
   static async getAllStockItems(): Promise<StockItem[]> {
-    try {
-      const q = query(
+    try {      const q = query(
         collection(firestore, StockService.COLLECTION),
-        where("stock", ">", 0), // Only show items with available stock
         where("listed", "==", true), // Only show items that are listed
-        orderBy("stock", "desc"),
         orderBy("createdAt", "desc")
       );
 
@@ -251,15 +250,16 @@ export class StockService {
       const items: StockItem[] = [];
 
       for (const docSnapshot of querySnapshot.docs) {
-        const data = docSnapshot.data();
-        // Validate required fields exist and ensure stock > 0
+        const data = docSnapshot.data();        // Validate required fields exist
         if (
           data.productCode &&
           data.name &&
           typeof data.price === "number" &&
-          typeof data.stock === "number" &&
-          data.stock > 0 // Double-check stock is greater than zero
+          (typeof data.stock === "number" || data.stock === 0 || data.stock === null || data.stock === undefined)
         ) {
+          // Ensure stock is always a number (default to 0 for null/undefined)
+          const stockValue = typeof data.stock === "number" ? data.stock : 0;
+          
           // Ensure all fields are properly formatted
           const item: StockItem = {
             id: docSnapshot.id,
@@ -269,7 +269,7 @@ export class StockService {
             description: data.description || "",
             features: data.features,
             price: Number(data.price),
-            stock: Number(data.stock),
+            stock: stockValue, // Use normalized stock value
             images: data.images || ["/images/placeholders/t-shirt.svg"],
             mainImage:
               data.mainImage ||
@@ -396,26 +396,24 @@ export class StockService {
    * @param id Stock item ID
    * @param data Updated data
    * @returns Promise with success
-   */
-  static async updateStockItem(
+   */  static async updateStockItem(
     id: string,
     data: Partial<StockItem>
   ): Promise<void> {
     try {
       const itemRef = doc(firestore, StockService.COLLECTION, id);
 
-      // Check if the update would result in zero quantity
-      if (data.stock === 0) {
-        // Delete the item instead of updating it
-        await deleteDoc(itemRef);
-        console.log(`Stock item ${id} deleted because quantity reached zero`);
-      } else {
-        // Perform normal update
-        await updateDoc(itemRef, {
-          ...data,
-          updatedAt: Timestamp.now(),
-        });
+      // Ensure stock value is always a number if provided
+      const updateData = { ...data };
+      if ('stock' in updateData && updateData.stock !== undefined) {
+        updateData.stock = typeof updateData.stock === 'number' ? updateData.stock : 0;
       }
+
+      // Perform normal update (no longer delete when stock reaches zero)
+      await updateDoc(itemRef, {
+        ...updateData,
+        updatedAt: Timestamp.now(),
+      });
     } catch (error) {
       console.error("Error updating stock item:", error);
       throw error;
@@ -513,20 +511,14 @@ export class StockService {
           t.update(userRef, {
             balance: userData.balance - totalCost,
             updatedAt: Timestamp.now(),
-          });
-
-          // Calculate new stock quantity
+          });          // Calculate new stock quantity
           const newStockQuantity = stockData.stock - quantity;
 
-          // Update or delete admin stock
-          if (newStockQuantity === 0) {
-            t.delete(stockRef);
-          } else {
-            t.update(stockRef, {
-              stock: newStockQuantity,
-              updatedAt: Timestamp.now(),
-            });
-          }
+          // Always update admin stock (no longer delete when reaching zero)
+          t.update(stockRef, {
+            stock: newStockQuantity,
+            updatedAt: Timestamp.now(),
+          });
 
           // Update or create inventory item
           if (productExists && productData) {
@@ -700,21 +692,14 @@ export class StockService {
           t.update(sellerRef, {
             balance: (sellerData.balance || 0) + totalCost,
             updatedAt: Timestamp.now(),
-          });
-
-          // Update listing quantity
+          });          // Update listing quantity
           const newQuantity = listingData.quantity - quantity;
 
-          if (newQuantity === 0) {
-            // Delete the listing if quantity reaches zero
-            t.delete(listingRef);
-          } else {
-            // Update listing quantity
-            t.update(listingRef, {
-              quantity: newQuantity,
-              updatedAt: Timestamp.now(),
-            });
-          } // Record the admin purchase
+          // Always update listing quantity (no longer delete when reaching zero)
+          t.update(listingRef, {
+            quantity: newQuantity,
+            updatedAt: Timestamp.now(),
+          });// Record the admin purchase
           const purchaseRef = collection(
             firestore,
             StockService.PURCHASES_COLLECTION
@@ -925,22 +910,7 @@ export class StockService {
             };
           }
 
-          const listingData = listingDoc.data();
-
-          // If updating quantity to zero, delete the listing instead
-          if (updates.quantity === 0) {
-            // Delete the listing
-            t.delete(listingRef);
-
-            return {
-              success: true,
-              message: "Listing deleted because quantity reached zero",
-              quantity: 0,
-              totalCost: 0,
-            };
-          }
-
-          // If updating quantity, validate inventory
+          const listingData = listingDoc.data();          // If updating quantity, validate inventory
           if (updates.quantity && updates.quantity > listingData.quantity) {
             const additionalQuantity = updates.quantity - listingData.quantity;
 
@@ -1175,32 +1145,30 @@ export class StockService {
       const listenerKey = "admin_stock";
 
       // Unsubscribe existing listener if any
-      this.unsubscribeListener(listenerKey);
-
-      const stockQuery = query(
+      this.unsubscribeListener(listenerKey);      const stockQuery = query(
         collection(firestore, this.COLLECTION),
         where("listed", "==", true),
-        where("stock", ">", 0), // Only listen for items with stock > 0
         orderBy("createdAt", "desc")
       );
 
       const unsubscribe = onSnapshot(
         stockQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
-          const stocks: StockItem[] = [];
-          snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
-            const data = doc.data();
-            if (
+          const stocks: StockItem[] = [];          snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
+            const data = doc.data();            if (
               data &&
               data.productCode &&
               data.name &&
               typeof data.price === "number" &&
-              typeof data.stock === "number" &&
-              data.stock > 0 // Double-check stock is greater than zero
+              (typeof data.stock === "number" || data.stock === 0 || data.stock === null || data.stock === undefined)
             ) {
+              // Ensure stock is always a number (default to 0 for null/undefined)
+              const stockValue = typeof data.stock === "number" ? data.stock : 0;
+              
               stocks.push({
                 id: doc.id,
                 ...data,
+                stock: stockValue, // Normalize stock value
                 createdAt: data.createdAt?.toDate(),
                 updatedAt: data.updatedAt?.toDate(),
               } as StockItem);
@@ -1236,12 +1204,8 @@ export class StockService {
   ): () => void {
     try {
       const listenerKey = "all_listings";
-      this.unsubscribeListener(listenerKey);
-
-      const listingsQuery = query(
+      this.unsubscribeListener(listenerKey);      const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
-        where("quantity", ">", 0),
-        orderBy("quantity"),
         orderBy("updatedAt", "desc")
       );
 
@@ -1512,12 +1476,9 @@ export class StockService {
   static async searchListingsByProductId(
     productId: string
   ): Promise<StockListing[]> {
-    try {
-      const listingsQuery = query(
+    try {      const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
         where("productId", "==", productId),
-        where("quantity", ">", 0),
-        orderBy("quantity", "desc"),
         orderBy("price", "asc") // Get best deals first
       );
 

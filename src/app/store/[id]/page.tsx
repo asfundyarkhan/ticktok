@@ -20,6 +20,7 @@ import CartDrawer from "@/app/components/CartDrawer";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
 import { useCart } from "@/app/components/NewCartContext";
 import { getBestProductImage, normalizeProductImages } from "@/app/utils/imageHelpers";
+import { generateUniqueId } from "@/utils/idGenerator";
 import styles from "./page.module.css";
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -244,11 +245,9 @@ export default function ProductDetailPage() {
       if (finalQuantity <= 0) {
         toast.error("Invalid quantity selected");
         return;
-      }
-
-      const productToAdd: CartItem = {
-        id: product.productId || product.id || `PROD-${Date.now()}`,
-        productId: product.productId || product.id || `PROD-${Date.now()}`,
+      }      const productToAdd: CartItem = {
+        id: product.productId || product.id || generateUniqueId('PROD'),
+        productId: product.productId || product.id || generateUniqueId('PROD'),
         name: product.name || "Unnamed Product",
         price: product.isSale && typeof product.salePrice === 'number' ? product.salePrice : (typeof product.price === 'number' ? product.price : 0),
         salePrice: typeof product.salePrice === 'number' ? product.salePrice : undefined,

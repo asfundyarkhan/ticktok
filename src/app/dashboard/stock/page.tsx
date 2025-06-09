@@ -9,8 +9,9 @@ import { StockService } from "../../../services/stockService";
 import { StockItem } from "../../../types/marketplace";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
+import { AdminRoute } from "../../components/AdminRoute";
 
-export default function StockPage() {
+function StockPageContent() {
   const { user, userProfile } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -178,23 +179,51 @@ export default function StockPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-500">
                     {product.description}
+                  </td>                  <td className="px-6 py-4">${product.price.toFixed(2)}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center">
+                      <span className={`px-3 py-1 rounded-md text-sm font-medium ${
+                        (product.stock || 0) === 0 
+                          ? 'bg-red-100 text-red-800 border border-red-200' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {(product.stock || 0) === 0 ? 'Out of Stock' : `${product.stock}pcs`}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4">${product.price.toFixed(2)}</td>
-                  <td className="px-6 py-4">{product.stock}pcs</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-2">
-                      <button
-                        className="px-4 py-1 text-white bg-pink-500 rounded-md hover:bg-pink-600"
-                        onClick={() => confirmDelete(product.id!)}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => handleEdit(product.id!)}
-                        className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                      >
-                        Edit
-                      </button>
+                      {(product.stock || 0) === 0 ? (
+                        <>
+                          <button
+                            onClick={() => handleEdit(product.id!)}
+                            className="px-4 py-1 text-white bg-green-600 rounded-md hover:bg-green-700 font-medium"
+                          >
+                            Add Stock
+                          </button>
+                          <button
+                            onClick={() => handleEdit(product.id!)}
+                            className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                          >
+                            Edit
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            className="px-4 py-1 text-white bg-pink-500 rounded-md hover:bg-pink-600"
+                            onClick={() => confirmDelete(product.id!)}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => handleEdit(product.id!)}
+                            className="px-4 py-1 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                          >
+                            Edit
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -214,17 +243,46 @@ export default function StockPage() {
             )}
           </tbody>
         </table>
-      </div>
-
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && (
+      </div>      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && selectedProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-            <h3 className="text-lg font-medium mb-4">Confirm Deletion</h3>
-            <p>
-              Are you sure you want to delete this product? This action cannot
-              be undone.
-            </p>
+            {(() => {
+              const product = products.find(p => p.id === selectedProduct);
+              const isOutOfStock = (product?.stock || 0) === 0;
+              
+              return (
+                <>
+                  <h3 className="text-lg font-medium mb-4">Confirm Deletion</h3>
+                  {isOutOfStock ? (
+                    <div className="mb-4">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-3">
+                        <div className="flex">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <h3 className="text-sm font-medium text-yellow-800">Out of Stock Item</h3>
+                            <p className="text-sm text-yellow-700 mt-1">
+                              This item is currently out of stock. Consider restocking instead of deleting.
+                            </p>
+                          </div>
+                        </div>
+                      </div>                      <p className="text-gray-600">
+                        Are you sure you want to permanently delete &ldquo;{product?.name}&rdquo;? 
+                        You can also edit it to add more stock instead.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mb-4 text-gray-600">
+                      Are you sure you want to delete &ldquo;{product?.name}&rdquo;? This action cannot be undone.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
@@ -233,16 +291,48 @@ export default function StockPage() {
               >
                 Cancel
               </button>
-              <button
-                onClick={deleteProduct}
-                className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
-              >
-                Delete
-              </button>
+              {(() => {
+                const product = products.find(p => p.id === selectedProduct);
+                const isOutOfStock = (product?.stock || 0) === 0;
+                
+                return isOutOfStock ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        cancelDelete();
+                        handleEdit(selectedProduct);
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
+                    >
+                      Add Stock Instead
+                    </button>
+                    <button
+                      onClick={deleteProduct}
+                      className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+                    >
+                      Delete Anyway
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={deleteProduct}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+                  >                    Delete
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+export default function StockPage() {
+  return (
+    <AdminRoute>
+      <StockPageContent />
+    </AdminRoute>
   );
 }

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from "../../context/AuthContext";
 import { NewCartService, CartItem } from "@/services/newCartService";
 import { toast } from "react-hot-toast";
+import { generateUniqueId } from "../../utils/idGenerator";
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -130,11 +131,10 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
         // Add to Firestore
         const success = await NewCartService.addToCart(user.uid, item);
         if (success) {
-          await refreshCart();
-          // Set notification state
+          await refreshCart();          // Set notification state
           const newItem = cartItems.find(i => i.productId === item.productId) || {
-            id: item.id || item.productId || `new-${Date.now()}`,
-            productId: item.productId || `prod-${Date.now()}`,
+            id: item.id || item.productId || generateUniqueId('new'),
+            productId: item.productId || generateUniqueId('prod'),
             name: item.name || "Unknown Product",
             price: typeof item.price === 'number' ? item.price : 0,
             image: item.image || "/images/placeholders/product.svg",
@@ -164,11 +164,10 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
                 ? { ...i, quantity: i.quantity + (item.quantity || 1) }
                 : i
             );
-          } else {
-            // Add new item
+          } else {            // Add new item
             const newItem: CartItem = {
-              id: item.id || item.productId || `local-${Date.now()}`,
-              productId: item.productId || `prod-${Date.now()}`,
+              id: item.id || item.productId || generateUniqueId('local'),
+              productId: item.productId || generateUniqueId('prod'),
               name: item.name || "Unknown Product",
               price: typeof item.price === 'number' ? item.price : 0,
               salePrice: item.salePrice,
