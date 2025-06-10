@@ -20,16 +20,15 @@ export default function QuantityCounter({
   disabled = false,
   className = "",
   size = "md",
-}: QuantityCounterProps) {
-  const sizeClasses = {
+}: QuantityCounterProps) {  const sizeClasses = {
     sm: {
       button: "px-2 py-1 text-xs",
       input: "px-2 py-1 text-xs w-16",
       icon: "h-3 w-3",
     },
     md: {
-      button: "px-3 py-1 text-sm",
-      input: "px-3 py-1 text-sm w-20",
+      button: "px-3 py-2 text-sm",
+      input: "px-3 py-2 text-sm w-20",
       icon: "h-4 w-4",
     },
     lg: {

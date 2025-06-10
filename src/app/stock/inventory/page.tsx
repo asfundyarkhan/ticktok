@@ -197,40 +197,39 @@ export default function InventoryPage() {
   }  return (
     <div className="min-h-screen bg-white">
       <div className="p-6">
-        <h1 className="text-2xl font-medium mb-6">Account</h1>
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <h1 className="text-2xl font-medium mb-6">Account</h1>        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 sm:gap-0 sm:space-x-4 border-b border-gray-200 mb-6 overflow-x-auto">
           <Link
             href="/profile"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             General
           </Link>
           <Link
             href="/wallet"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Wallet
           </Link>
           <Link
             href="/stock"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Buy stock
           </Link>
           <Link
             href="/stock/inventory"
-            className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]"
+            className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap"
           >
             Inventory
           </Link>
           <Link
             href="/stock/listings"
-            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             My Listings
           </Link>
-        </div>        {/* Current Balance Card */}
+        </div>{/* Current Balance Card */}
         <div className="bg-white p-4 rounded-lg mb-6 border-l-4 border-[#FF0059]">
           <div className="flex justify-between items-center">
             <div>
@@ -283,32 +282,110 @@ export default function InventoryPage() {
               Refresh Inventory
             </button>
           </div>
-        </div>
-
-        {/* Table */}
+        </div>        {/* Table */}
         <div className="mb-4">
-          {filteredProducts.length > 0 ? (            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="text-gray-700 uppercase text-xs font-semibold">
-                  <th className="py-3 text-left pl-2 pr-6">PRODUCT IMAGE</th>
-                  <th className="py-3 text-left px-6">PRODUCT NAME</th>
-                  <th className="py-3 text-left px-6">DESCRIPTION</th>
-                  <th className="py-3 text-left px-6">STOCK</th>
-                  <th className="py-3 text-left px-6">PRODUCT CODE</th>
-                  <th className="py-3 text-left px-6">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
+          {filteredProducts.length > 0 ? (
+            <>
+              {/* Desktop Table */}
+              <div className="hidden lg:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr className="text-gray-700 uppercase text-xs font-semibold">
+                      <th className="py-3 text-left pl-2 pr-6">PRODUCT IMAGE</th>
+                      <th className="py-3 text-left px-6">PRODUCT NAME</th>
+                      <th className="py-3 text-left px-6">DESCRIPTION</th>
+                      <th className="py-3 text-left px-6">STOCK</th>
+                      <th className="py-3 text-left px-6">PRODUCT CODE</th>
+                      <th className="py-3 text-left px-6">ACTIONS</th>
+                    </tr>
+                  </thead>                  <tbody className="divide-y divide-gray-200">
+                    {currentProducts.map((product) => (
+                      <tr 
+                        key={product.id} 
+                        className="text-sm"
+                        data-product-code={product.productCode}
+                      >
+                        <td className="py-4 pl-2 pr-6">
+                          <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
+                            <Image
+                              src={getBestProductImage(product)}
+                              alt={product.name}
+                              width={64}
+                              height={64}
+                              className="object-cover w-full h-full"
+                              onError={(e) => {
+                                console.log("Image failed to load:", e.currentTarget.src);
+                                e.currentTarget.src = '/images/placeholders/product.svg';
+                              }}
+                              unoptimized={true}
+                              priority
+                            />
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 font-medium text-gray-900">
+                          {product.name}
+                          {product.listed && (
+                            <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                              Listed
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-gray-800">
+                          {product.description}
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          <div className="flex items-center">
+                            <span className={`px-4 py-1 rounded-md ${
+                              (product.stock || 0) === 0 
+                                ? 'bg-red-100 text-red-800 border border-red-200' 
+                                : 'bg-gray-100'
+                            }`}>
+                              {(product.stock || 0) === 0 ? 'Out of Stock' : `${product.stock || 0}`}
+                            </span>
+                            {(product.stock || 0) > 0 && <span className="ml-2">pcs</span>}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-gray-900">
+                          {product.productCode}
+                        </td>
+                        <td className="py-4 px-6">
+                          {(product.stock || 0) === 0 ? (
+                            <button
+                              onClick={() => handleRestock(product.productCode)}
+                              className="px-4 py-1.5 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
+                            >
+                              Restock Needed
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openSellModal(product)}
+                              className="px-4 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+                            >
+                              List for Sale
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Mobile Layout */}
+              <div className="lg:hidden space-y-4">
                 {currentProducts.map((product) => (
-                  <tr 
+                  <div 
                     key={product.id} 
-                    className="text-sm"
+                    className="bg-white border rounded-lg p-4 shadow-sm"
                     data-product-code={product.productCode}
-                  >                    <td className="py-4 pl-2 pr-6">                      <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">                        <Image
+                  >
+                    <div className="flex items-start space-x-4 mb-4">
+                      <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
                           src={getBestProductImage(product)}
                           alt={product.name}
-                          width={64}
-                          height={64}
+                          width={80}
+                          height={80}
                           className="object-cover w-full h-full"
                           onError={(e) => {
                             console.log("Image failed to load:", e.currentTarget.src);
@@ -318,52 +395,57 @@ export default function InventoryPage() {
                           priority
                         />
                       </div>
-                    </td>
-                    <td className="py-4 px-6 font-medium text-gray-900">
-                      {product.name}
-                      {product.listed && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                          Listed
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-gray-800">
-                      {product.description}
-                    </td>                    <td className="py-4 px-6 text-gray-900">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-medium text-gray-900 text-lg truncate">
+                            {product.name}
+                          </h3>
+                          {product.listed && (
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full whitespace-nowrap ml-2">
+                              Listed
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                          {product.description}
+                        </p>
+                        <div className="text-xs text-gray-500">
+                          Code: {product.productCode}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center">
-                        <span className={`px-4 py-1 rounded-md ${
+                        <span className={`px-3 py-1 rounded-md text-sm font-medium ${
                           (product.stock || 0) === 0 
                             ? 'bg-red-100 text-red-800 border border-red-200' 
-                            : 'bg-gray-100'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {(product.stock || 0) === 0 ? 'Out of Stock' : `${product.stock || 0}`}
+                          {(product.stock || 0) === 0 ? 'Out of Stock' : `${product.stock || 0} pcs`}
                         </span>
-                        {(product.stock || 0) > 0 && <span className="ml-2">pcs</span>}
                       </div>
-                    </td>
-                    <td className="py-4 px-6 text-gray-900">
-                      {product.productCode}
-                    </td>                    <td className="py-4 px-6">
+                      
                       {(product.stock || 0) === 0 ? (
                         <button
                           onClick={() => handleRestock(product.productCode)}
-                          className="px-4 py-1.5 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
+                          className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
                         >
                           Restock Needed
                         </button>
                       ) : (
                         <button
                           onClick={() => openSellModal(product)}
-                          className="px-4 py-1.5 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+                          className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
                         >
                           List for Sale
                         </button>
                       )}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           ) : (
             <div className="p-6 text-center text-gray-500 bg-white border rounded">
               {searchQuery ? 

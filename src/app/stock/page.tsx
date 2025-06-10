@@ -174,35 +174,35 @@ export default function StockPage() {
     <div className="min-h-screen bg-gray-50">
 
       <div className="p-6">
-        <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>
-        {/* Tabs */}
-        <div className="flex space-x-8 border-b border-gray-200 mb-6">
+        <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 sm:space-x-8 border-b border-gray-200 mb-6 overflow-x-auto">
           <Link
             href="/profile"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"          >
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
             General
           </Link>
           <Link
             href="/receipts"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Wallet
           </Link>
           <Link
             href="/stock"
-            className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold"
+            className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold whitespace-nowrap"
           >
             Buy stock
           </Link>
           <Link
             href="/stock/inventory"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Inventory
           </Link>
           <Link
             href="/stock/listings"
-            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             My Listings
           </Link>
@@ -256,17 +256,17 @@ export default function StockPage() {
           </div>
 
           {/* Category Filter */}
-          <div className="flex items-center space-x-4">
-            <label htmlFor="category-filter" className="text-sm font-medium text-gray-700">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <label htmlFor="category-filter" className="text-sm font-medium text-gray-700 whitespace-nowrap">
               Filter by category:
             </label>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <select
                 id="category-filter"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900 min-w-[200px]"
-              >                <option value="all">All Categories</option>
+                className="appearance-none border border-gray-300 bg-white p-2 pr-8 rounded-md text-gray-900 w-full sm:min-w-[200px]"
+              ><option value="all">All Categories</option>
                 <option value="clothing">Clothing</option>
                 <option value="electronics">Electronics</option>
                 <option value="home">Home & Kitchen</option>
@@ -301,19 +301,20 @@ export default function StockPage() {
             </div>
           </div>
         </div>        {/* Filter Summary */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
             <span className="text-sm text-gray-600">
               Showing {totalItems} of {adminProducts.length} products
             </span>
             {(selectedCategory !== "all" || searchQuery) && (
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-gray-500">Filters:</span>
                 {selectedCategory !== "all" && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs capitalize">
                     {selectedCategory}
                   </span>
-                )}                {searchQuery && (
+                )}
+                {searchQuery && (
                   <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                     Search: &ldquo;{searchQuery}&rdquo;
                   </span>
@@ -327,15 +328,13 @@ export default function StockPage() {
                 setSelectedCategory("all");
                 setSearchQuery("");
               }}
-              className="text-sm text-gray-500 hover:text-gray-700 underline"
+              className="text-sm text-gray-500 hover:text-gray-700 underline self-start sm:self-auto"
             >
               Clear all filters
             </button>
           )}
-        </div>
-
-        {/* Table Header */}
-        <div className="bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
+        </div>{/* Table Header - Desktop Only */}
+        <div className="hidden lg:block bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
           <div className="col-span-2">Product Image</div>
           <div className="col-span-2">Product Name</div>
           <div className="col-span-2">Description</div>
@@ -348,88 +347,171 @@ export default function StockPage() {
         {/* Products List */}
         {filteredProducts.length > 0 ? (
           <>
-            {currentProducts.map((product) => (
-              <div
+            {currentProducts.map((product) => (              <div
                 key={product.productId}
                 id={`product-${product.productCode}`}
-                className="border-b p-4 grid grid-cols-12 gap-4 items-center bg-white transition-all duration-300"
-              >                <div className="col-span-2">
-                  <div className="w-24 h-24 bg-gray-200 flex items-center justify-center overflow-hidden rounded-lg">                    <Image
-                      src={product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : "/images/placeholders/t-shirt.svg")}
-                      alt={product.name}                      unoptimized={true}
-                      priority
-                      className="object-cover w-full h-full"
-                      width={96}
-                      height={96}
-                    />
-                  </div>
-                </div>                <div className="col-span-2 font-semibold text-gray-900">
-                  {product.name}
-                </div>
-                <div className="col-span-2 text-gray-800">
-                  {product.description}
-                </div>
-                <div className="col-span-1 text-gray-600">
-                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize">
-                    {product.category || 'Uncategorized'}
-                  </span>
-                </div>
-                <div className="col-span-2 font-semibold text-gray-900">
-                  ${product.price.toFixed(2)}
-                </div>                <div className="col-span-2">
-                  {product.stock > 0 ? (
-                    <>
-                      <QuantityCounter
-                        quantity={selectedQuantities[product.productId] || 0}
-                        onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
-                        min={1}
-                        max={product.stock}
-                        size="md"
-                        className="w-full"
+                className="border-b p-4 bg-white transition-all duration-300"
+              >
+                {/* Desktop Layout */}
+                <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+                  <div className="col-span-2">
+                    <div className="w-24 h-24 bg-gray-200 flex items-center justify-center overflow-hidden rounded-lg">
+                      <Image
+                        src={product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : "/images/placeholders/t-shirt.svg")}
+                        alt={product.name}
+                        unoptimized={true}
+                        priority
+                        className="object-cover w-full h-full"
+                        width={96}
+                        height={96}
                       />
-                      <div className="text-xs text-gray-500 mt-1">
-                        Max: {product.stock} units available
+                    </div>
+                  </div>
+                  <div className="col-span-2 font-semibold text-gray-900">
+                    {product.name}
+                  </div>
+                  <div className="col-span-2 text-gray-800">
+                    {product.description}
+                  </div>
+                  <div className="col-span-1 text-gray-600">
+                    <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize">
+                      {product.category || 'Uncategorized'}
+                    </span>
+                  </div>
+                  <div className="col-span-2 font-semibold text-gray-900">
+                    ${product.price.toFixed(2)}
+                  </div>
+                  <div className="col-span-2">
+                    {product.stock > 0 ? (
+                      <>
+                        <QuantityCounter
+                          quantity={selectedQuantities[product.productId] || 0}
+                          onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
+                          min={1}
+                          max={product.stock}
+                          size="md"
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          Max: {product.stock} units available
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-red-600 mb-1">
+                          Out of Stock
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          0 units available
+                        </div>
                       </div>
-                    </>
-                  ) : (
-                    <div className="text-center">
-                      <div className="text-sm font-medium text-red-600 mb-1">
-                        Out of Stock
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        0 units available
+                    )}
+                  </div>
+                  <div className="col-span-1">
+                    {product.stock > 0 ? (
+                      <button
+                        onClick={() => handleBuyStock(product.productId)}
+                        disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
+                        className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
+                          selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
+                            ? "bg-[#FF0059] hover:bg-[#E0004D]"
+                            : "bg-gray-400"
+                        }`}
+                      >
+                        <span>Buy Stock</span>
+                      </button>
+                    ) : (
+                      <button
+                        disabled
+                        className="py-2 px-6 text-gray-500 bg-gray-200 rounded-md text-sm font-semibold flex items-center justify-center cursor-not-allowed"
+                      >
+                        <span>Restock Needed</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Layout */}
+                <div className="lg:hidden space-y-4">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-20 h-20 bg-gray-200 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0">
+                      <Image
+                        src={product.mainImage || (product.images && product.images.length > 0 ? product.images[0] : "/images/placeholders/t-shirt.svg")}
+                        alt={product.name}
+                        unoptimized={true}
+                        priority
+                        className="object-cover w-full h-full"
+                        width={80}
+                        height={80}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 text-lg mb-1 truncate">
+                        {product.name}
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                        {product.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize text-gray-600">
+                          {product.category || 'Uncategorized'}
+                        </span>
+                        <span className="font-bold text-lg text-gray-900">
+                          ${product.price.toFixed(2)}
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
-                <div className="col-span-1">
-                  {product.stock > 0 ? (
-                    <button
-                      onClick={() => handleBuyStock(product.productId)}
-                      disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
-                      className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
-                        selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
-                          ? "bg-[#FF0059] hover:bg-[#E0004D]"
-                          : "bg-gray-400"
-                      }`}
-                    >
-                      <span>Buy Stock</span>
-                    </button>
-                  ) : (
-                    <button
-                      disabled
-                      className="py-2 px-6 text-gray-500 bg-gray-200 rounded-md text-sm font-semibold flex items-center justify-center cursor-not-allowed"
-                    >
-                      <span>Restock Needed</span>
-                    </button>                  )}
+                  </div>
+
+                  {/* Quantity and Purchase Section */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    {product.stock > 0 ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                          <span className="text-sm text-gray-500">Max: {product.stock} available</span>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-1">
+                            <QuantityCounter
+                              quantity={selectedQuantities[product.productId] || 0}
+                              onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
+                              min={1}
+                              max={product.stock}
+                              size="md"
+                              className="w-full"
+                            />
+                          </div>
+                          <button
+                            onClick={() => handleBuyStock(product.productId)}
+                            disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
+                            className={`py-2 px-6 text-white rounded-md text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+                              selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
+                                ? "bg-[#FF0059] hover:bg-[#E0004D]"
+                                : "bg-gray-400"
+                            }`}
+                          >
+                            Buy Stock
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <div className="text-lg font-medium text-red-600 mb-1">
+                          Out of Stock
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          0 units available
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
-
-            {/* Pagination UI */}
-            <div className="flex items-center justify-between bg-white p-4 mt-4">
-              <div className="flex items-center">
-                <span className="mr-2 text-gray-700">Rows per page:</span>
+            ))}            {/* Pagination UI */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white p-4 mt-4 space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
+                <span className="mr-2 text-gray-700 text-sm">Rows per page:</span>
                 <div className="relative inline-block">
                   <select
                     className="border border-gray-300 rounded-md px-3 py-1.5 text-gray-900 bg-white hover:border-[#FF0059] focus:outline-none focus:ring-1 focus:ring-[#FF0059] focus:border-[#FF0059] transition-colors min-w-[65px] appearance-none pr-8"
@@ -456,11 +538,11 @@ export default function StockPage() {
                 </div>
               </div>
 
-              <div className="text-sm text-gray-700">
+              <div className="text-sm text-gray-700 text-center sm:text-left">
                 Showing {startIndex + 1} to {endIndex} of {totalItems} results
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center sm:justify-end space-x-2">
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
@@ -468,7 +550,7 @@ export default function StockPage() {
                     currentPage === 1
                       ? "text-gray-300 cursor-not-allowed"
                       : "text-gray-700 hover:bg-gray-100"
-                  } px-3 py-1 rounded-md`}
+                  } px-3 py-1 rounded-md text-sm`}
                 >
                   Previous
                 </button>
@@ -479,7 +561,7 @@ export default function StockPage() {
                     currentPage === totalPages
                       ? "text-gray-300 cursor-not-allowed"
                       : "text-gray-700 hover:bg-gray-100"
-                  } px-3 py-1 rounded-md`}
+                  } px-3 py-1 rounded-md text-sm`}
                 >
                   Next
                 </button>
