@@ -11,13 +11,12 @@ import { LoadingSpinner } from "../components/Loading";
 import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
 import AdminReferralBalanceCard from "../components/AdminReferralBalanceCard";
+import IndividualReferralBalanceCard from "../components/IndividualReferralBalanceCard";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();  const [loading, setLoading] = useState(true);
   const [referralCount, setReferralCount] = useState(0);
-  const [referralBalance, setReferralBalance] = useState(0);
 
   useEffect(() => {
     // Redirect if not authenticated
@@ -39,40 +38,24 @@ export default function DashboardPage() {
         window.location.href = "/store"; // Regular users go to store
       }
       return;
-    } // Load dashboard data
+    }    // Load dashboard data
     const loadDashboardData = async () => {
       if (!user) return;
 
       try {
-        setLoading(true);
-
-        // Set up real-time listener for referred users' balances
+        setLoading(true);        // Set up real-time listener for referred users and their balances
         const referredUsersQuery = query(
           collection(firestore, "users"),
           where("referredBy", "==", user.uid)
-        );
-        const unsubscribe = onSnapshot(referredUsersQuery, (snapshot) => {
-          const referredUsers = snapshot.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              ...data,
-              uid: doc.id,
-              balance: data.balance || 0,
-            };
-          });
-
-          setReferralCount(referredUsers.length);
-
-          // Calculate total balance from all referred users in real-time
-          const totalBalance = referredUsers.reduce(
-            (total, user) => total + user.balance,
-            0
-          );
-          setReferralBalance(totalBalance);
+        );        const unsubscribeUsers = onSnapshot(referredUsersQuery, (snapshot) => {
+          console.log("👥 Referred users snapshot:", snapshot.size, "users");
+          setReferralCount(snapshot.docs.length);
         });
 
-        // Store unsubscribe function for cleanup
-        return unsubscribe;
+        // Store unsubscribe functions for cleanup
+        return () => {
+          unsubscribeUsers();
+        };
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -102,18 +85,11 @@ export default function DashboardPage() {
       title: "Referred Sellers",
       value: referralCount.toString(),
       icon: Users,
-    },
-    {
-      title: "Total Referral Balance",
-      value: `$${referralBalance.toFixed(2)}`,
-      icon: CreditCard,
-      description: "Combined balance of referred sellers",
-    },
-    {
+    },    {
       title: "My Balance",
       value: `$${userProfile?.balance?.toFixed(2) || "0.00"}`,
       icon: CreditCard,
-      description: "Your current balance including commissions",
+      description: "Your current account balance",
     },
   ];
 
@@ -126,14 +102,20 @@ export default function DashboardPage() {
     );
   }
 
-  return (
-    <div className="container mx-auto p-6">
+  return (    <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
       {/* Display AdminReferralBalanceCard only for superadmins */}
       {userProfile?.role === "superadmin" && (
         <div className="mb-6">
           <AdminReferralBalanceCard />
+        </div>
+      )}
+
+      {/* Display IndividualReferralBalanceCard for regular admins */}
+      {userProfile?.role === "admin" && (
+        <div className="mb-6">
+          <IndividualReferralBalanceCard />
         </div>
       )}
 

@@ -16,21 +16,23 @@ The `/dashboard/profile` page should be accessible to ALL authenticated users, i
 
 ## 📊 CORRECTED ACCESS CONTROL MATRIX
 
-| User Role | `/profile` | `/dashboard/profile` | Behavior |
-|-----------|------------|---------------------|----------|
-| **Unauthenticated** | ❌ → Login | ❌ → Login | Must authenticate |
-| **Regular User** | ✅ Access | ✅ Access | Full access |
-| **Seller** | ✅ Access | ✅ Access | Full access |
-| **Admin** | ❌ → `/dashboard/admin` | ✅ Access | Can use dashboard profile |
-| **Superadmin** | ❌ → `/dashboard` | ✅ Access | Can use dashboard profile |
+| User Role           | `/profile`              | `/dashboard/profile` | Behavior                  |
+| ------------------- | ----------------------- | -------------------- | ------------------------- |
+| **Unauthenticated** | ❌ → Login              | ❌ → Login           | Must authenticate         |
+| **Regular User**    | ✅ Access               | ✅ Access            | Full access               |
+| **Seller**          | ✅ Access               | ✅ Access            | Full access               |
+| **Admin**           | ❌ → `/dashboard/admin` | ✅ Access            | Can use dashboard profile |
+| **Superadmin**      | ❌ → `/dashboard`       | ✅ Access            | Can use dashboard profile |
 
 ## 🔄 LOGIC EXPLANATION
 
 ### Main Profile Page (`/profile`)
+
 - **Purpose:** General user profile page for regular users and sellers
 - **Admin/Superadmin:** Redirected to their respective dashboards
 
 ### Dashboard Profile Page (`/dashboard/profile`)
+
 - **Purpose:** Dashboard-specific profile management for all users
 - **Admin/Superadmin:** Full access granted (they need this for their dashboard)
 
@@ -43,7 +45,9 @@ The `/dashboard/profile` page should be accessible to ALL authenticated users, i
 ## 📝 FILES CORRECTED
 
 ### `src/app/dashboard/profile/page.tsx`
+
 **Reverted to simple authentication check:**
+
 ```tsx
 // Redirect if not authenticated
 useEffect(() => {
@@ -54,24 +58,31 @@ useEffect(() => {
 ```
 
 ### `src/app/profile/page.tsx`
+
 **Maintains admin/superadmin redirection:**
+
 ```tsx
 // Handle unauthenticated users and admin/superadmin redirection
 useEffect(() => {
   if (!loading && !user) {
-    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    window.location.href =
+      "/login?redirect=" + encodeURIComponent(window.location.pathname);
     return;
   }
-  
+
   // Redirect admin and superadmin users to their respective dashboards
   if (!loading && userProfile) {
-    if (userProfile.role === 'admin') {
-      console.log('Admin user attempting to access profile page, redirecting to admin dashboard');
-      window.location.href = '/dashboard/admin';
+    if (userProfile.role === "admin") {
+      console.log(
+        "Admin user attempting to access profile page, redirecting to admin dashboard"
+      );
+      window.location.href = "/dashboard/admin";
       return;
-    } else if (userProfile.role === 'superadmin') {
-      console.log('Superadmin user attempting to access profile page, redirecting to main dashboard');
-      window.location.href = '/dashboard';
+    } else if (userProfile.role === "superadmin") {
+      console.log(
+        "Superadmin user attempting to access profile page, redirecting to main dashboard"
+      );
+      window.location.href = "/dashboard";
       return;
     }
   }
@@ -81,10 +92,12 @@ useEffect(() => {
 ## ✅ VERIFICATION STEPS
 
 1. **Admin User Test:**
+
    - Access `/profile` → Should redirect to `/dashboard/admin` ✅
    - Access `/dashboard/profile` → Should allow access ✅
 
 2. **Superadmin User Test:**
+
    - Access `/profile` → Should redirect to `/dashboard` ✅
    - Access `/dashboard/profile` → Should allow access ✅
 
@@ -95,6 +108,7 @@ useEffect(() => {
 ## 🚀 READY FOR USE
 
 The corrected implementation now properly:
+
 - ✅ Restricts admin/superadmin from main profile page (redirects to dashboards)
 - ✅ Allows admin/superadmin to use dashboard profile page
 - ✅ Maintains full access for regular users and sellers
@@ -103,5 +117,6 @@ The corrected implementation now properly:
 Admin and superadmin users can now access their dashboard profile page as intended!
 
 ---
+
 **Correction Date:** June 9, 2025  
 **Status:** ✅ Fixed and Ready

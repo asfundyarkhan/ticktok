@@ -353,7 +353,7 @@ export class ReceiptService {
     try {
       // Import runTransaction here to avoid circular dependency issues
       const { runTransaction } = await import("firebase/firestore");
-      
+
       return await runTransaction(firestore, async (transaction) => {
         // Get the receipt document
         const receiptRef = doc(firestore, this.COLLECTION, receiptId);
@@ -393,10 +393,10 @@ export class ReceiptService {
           approvedBy: superadminId,
           approvedAt: Timestamp.now(),
           notes: notes || "Receipt approved",
-        });        // Create activity log for the approved withdrawal
+        }); // Create activity log for the approved withdrawal
         const activityRef = collection(firestore, "activities");
         const newActivityDoc = doc(activityRef);
-        
+
         // Prepare activity details, filtering out undefined values
         const activityDetails: {
           amount: number;
@@ -410,12 +410,12 @@ export class ReceiptService {
           approvedBy: superadminId,
           notes: notes || "Withdrawal approved",
         };
-        
+
         // Only add reference if it exists
         if (receiptData.referenceNumber) {
           activityDetails.reference = receiptData.referenceNumber;
         }
-        
+
         transaction.set(newActivityDoc, {
           userId: receiptData.userId,
           userDisplayName:
@@ -436,7 +436,10 @@ export class ReceiptService {
       console.error("Error approving receipt:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "An error occurred while approving the receipt",
+        message:
+          error instanceof Error
+            ? error.message
+            : "An error occurred while approving the receipt",
       };
     }
   }
@@ -471,10 +474,10 @@ export class ReceiptService {
           success: false,
           message: `Receipt is already ${receiptData.status}`,
         };
-      }      // Create activity log for the rejected withdrawal
+      } // Create activity log for the rejected withdrawal
       const activityRef = collection(firestore, "activities");
       const newActivityDoc = doc(activityRef);
-      
+
       // Prepare activity details, filtering out undefined values
       const activityDetails: {
         amount: number;
@@ -488,12 +491,12 @@ export class ReceiptService {
         rejectedBy: superadminId,
         reason: reason,
       };
-      
+
       // Only add reference if it exists
       if (receiptData.referenceNumber) {
         activityDetails.reference = receiptData.referenceNumber;
       }
-      
+
       await setDoc(newActivityDoc, {
         userId: receiptData.userId,
         userDisplayName:

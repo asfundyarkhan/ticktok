@@ -1,6 +1,6 @@
 /**
  * Profile Access Control Verification Script
- * 
+ *
  * This script verifies that admin and superadmin users are properly redirected
  * from profile pages to their respective dashboards.
  */
@@ -68,10 +68,7 @@ function testProfileAccessControl(userProfile, profilePath) {
  * Run tests for all user types with profile paths
  */
 function runProfileAccessTests() {
-  const profilePaths = [
-    "/profile",
-    "/dashboard/profile"
-  ];
+  const profilePaths = ["/profile", "/dashboard/profile"];
 
   const userTypes = ["regular", "seller", "admin", "superadmin", null];
 
@@ -96,8 +93,12 @@ function runProfileAccessTests() {
   });
   console.log("\n=== EXPECTED BEHAVIOR SUMMARY ===");
   console.log("✅ Regular users and sellers: Can access both profile pages");
-  console.log("🚫 Admin users: Redirected from /profile to /dashboard/admin, can access /dashboard/profile");
-  console.log("🚫 Superadmin users: Redirected from /profile to /dashboard, can access /dashboard/profile");
+  console.log(
+    "🚫 Admin users: Redirected from /profile to /dashboard/admin, can access /dashboard/profile"
+  );
+  console.log(
+    "🚫 Superadmin users: Redirected from /profile to /dashboard, can access /dashboard/profile"
+  );
   console.log("🚫 Unauthenticated users: Redirected to login");
 }
 

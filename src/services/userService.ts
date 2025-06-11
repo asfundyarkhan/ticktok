@@ -12,7 +12,6 @@ import {
 } from "firebase/firestore";
 import { firestore, storage } from "../lib/firebase/firebase";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
-import { ActivityService } from "./activityService";
 
 // Export the updateUserProfile function for backward compatibility
 export const updateUserProfile = async (
@@ -599,9 +598,30 @@ export class UserService {
       console.error("Error getting all referral codes:", error);
       throw error;
     }
+  }  // Calculate referral balance for a specific admin (sum of all referred users' balances)
+  static async getAdminReferralBalance(adminUid: string): Promise<number> {
+    try {
+      const referredUsersQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("referredBy", "==", adminUid)
+      );
+
+      const querySnapshot = await getDocs(referredUsersQuery);
+      let totalBalance = 0;
+
+      querySnapshot.forEach((doc) => {
+        const userData = doc.data();
+        totalBalance += userData.balance || 0;
+      });
+
+      return totalBalance;
+    } catch (error) {
+      console.error("Error getting admin referral balance:", error);
+      throw error;
+    }
   }
 
-  // Calculate total admin referral balance
+  // Calculate total admin referral balance (sum of all admins' referral balances)
   static async getTotalAdminReferralBalance(): Promise<{
     totalBalance: number;
     adminsCount: number;
@@ -610,30 +630,21 @@ export class UserService {
       // Get all admin users
       const adminQuery = query(
         collection(firestore, this.COLLECTION),
-        where("role", "in", ["admin"])
+        where("role", "in", ["admin", "superadmin"])
       );
 
       const querySnapshot = await getDocs(adminQuery);
       let totalBalance = 0;
       const adminsCount = querySnapshot.size;
 
-      // Get all users that were referred by any admin
-      const referredUsersQuery = query(
-        collection(firestore, this.COLLECTION),
-        where(
-          "referredBy",
-          "in",
-          querySnapshot.docs.map((doc) => doc.id)
-        )
-      );
-
-      const referredUsersSnapshot = await getDocs(referredUsersQuery);
-
-      // Sum up the balances
-      referredUsersSnapshot.forEach((doc) => {
-        const userData = doc.data() as UserProfile;
-        totalBalance += userData.balance || 0;
+      // Calculate referral balance for each admin
+      const balancePromises = querySnapshot.docs.map(async (doc) => {
+        const adminBalance = await this.getAdminReferralBalance(doc.id);
+        return adminBalance;
       });
+
+      const adminBalances = await Promise.all(balancePromises);
+      totalBalance = adminBalances.reduce((sum, balance) => sum + balance, 0);
 
       return {
         totalBalance,
@@ -641,6 +652,133 @@ export class UserService {
       };
     } catch (error) {
       console.error("Error getting total admin referral balance:", error);
+      throw error;
+    }
+  }
+
+  // Update peak referral balance for an admin when their referred users' balances increase
+  static async updatePeakReferralBalance(adminUid: string): Promise<void> {
+    try {
+      const currentBalance = await this.getAdminReferralBalance(adminUid);
+      const userRef = doc(firestore, this.COLLECTION, adminUid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const currentPeak = userData.peakReferralBalance || 0;
+
+        // Only update if current balance is higher than peak
+        if (currentBalance > currentPeak) {
+          await updateDoc(userRef, {
+            peakReferralBalance: currentBalance,
+            updatedAt: Timestamp.now(),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating peak referral balance:", error);
+      throw error;
+    }
+  }
+
+  // Get peak referral balance for a specific admin (never decreases)
+  static async getAdminPeakReferralBalance(adminUid: string): Promise<number> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, adminUid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const peakBalance = userData.peakReferralBalance || 0;
+        
+        // Also check current balance and update peak if necessary
+        const currentBalance = await this.getAdminReferralBalance(adminUid);
+        if (currentBalance > peakBalance) {
+          await this.updatePeakReferralBalance(adminUid);
+          return currentBalance;
+        }
+        
+        return peakBalance;
+      }
+
+      return 0;
+    } catch (error) {
+      console.error("Error getting admin peak referral balance:", error);
+      throw error;
+    }
+  }
+
+  // Calculate total peak referral balance (for superadmins) - never decreases
+  static async getTotalPeakAdminReferralBalance(): Promise<{
+    totalBalance: number;
+    adminsCount: number;
+  }> {
+    try {
+      // Get all admin users
+      const adminQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "in", ["admin", "superadmin"])
+      );
+
+      const querySnapshot = await getDocs(adminQuery);
+      let totalBalance = 0;
+      const adminsCount = querySnapshot.size;
+
+      // Calculate peak referral balance for each admin
+      const balancePromises = querySnapshot.docs.map(async (doc) => {
+        const adminBalance = await this.getAdminPeakReferralBalance(doc.id);
+        return adminBalance;
+      });
+
+      const adminBalances = await Promise.all(balancePromises);
+      totalBalance = adminBalances.reduce((sum, balance) => sum + balance, 0);
+
+      return {
+        totalBalance,
+        adminsCount,
+      };
+    } catch (error) {
+      console.error("Error getting total peak admin referral balance:", error);
+      throw error;
+    }
+  }
+
+  // Subtract credits from user balance (for admin use)
+  static async subtractUserBalance(uid: string, amount: number): Promise<number> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnap.data() as UserProfile;
+      const currentBalance = userData.balance || 0;
+      
+      if (currentBalance < amount) {
+        throw new Error("Insufficient balance");
+      }
+
+      const newBalance = currentBalance - amount;
+
+      await updateDoc(userRef, {
+        balance: newBalance,
+        updatedAt: Timestamp.now(),
+      });
+
+      // Update peak balances for all admins to ensure they don't decrease
+      const allAdmins = await this.getUsersByRole("admin");
+      const superAdmins = await this.getUsersByRole("superadmin");
+      const allAdminUsers = [...allAdmins, ...superAdmins];
+
+      for (const admin of allAdminUsers) {
+        await this.updatePeakReferralBalance(admin.uid);
+      }
+
+      return newBalance;
+    } catch (error) {
+      console.error("Error subtracting user balance:", error);
       throw error;
     }
   }

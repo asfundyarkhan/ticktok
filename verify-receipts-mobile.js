@@ -5,16 +5,20 @@ console.log("🔍 Verifying Receipts Page Mobile Optimizations...\n");
 
 // 1. Check navigation tabs responsiveness
 const navTabs = document.querySelector('[class*="flex-wrap"]');
-if (navTabs && navTabs.classList.contains('gap-2')) {
+if (navTabs && navTabs.classList.contains("gap-2")) {
   console.log("✅ Navigation tabs: Mobile-friendly spacing implemented");
 } else {
   console.log("❌ Navigation tabs: Mobile spacing not found");
 }
 
 // 2. Check balance card layout
-const balanceCard = document.querySelector('[class*="border-l-4"][class*="border-[#FF0059]"]');
+const balanceCard = document.querySelector(
+  '[class*="border-l-4"][class*="border-[#FF0059]"]'
+);
 if (balanceCard) {
-  const flexContainer = balanceCard.querySelector('[class*="flex-col space-y-4"]');
+  const flexContainer = balanceCard.querySelector(
+    '[class*="flex-col space-y-4"]'
+  );
   if (flexContainer) {
     console.log("✅ Balance card: Mobile-first layout implemented");
   } else {
@@ -32,7 +36,7 @@ if (withdrawBtn) {
 
 // 4. Check QR code responsive sizing
 const qrImage = document.querySelector('img[alt="USDT QR Code"]');
-if (qrImage && qrImage.classList.contains('w-32')) {
+if (qrImage && qrImage.classList.contains("w-32")) {
   console.log("✅ QR Code: Mobile responsive sizing implemented");
 } else {
   console.log("❌ QR Code: Mobile sizing not found");
@@ -55,7 +59,9 @@ if (mainContainer) {
 }
 
 // 7. Check grid layout responsiveness
-const gridLayout = document.querySelector('[class*="grid-cols-1 lg:grid-cols-2"]');
+const gridLayout = document.querySelector(
+  '[class*="grid-cols-1 lg:grid-cols-2"]'
+);
 if (gridLayout) {
   console.log("✅ Grid layout: Mobile-first responsive grid implemented");
 } else {

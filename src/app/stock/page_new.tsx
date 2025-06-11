@@ -314,46 +314,60 @@ export default function StockPage() {
               </svg>
             </div>
           </div>
-        </div>
-
-        {/* Table Header */}
+        </div>        {/* Table Header */}
         <div className="bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
           <div className="col-span-2">Product Image</div>
           <div className="col-span-2">Product Name</div>
-          <div className="col-span-3">Description</div>
+          <div className="col-span-2">Description</div>
+          <div className="col-span-2">Category</div>
           <div className="col-span-2">Prices</div>
-          <div className="col-span-2">Units</div>
+          <div className="col-span-1">Units</div>
           <div className="col-span-1">Actions</div>
         </div>
 
         {/* Products List */}
         {filteredProducts.length > 0 ? (
           <>
-            {currentProducts.map((product) => (
-              <div
+            {currentProducts.map((product) => (              <div
                 key={product.productId}
                 id={`product-${product.productCode}`}
                 className="border-b p-4 grid grid-cols-12 gap-4 items-center bg-white transition-all duration-300"
-              >                <div className="col-span-2">
-                  <div className="w-24 h-24 bg-gray-200 flex items-center justify-center">
+              >
+                {/* Product Image */}
+                <div className="col-span-2">
+                  <div className="w-24 h-24 bg-gray-200 flex items-center justify-center rounded-lg overflow-hidden">
                     <Image
                       src={product.mainImage || product.images?.[0] || "/images/placeholders/t-shirt.svg"}
                       alt={product.name}
                       width={96}
                       height={96}
-                      className="object-cover"
+                      className="object-cover w-full h-full"
                     />
                   </div>
                 </div>
+                
+                {/* Product Name */}
                 <div className="col-span-2 font-semibold text-gray-900">
                   {product.name}
                 </div>
-                <div className="col-span-3 text-gray-800">
+                
+                {/* Description */}
+                <div className="col-span-2 text-gray-800 text-sm">
                   {product.description}
                 </div>
+                
+                {/* Category */}
+                <div className="col-span-2 text-gray-600 text-sm">
+                  {product.category || 'General'}
+                </div>
+                
+                {/* Prices */}
                 <div className="col-span-2 font-semibold text-gray-900">
                   ${product.price.toFixed(2)}
-                </div>                <div className="col-span-2">
+                </div>
+                
+                {/* Units */}
+                <div className="col-span-1">
                   {product.stock > 0 ? (
                     <>
                       <QuantityCounter
@@ -377,28 +391,30 @@ export default function StockPage() {
                         0 units available
                       </div>
                     </div>
-                  )}
-                </div>
+                  )}                </div>
+                
+                {/* Actions */}
                 <div className="col-span-1">
                   {product.stock > 0 ? (
                     <button
                       onClick={() => handleBuyStock(product.productId)}
                       disabled={!selectedQuantities[product.productId] || selectedQuantities[product.productId] === 0}
-                      className={`py-2 px-6 text-white rounded-md text-sm font-semibold flex items-center justify-center transition-all duration-200 ${
+                      className={`py-2 px-3 text-white rounded-md text-xs font-semibold flex items-center justify-center transition-all duration-200 w-full ${
                         selectedQuantities[product.productId] && selectedQuantities[product.productId] > 0
                           ? "bg-[#FF0059] hover:bg-[#E0004D]"
                           : "bg-gray-400"
                       }`}
                     >
-                      <span>Buy Stock</span>
+                      <span>Buy</span>
                     </button>
                   ) : (
                     <button
                       disabled
-                      className="py-2 px-6 text-gray-500 bg-gray-200 rounded-md text-sm font-semibold flex items-center justify-center cursor-not-allowed"
+                      className="py-2 px-3 text-gray-500 bg-gray-200 rounded-md text-xs font-semibold flex items-center justify-center cursor-not-allowed w-full"
                     >
-                      <span>Restock Needed</span>
-                    </button>                  )}
+                      <span>Restock</span>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

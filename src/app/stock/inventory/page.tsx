@@ -298,7 +298,8 @@ export default function InventoryPage() {
                       <th className="py-3 text-left px-6">PRODUCT CODE</th>
                       <th className="py-3 text-left px-6">ACTIONS</th>
                     </tr>
-                  </thead>                  <tbody className="divide-y divide-gray-200">
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
                     {currentProducts.map((product) => (
                       <tr 
                         key={product.id} 

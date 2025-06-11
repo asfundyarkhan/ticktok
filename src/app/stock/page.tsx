@@ -334,8 +334,8 @@ export default function StockPage() {
             </button>
           )}
         </div>{/* Table Header - Desktop Only */}
-        <div className="hidden lg:block bg-gray-100 p-4 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-800 uppercase">
-          <div className="col-span-2">Product Image</div>
+        <div className="hidden lg:grid grid-cols-12 gap-4 items-center font-semibold text-gray-700 bg-gray-100 p-4 rounded-lg mb-4">
+          <div className="col-span-2 justify-center">Product Image</div>
           <div className="col-span-2">Product Name</div>
           <div className="col-span-2">Description</div>
           <div className="col-span-1">Category</div>

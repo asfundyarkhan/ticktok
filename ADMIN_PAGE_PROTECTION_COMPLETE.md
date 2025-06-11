@@ -9,15 +9,17 @@
 ### File Modified: `/src/app/dashboard/admin/page.tsx`
 
 1. **Import Changed:**
+
    ```tsx
    // Before
    import { AdminRoute } from "../../components/AdminRoute";
-   
-   // After  
+
+   // After
    import { SuperAdminRoute } from "../../components/SuperAdminRoute";
    ```
 
 2. **Component Wrapper Changed:**
+
    ```tsx
    // Before
    export default function AdminPage() {
@@ -27,7 +29,7 @@
        </AdminRoute>
      );
    }
-   
+
    // After
    export default function AdminPage() {
      return (
@@ -40,20 +42,20 @@
 
 ## 🛡️ SECURITY IMPACT
 
-| User Role | Previous Access | New Access | Behavior |
-|-----------|----------------|------------|----------|
-| **Regular User** | ❌ No Access | ❌ No Access | Redirected to login |
-| **Seller** | ❌ No Access | ❌ No Access | Redirected to login |
-| **Admin** | ✅ Had Access | ❌ No Access | Redirected to `/dashboard` |
-| **Superadmin** | ✅ Had Access | ✅ Maintains Access | Full access granted |
+| User Role        | Previous Access | New Access          | Behavior                   |
+| ---------------- | --------------- | ------------------- | -------------------------- |
+| **Regular User** | ❌ No Access    | ❌ No Access        | Redirected to login        |
+| **Seller**       | ❌ No Access    | ❌ No Access        | Redirected to login        |
+| **Admin**        | ✅ Had Access   | ❌ No Access        | Redirected to `/dashboard` |
+| **Superadmin**   | ✅ Had Access   | ✅ Maintains Access | Full access granted        |
 
 ## 📋 COMPLETE ACCESS CONTROL MATRIX
 
-| Route | Regular User | Seller | Admin | Superadmin |
-|-------|-------------|--------|-------|------------|
-| `/profile` | ✅ Access | ✅ Access | 🔄 → `/dashboard/admin` | 🔄 → `/dashboard` |
-| `/dashboard/profile` | ✅ Access | ✅ Access | ✅ Access | ✅ Access |
-| `/dashboard/admin` | ❌ No Access | ❌ No Access | ❌ → `/dashboard` | ✅ Access Only |
+| Route                | Regular User | Seller       | Admin                   | Superadmin        |
+| -------------------- | ------------ | ------------ | ----------------------- | ----------------- |
+| `/profile`           | ✅ Access    | ✅ Access    | 🔄 → `/dashboard/admin` | 🔄 → `/dashboard` |
+| `/dashboard/profile` | ✅ Access    | ✅ Access    | ✅ Access               | ✅ Access         |
+| `/dashboard/admin`   | ❌ No Access | ❌ No Access | ❌ → `/dashboard`       | ✅ Access Only    |
 
 ## 🔍 OTHER ADMIN-PROTECTED PAGES
 
@@ -61,7 +63,7 @@ The following pages still use `AdminRoute` (accessible to both admin and superad
 
 - `/dashboard/stock/page.tsx` - Stock management listing
 - `/dashboard/stock/add/page.tsx` - Add new stock items
-- `/dashboard/stock/edit/[id]/page.tsx` - Edit existing stock items  
+- `/dashboard/stock/edit/[id]/page.tsx` - Edit existing stock items
 - `/dashboard/admin/buy/page.tsx` - Admin purchase interface
 
 ## 📄 DOCUMENTATION UPDATED

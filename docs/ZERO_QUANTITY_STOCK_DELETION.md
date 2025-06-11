@@ -13,22 +13,25 @@ Previously, the system automatically deleted stock items when their quantity rea
 ### Stock Display When Zero Quantity
 
 1. **Admin Stock**: Zero-stock items remain visible in the admin stock interface with "Out of Stock" status and "Restock Needed" button
-2. **Seller Listings**: Zero-quantity listings remain visible with "Out of Stock" status and "Restock Needed" button  
+2. **Seller Listings**: Zero-quantity listings remain visible with "Out of Stock" status and "Restock Needed" button
 3. **Inventory Items**: Zero-stock inventory items remain visible with "Out of Stock" badge and "Restock Needed" button
 
 ### UI Changes Made
 
 #### Stock Purchase Pages
+
 - Zero-stock items show red "Out of Stock" text instead of quantity counter
 - "Restock Needed" button appears instead of "Buy Stock" button
 - Items remain in the interface for easy restocking
 
-#### Inventory Page  
+#### Inventory Page
+
 - Zero-stock items display with red "Out of Stock" badge
 - "Restock Needed" button replaces "List for Sale" button
 - All items remain visible regardless of stock level
 
 #### Listings Page
+
 - Zero-quantity listings show "Out of Stock" status
 - "Restock Needed" button appears instead of edit/remove options
 - Listings remain visible to allow easy restocking
@@ -59,11 +62,13 @@ Previously, the system automatically deleted stock items when their quantity rea
 1. **StockCleanupService**: **DISABLED** - Component commented out in layout.tsx to stop periodic cleanup
 
 2. **Stock Purchase Pages** (`stock/page.tsx`, `stock/page_new.tsx`):
+
    - Added conditional rendering for zero-stock items
    - Zero-stock items show "Out of Stock" message and "Restock Needed" button
    - Items remain visible and navigable
 
 3. **Inventory Page** (`stock/inventory/page.tsx`):
+
    - Removed zero-quantity filtering from display
    - Added "Out of Stock" badge for zero-stock items
    - Added "Restock Needed" button for zero-stock items
@@ -77,14 +82,16 @@ Previously, the system automatically deleted stock items when their quantity rea
 #### Filtering Changes
 
 All zero-quantity filtering has been removed from:
+
 - Admin stock subscriptions
-- Listings subscriptions  
+- Listings subscriptions
 - Inventory display
 - Client-side filtering logic
 
 ### Periodic Cleaning Schedule (DISABLED)
 
 The periodic cleanup system has been completely disabled:
+
 - StockCleanupService component is commented out
 - No automatic cleanup runs
 - All zero-quantity items remain in the database

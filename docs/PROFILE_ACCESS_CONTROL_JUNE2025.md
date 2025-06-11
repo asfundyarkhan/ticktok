@@ -18,35 +18,43 @@ Admin and superadmin users were able to access both `/profile` and `/dashboard/p
 #### 1. `/src/app/profile/page.tsx`
 
 **Before:**
+
 ```tsx
 // Handle unauthenticated users
 useEffect(() => {
   if (!loading && !user) {
     // Redirect unauthenticated users to login
-    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    window.location.href =
+      "/login?redirect=" + encodeURIComponent(window.location.pathname);
   }
 }, [loading, user]);
 ```
 
 **After:**
+
 ```tsx
 // Handle unauthenticated users and admin/superadmin redirection
 useEffect(() => {
   if (!loading && !user) {
     // Redirect unauthenticated users to login
-    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+    window.location.href =
+      "/login?redirect=" + encodeURIComponent(window.location.pathname);
     return;
   }
-  
+
   // Redirect admin and superadmin users to their respective dashboards
   if (!loading && userProfile) {
-    if (userProfile.role === 'admin') {
-      console.log('Admin user attempting to access profile page, redirecting to admin dashboard');
-      window.location.href = '/dashboard/admin';
+    if (userProfile.role === "admin") {
+      console.log(
+        "Admin user attempting to access profile page, redirecting to admin dashboard"
+      );
+      window.location.href = "/dashboard/admin";
       return;
-    } else if (userProfile.role === 'superadmin') {
-      console.log('Superadmin user attempting to access profile page, redirecting to main dashboard');
-      window.location.href = '/dashboard';
+    } else if (userProfile.role === "superadmin") {
+      console.log(
+        "Superadmin user attempting to access profile page, redirecting to main dashboard"
+      );
+      window.location.href = "/dashboard";
       return;
     }
   }
@@ -56,6 +64,7 @@ useEffect(() => {
 #### 2. `/src/app/dashboard/profile/page.tsx`
 
 **Before:**
+
 ```tsx
 // Redirect if not authenticated
 useEffect(() => {
@@ -66,6 +75,7 @@ useEffect(() => {
 ```
 
 **After:**
+
 ```tsx
 // Redirect if not authenticated
 useEffect(() => {
@@ -81,17 +91,18 @@ useEffect(() => {
 
 ### Access Control Matrix
 
-| User Role | `/profile` | `/dashboard/profile` | Redirect Destination |
-|-----------|------------|---------------------|---------------------|
-| **Unauthenticated** | ❌ Redirect to login | ❌ Redirect to login | `/login?redirect=...` |
-| **Regular User** | ✅ Access granted | ✅ Access granted | N/A |
-| **Seller** | ✅ Access granted | ✅ Access granted | N/A |
-| **Admin** | ❌ Redirect | ✅ Access granted | `/dashboard/admin` (from /profile only) |
-| **Superadmin** | ❌ Redirect | ✅ Access granted | `/dashboard` (from /profile only) |
+| User Role           | `/profile`           | `/dashboard/profile` | Redirect Destination                    |
+| ------------------- | -------------------- | -------------------- | --------------------------------------- |
+| **Unauthenticated** | ❌ Redirect to login | ❌ Redirect to login | `/login?redirect=...`                   |
+| **Regular User**    | ✅ Access granted    | ✅ Access granted    | N/A                                     |
+| **Seller**          | ✅ Access granted    | ✅ Access granted    | N/A                                     |
+| **Admin**           | ❌ Redirect          | ✅ Access granted    | `/dashboard/admin` (from /profile only) |
+| **Superadmin**      | ❌ Redirect          | ✅ Access granted    | `/dashboard` (from /profile only)       |
 
 ### Navigation Flow
 
 1. **Admin User Access Attempt:**
+
    ```
    Admin tries to access /profile
    → Detects userProfile.role === 'admin'
@@ -100,6 +111,7 @@ useEffect(() => {
    ```
 
 2. **Superadmin User Access Attempt:**
+
    ```
    Superadmin tries to access /profile
    → Detects userProfile.role === 'superadmin'
@@ -143,6 +155,7 @@ User Login → Role Detection → Route Protection
 ### Manual Testing Steps
 
 1. **Test Admin User:**
+
    ```
    1. Log in as admin user
    2. Navigate to /profile
@@ -152,6 +165,7 @@ User Login → Role Detection → Route Protection
    ```
 
 2. **Test Superadmin User:**
+
    ```
    1. Log in as superadmin user
    2. Navigate to /profile
@@ -161,6 +175,7 @@ User Login → Role Detection → Route Protection
    ```
 
 3. **Test Regular User:**
+
    ```
    1. Log in as regular user
    2. Navigate to /profile
@@ -183,8 +198,12 @@ User Login → Role Detection → Route Protection
 The implementation includes console logging for debugging:
 
 ```javascript
-console.log('Admin user attempting to access profile page, redirecting to admin dashboard');
-console.log('Superadmin user attempting to access dashboard profile page, redirecting to main dashboard');
+console.log(
+  "Admin user attempting to access profile page, redirecting to admin dashboard"
+);
+console.log(
+  "Superadmin user attempting to access dashboard profile page, redirecting to main dashboard"
+);
 ```
 
 ## Security Considerations
@@ -232,6 +251,7 @@ The profile access control implementation successfully prevents admin and supera
 ## Admin Page Access Control Fix - June 9, 2025
 
 ### Problem Identified
+
 The `/dashboard/admin` page was using `AdminRoute` which allows both admin and superadmin users to access it. However, this page contains user administration functionality that should be restricted to superadmins only.
 
 ### Solution Implemented
@@ -239,6 +259,7 @@ The `/dashboard/admin` page was using `AdminRoute` which allows both admin and s
 #### File Modified: `/src/app/dashboard/admin/page.tsx`
 
 **Before:**
+
 ```tsx
 import { AdminRoute } from "../../components/AdminRoute";
 
@@ -254,6 +275,7 @@ export default function AdminPage() {
 ```
 
 **After:**
+
 ```tsx
 import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 
@@ -270,18 +292,18 @@ export default function AdminPage() {
 
 ### Access Control Matrix Updated
 
-| Route | Regular User | Seller | Admin | Superadmin |
-|-------|-------------|--------|-------|------------|
-| `/profile` | ✅ Access | ✅ Access | 🔄 Redirect to `/dashboard/admin` | 🔄 Redirect to `/dashboard` |
-| `/dashboard/profile` | ✅ Access | ✅ Access | ✅ Access | ✅ Access |
-| `/dashboard/admin` | ❌ No Access | ❌ No Access | ❌ No Access | ✅ Access Only |
+| Route                | Regular User | Seller       | Admin                             | Superadmin                  |
+| -------------------- | ------------ | ------------ | --------------------------------- | --------------------------- |
+| `/profile`           | ✅ Access    | ✅ Access    | 🔄 Redirect to `/dashboard/admin` | 🔄 Redirect to `/dashboard` |
+| `/dashboard/profile` | ✅ Access    | ✅ Access    | ✅ Access                         | ✅ Access                   |
+| `/dashboard/admin`   | ❌ No Access | ❌ No Access | ❌ No Access                      | ✅ Access Only              |
 
 ### Other Pages Still Using AdminRoute
 
 The following pages still use `AdminRoute` and allow both admin and superadmin access:
 
 1. `/dashboard/stock/page.tsx` - Stock management listing
-2. `/dashboard/stock/add/page.tsx` - Add new stock items  
+2. `/dashboard/stock/add/page.tsx` - Add new stock items
 3. `/dashboard/stock/edit/[id]/page.tsx` - Edit existing stock items
 4. `/dashboard/admin/buy/page.tsx` - Admin purchase interface
 
@@ -298,11 +320,13 @@ These pages may need review to determine if they should be superadmin-only or re
 To verify the fix:
 
 1. **Test as Admin User:**
+
    - Should be redirected from `/profile` to `/dashboard/admin`
    - Should NOT be able to access `/dashboard/admin` (redirected to main dashboard)
    - Should have access to `/dashboard/profile`
 
 2. **Test as Superadmin User:**
+
    - Should be redirected from `/profile` to `/dashboard`
    - Should have full access to `/dashboard/admin`
    - Should have access to `/dashboard/profile`

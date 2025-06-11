@@ -48,9 +48,10 @@ export class NewCartService {
 
   // Sanitize cart item - ensures no undefined values
   private static sanitizeCartItem(item: Partial<CartItem>): FirestoreCartItem {
-    const now = Timestamp.now();    return {
-      id: item.id || item.productId || generateUniqueId('item'),
-      productId: item.productId || item.id || generateUniqueId('prod'),
+    const now = Timestamp.now();
+    return {
+      id: item.id || item.productId || generateUniqueId("item"),
+      productId: item.productId || item.id || generateUniqueId("prod"),
       name: item.name || "Unknown Product",
       price: typeof item.price === "number" ? item.price : 0,
       salePrice: typeof item.salePrice === "number" ? item.salePrice : null,

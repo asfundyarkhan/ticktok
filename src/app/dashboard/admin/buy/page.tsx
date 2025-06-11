@@ -140,14 +140,15 @@ function AdminBuyPageContent() {
       </div>
     );
   }
-
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Buy</h1>
-        <p className="text-gray-600">Purchase any listing created by sellers</p>
-      </div>      {/* Search and Filter Bar */}
-      <div className="mb-6 space-y-4">
+    <div className="p-4 sm:p-6">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Admin Buy</h1>
+        <p className="text-gray-600 text-sm sm:text-base">Purchase any listing created by sellers</p>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="mb-4 sm:mb-6 space-y-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
           <input
@@ -155,12 +156,12 @@ function AdminBuyPageContent() {
             placeholder="Search by product name, code, seller, or category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm sm:text-base"
           />
         </div>
         
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <label htmlFor="category-filter" className="text-sm font-medium text-gray-700">
               Category:
             </label>
@@ -168,7 +169,7 @@ function AdminBuyPageContent() {
               id="category-filter"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+              className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-pink-500 focus:border-pink-500 text-sm"
             >
               <option value="all">All Categories</option>
               <option value="clothing">Clothing</option>
@@ -187,15 +188,14 @@ function AdminBuyPageContent() {
               <option value="general">General</option>
               <option value="other">Other</option>
             </select>
-          </div>
-          
+          </div>          
           {(searchQuery || selectedCategory !== "all") && (
             <button
               onClick={() => {
                 setSearchQuery("");
                 setSelectedCategory("all");
               }}
-              className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Clear Filters
             </button>
@@ -244,10 +244,8 @@ function AdminBuyPageContent() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Listings Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      </div>      {/* Desktop Table View */}
+      <div className="hidden lg:block bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -341,72 +339,169 @@ function AdminBuyPageContent() {
         )}
       </div>
 
-      {/* Modal for viewing details */}
+      {/* Mobile Card View */}
+      <div className="lg:hidden space-y-4">
+        {filteredListings.map((listing) => (
+          <div key={listing.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            {/* Product Header */}
+            <div className="flex items-start space-x-3 mb-4">
+              <div className="flex-shrink-0">
+                <img
+                  className="h-16 w-16 rounded-lg object-cover"
+                  src={listing.mainImage || listing.images?.[0] || '/images/placeholders/t-shirt.svg'}
+                  alt={listing.name}
+                  onError={(e) => {
+                    e.currentTarget.src = '/images/placeholders/t-shirt.svg';
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-medium text-gray-900 truncate">{listing.name}</h3>
+                <p className="text-xs text-gray-500 mt-1">{listing.productId}</p>
+                <div className="flex items-center mt-2">
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                    {listing.category}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Seller Info */}
+            <div className="border-t border-gray-100 pt-3 mb-3">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Seller</p>
+              <p className="text-sm font-medium text-gray-900">{listing.sellerName}</p>
+              <p className="text-xs text-gray-500">{listing.sellerEmail}</p>
+            </div>
+
+            {/* Price and Quantity */}
+            <div className="border-t border-gray-100 pt-3 mb-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Price</p>
+                  <p className="text-lg font-bold text-green-600">${listing.price.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Available</p>
+                  <p className="text-lg font-bold text-gray-900">{listing.quantity}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="border-t border-gray-100 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleViewDetails(listing)}
+                  className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 inline-flex items-center justify-center"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Details
+                </button>
+                <button
+                  onClick={() => handleAdminPurchase(listing)}
+                  disabled={purchasing === listing.id || listing.quantity === 0}
+                  className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {purchasing === listing.id ? 'Buying...' : 'Buy Now'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {filteredListings.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+            <Package className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No listings found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchQuery ? 'Try adjusting your search criteria.' : 'No sellers have created listings yet.'}
+            </p>
+          </div>
+        )}
+      </div>      {/* Mobile-Friendly Modal for viewing details */}
       {showModal && selectedListing && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Product Details</h3>
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-start justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-lg w-full max-w-md mx-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-start justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Product Details</h3>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1"
                 >
                   ×
                 </button>
               </div>
               
               <div className="space-y-4">
-                <img
-                  src={selectedListing.mainImage || selectedListing.images?.[0] || '/images/placeholders/t-shirt.svg'}
-                  alt={selectedListing.name}
-                  className="w-full h-48 object-cover rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.src = '/images/placeholders/t-shirt.svg';
-                  }}
-                />
-                  <div>
-                  <h4 className="font-medium text-gray-900">{selectedListing.name}</h4>
-                  <p className="text-sm text-gray-500">{selectedListing.productId}</p>
+                <div className="w-full">
+                  <img
+                    src={selectedListing.mainImage || selectedListing.images?.[0] || '/images/placeholders/t-shirt.svg'}
+                    alt={selectedListing.name}
+                    className="w-full h-48 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/placeholders/t-shirt.svg';
+                    }}
+                  />
                 </div>
                 
-                <div>
-                  <p className="text-sm text-gray-500">Seller</p>
-                  <p className="font-medium">{selectedListing.sellerName}</p>
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Product</p>
+                  <h4 className="font-medium text-gray-900 text-base">{selectedListing.name}</h4>
+                  <p className="text-sm text-gray-500 mt-1">ID: {selectedListing.productId}</p>
+                </div>
+                
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Seller</p>
+                  <p className="font-medium text-gray-900">{selectedListing.sellerName}</p>
                   <p className="text-sm text-gray-500">{selectedListing.sellerEmail}</p>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-gray-500">Description</p>
-                  <p className="text-sm">{selectedListing.description || 'No description available'}</p>
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Category</p>
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                    {selectedListing.category}
+                  </span>
                 </div>
                 
-                <div className="flex justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Price</p>
-                    <p className="text-lg font-bold text-green-600">${selectedListing.price.toFixed(2)}</p>
+                {selectedListing.description && (
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Description</p>
+                    <p className="text-sm text-gray-700">{selectedListing.description}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Available</p>
-                    <p className="text-lg font-bold">{selectedListing.quantity}</p>
+                )}
+                
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Price</p>
+                      <p className="text-xl font-bold text-green-600">${selectedListing.price.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Available</p>
+                      <p className="text-xl font-bold text-gray-900">{selectedListing.quantity}</p>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div className="mt-6 flex space-x-3">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => handleAdminPurchase(selectedListing)}
-                  disabled={purchasing === selectedListing.id || selectedListing.quantity === 0}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {purchasing === selectedListing.id ? 'Purchasing...' : 'Buy 1 Item'}
-                </button>
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => handleAdminPurchase(selectedListing)}
+                    disabled={purchasing === selectedListing.id || selectedListing.quantity === 0}
+                    className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {purchasing === selectedListing.id ? 'Purchasing...' : 'Buy 1 Item'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

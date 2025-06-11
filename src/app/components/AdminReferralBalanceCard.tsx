@@ -7,13 +7,10 @@ export default function AdminReferralBalanceCard() {
   const [totalBalance, setTotalBalance] = useState(0);
   const [adminsCount, setAdminsCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const fetchTotalBalance = async () => {
-      try {
+  const [error, setError] = useState("");  useEffect(() => {
+    const fetchTotalBalance = async () => {      try {
         setLoading(true);
-        const { totalBalance, adminsCount } = await UserService.getTotalAdminReferralBalance();
+        const { totalBalance, adminsCount } = await UserService.getTotalPeakAdminReferralBalance();
         setTotalBalance(totalBalance);
         setAdminsCount(adminsCount);
       } catch (error) {
@@ -50,18 +47,18 @@ export default function AdminReferralBalanceCard() {
         <p className="text-red-600 text-sm">{error}</p>
       </div>
     );
-  }
-
-  return (
+  }  return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <h3 className="text-lg font-medium text-gray-900 mb-4">
-        Total Admin Referral Balance
+        Total Referral Balance Overview
       </h3>
       <div className="space-y-4">
-        <div>
-          <p className="text-sm text-gray-500">Total Balance from Referred Users</p>
+        <div>          <p className="text-sm text-gray-500">Peak Combined Balance of All Referred Sellers</p>
           <p className="text-3xl font-bold text-green-600">
             ${totalBalance.toFixed(2)}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Highest total balance reached by all referred sellers (never decreases)
           </p>
         </div>
         <div>
@@ -69,7 +66,7 @@ export default function AdminReferralBalanceCard() {
           <p className="text-xl font-semibold text-gray-900">{adminsCount}</p>
         </div>
         <div className="text-sm text-gray-500">
-          <p>Average per Admin: ${(totalBalance / (adminsCount || 1)).toFixed(2)}</p>
+          <p>Average Referral Balance per Admin: ${(totalBalance / (adminsCount || 1)).toFixed(2)}</p>
         </div>
       </div>
     </div>

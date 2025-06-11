@@ -50,12 +50,13 @@ export class CartService {
       sellerName: item.sellerName || "",
       stock: typeof item.stock === "number" ? item.stock : 0,
       rating: typeof item.rating === "number" ? item.rating : 0,
-      reviews: typeof item.reviews === "number" ? item.reviews : 0,      productCode: item.productCode || "",
+      reviews: typeof item.reviews === "number" ? item.reviews : 0,
+      productCode: item.productCode || "",
       listed: typeof item.listed === "boolean" ? item.listed : true,
       isSale: typeof item.isSale === "boolean" ? item.isSale : false,
       salePercentage:
         typeof item.salePercentage === "number" ? item.salePercentage : 0,
-      productId: item.productId || item.id || generateUniqueId('PROD'),
+      productId: item.productId || item.id || generateUniqueId("PROD"),
       quantity: typeof item.quantity === "number" ? item.quantity : 1,
       size: item.size || undefined,
       color: item.color || undefined,
@@ -289,11 +290,12 @@ export class CartService {
         listed:
           typeof itemToSave.listed === "boolean" ? itemToSave.listed : true,
         isSale:
-          typeof itemToSave.isSale === "boolean" ? itemToSave.isSale : false,        salePercentage:
+          typeof itemToSave.isSale === "boolean" ? itemToSave.isSale : false,
+        salePercentage:
           typeof itemToSave.salePercentage === "number"
             ? itemToSave.salePercentage
             : 0,
-        productId: itemToSave.productId || generateUniqueId('PROD'),
+        productId: itemToSave.productId || generateUniqueId("PROD"),
         quantity:
           typeof itemToSave.quantity === "number" ? itemToSave.quantity : 1,
         size: itemToSave.size || undefined,
@@ -362,10 +364,11 @@ export class CartService {
           typeof itemToMove.listed === "boolean" ? itemToMove.listed : true,
         isSale:
           typeof itemToMove.isSale === "boolean" ? itemToMove.isSale : false,
-        salePercentage:        typeof itemToMove.salePercentage === "number"
+        salePercentage:
+          typeof itemToMove.salePercentage === "number"
             ? itemToMove.salePercentage
             : 0,
-        productId: itemToMove.productId || generateUniqueId('PROD'),
+        productId: itemToMove.productId || generateUniqueId("PROD"),
         quantity:
           typeof itemToMove.quantity === "number" ? itemToMove.quantity : 1,
         size: itemToMove.size || undefined,

@@ -1,11 +1,11 @@
 /**
  * Admin Redirection Fix Verification Script
- * 
+ *
  * This script verifies that the admin redirection issue has been fixed.
  * Run this in your browser console after logging in as an admin user.
  */
 
-(function() {
+(function () {
   console.log(
     "%c ========== Admin Fix Verification ========== ",
     "background: #10B981; color: white; padding: 5px; border-radius: 5px;"
@@ -16,25 +16,25 @@
   console.log(`Current Path: ${currentPath}`);
 
   // Check if we're on the admin page
-  if (currentPath === '/dashboard/admin') {
+  if (currentPath === "/dashboard/admin") {
     console.log(
       "%c ✅ SUCCESS: Admin users can now access /dashboard/admin ",
       "background: #10B981; color: white; padding: 3px; border-radius: 3px;"
     );
-    
+
     // Check if AdminRoute component is being used (look for console logs)
     console.log("Checking for AdminRoute component logs...");
-    
+
     // Test navigation to verify no redirection loop
     console.log("✅ No redirection loop detected");
     console.log("✅ Admin page is accessible");
-    
+
     return;
   }
 
   // If not on admin page, suggest navigation test
   console.log("Not currently on admin page. Testing navigation...");
-  
+
   const testNav = confirm("Navigate to /dashboard/admin to test admin access?");
   if (testNav) {
     console.log("Navigating to admin dashboard...");
@@ -42,15 +42,15 @@
   }
 
   // Check authentication state
-  const userRole = localStorage.getItem('userRole');
-  console.log(`User Role: ${userRole || 'Not set'}`);
+  const userRole = localStorage.getItem("userRole");
+  console.log(`User Role: ${userRole || "Not set"}`);
 
-  if (userRole === 'admin') {
+  if (userRole === "admin") {
     console.log(
       "%c ✅ Admin user detected - should have access to /dashboard/admin ",
       "background: #10B981; color: white; padding: 3px; border-radius: 3px;"
     );
-  } else if (userRole === 'superadmin') {
+  } else if (userRole === "superadmin") {
     console.log(
       "%c ✅ SuperAdmin user detected - should have access to all pages ",
       "background: #10B981; color: white; padding: 3px; border-radius: 3px;"
@@ -71,7 +71,9 @@
   console.log("• Unauthenticated → Redirected to /login");
 
   console.log("\n🔧 Technical Fix Applied:");
-  console.log("• Changed /dashboard/admin/page.tsx from SuperAdminRoute to AdminRoute");
+  console.log(
+    "• Changed /dashboard/admin/page.tsx from SuperAdminRoute to AdminRoute"
+  );
   console.log("• AdminRoute allows both admin and superadmin users");
   console.log("• SuperAdminRoute only allows superadmin users");
 })();

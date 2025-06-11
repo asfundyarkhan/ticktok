@@ -62,13 +62,16 @@ function testNavigationFiltering() {
 
   testUsers.forEach((user) => {
     console.log(`\n📊 ${user.name} (${user.role || "no role"}) Navigation:`);
-    
+
     const filteredItems = navigationItems.filter((item) => {
       // Simulate the filtering logic from Sidebar.tsx
       if (item.superadminOnly && (!user || user.role !== "superadmin")) {
         return false;
       }
-      if (item.adminOnly && (!user || (user.role !== "admin" && user.role !== "superadmin"))) {
+      if (
+        item.adminOnly &&
+        (!user || (user.role !== "admin" && user.role !== "superadmin"))
+      ) {
         return false;
       }
       return true;
@@ -78,7 +81,11 @@ function testNavigationFiltering() {
       console.log("   ❌ No navigation items available");
     } else {
       filteredItems.forEach((item) => {
-        const badge = item.superadminOnly ? "🔴 SA" : item.adminOnly ? "🟡 A" : "🟢 All";
+        const badge = item.superadminOnly
+          ? "🔴 SA"
+          : item.adminOnly
+          ? "🟡 A"
+          : "🟢 All";
         console.log(`   ✅ ${badge} ${item.name} (${item.href})`);
       });
     }
@@ -97,53 +104,73 @@ function testRolePromotionScenarios() {
       from: "seller",
       to: "admin",
       description: "Seller promoted to Admin",
-      expectedNewItems: ["Dashboard", "My Referrals", "Buy"]
+      expectedNewItems: ["Dashboard", "My Referrals", "Buy"],
     },
     {
       from: "admin",
-      to: "superadmin", 
+      to: "superadmin",
       description: "Admin promoted to SuperAdmin",
-      expectedNewItems: ["Seller Credit", "Referral Codes", "All Referrals", "Role Manager"]
+      expectedNewItems: [
+        "Seller Credit",
+        "Referral Codes",
+        "All Referrals",
+        "Role Manager",
+      ],
     },
     {
       from: "user",
       to: "admin",
       description: "User promoted to Admin",
-      expectedNewItems: ["Dashboard", "My Referrals", "Buy"]
-    }
+      expectedNewItems: ["Dashboard", "My Referrals", "Buy"],
+    },
   ];
 
   promotionScenarios.forEach((scenario) => {
     console.log(`\n📈 ${scenario.description}:`);
-    
+
     // Get items before promotion
     const beforeItems = navigationItems.filter((item) => {
       if (item.superadminOnly && scenario.from !== "superadmin") return false;
-      if (item.adminOnly && scenario.from !== "admin" && scenario.from !== "superadmin") return false;
+      if (
+        item.adminOnly &&
+        scenario.from !== "admin" &&
+        scenario.from !== "superadmin"
+      )
+        return false;
       return true;
     });
 
     // Get items after promotion
     const afterItems = navigationItems.filter((item) => {
       if (item.superadminOnly && scenario.to !== "superadmin") return false;
-      if (item.adminOnly && scenario.to !== "admin" && scenario.to !== "superadmin") return false;
+      if (
+        item.adminOnly &&
+        scenario.to !== "admin" &&
+        scenario.to !== "superadmin"
+      )
+        return false;
       return true;
     });
 
     // Find new items
     const newItems = afterItems.filter(
-      (afterItem) => !beforeItems.some((beforeItem) => beforeItem.name === afterItem.name)
+      (afterItem) =>
+        !beforeItems.some((beforeItem) => beforeItem.name === afterItem.name)
     );
 
     console.log(`   📊 Before: ${beforeItems.length} items`);
     console.log(`   📊 After: ${afterItems.length} items`);
     console.log(`   ✨ New items gained:`);
-    
+
     if (newItems.length === 0) {
       console.log("      ❌ No new items gained");
     } else {
       newItems.forEach((item) => {
-        const badge = item.superadminOnly ? "🔴 SA" : item.adminOnly ? "🟡 A" : "🟢 All";
+        const badge = item.superadminOnly
+          ? "🔴 SA"
+          : item.adminOnly
+          ? "🟡 A"
+          : "🟢 All";
         console.log(`      ✅ ${badge} ${item.name}`);
       });
     }
@@ -154,7 +181,9 @@ function testRolePromotionScenarios() {
     );
 
     if (missingExpected.length > 0) {
-      console.log(`   ⚠️ Missing expected items: ${missingExpected.join(", ")}`);
+      console.log(
+        `   ⚠️ Missing expected items: ${missingExpected.join(", ")}`
+      );
     } else {
       console.log(`   ✅ All expected items are available`);
     }
@@ -173,40 +202,41 @@ function testAuthContextRefresh() {
       userEmail: "seller@example.com",
       targetEmail: "seller@example.com",
       shouldRefresh: true,
-      description: "Current user being promoted"
+      description: "Current user being promoted",
     },
     {
-      userEmail: "admin@example.com", 
+      userEmail: "admin@example.com",
       targetEmail: "seller@example.com",
       shouldRefresh: false,
-      description: "Different user being promoted"
+      description: "Different user being promoted",
     },
     {
       userEmail: "SELLER@EXAMPLE.COM",
-      targetEmail: "seller@example.com", 
+      targetEmail: "seller@example.com",
       shouldRefresh: true,
-      description: "Case insensitive email matching"
+      description: "Case insensitive email matching",
     },
     {
       userEmail: null,
       targetEmail: "seller@example.com",
       shouldRefresh: false,
-      description: "No current user (unauthenticated)"
-    }
+      description: "No current user (unauthenticated)",
+    },
   ];
 
   refreshScenarios.forEach((scenario) => {
     console.log(`\n📧 ${scenario.description}:`);
     console.log(`   Current User: ${scenario.userEmail || "Not logged in"}`);
     console.log(`   Target Email: ${scenario.targetEmail}`);
-    
+
     // Simulate the refresh logic from role manager
-    const shouldRefresh = scenario.userEmail && 
+    const shouldRefresh =
+      scenario.userEmail &&
       scenario.userEmail.toLowerCase() === scenario.targetEmail.toLowerCase();
-    
+
     const result = shouldRefresh ? "🔄 REFRESH" : "⏩ SKIP";
     const expected = scenario.shouldRefresh ? "🔄 REFRESH" : "⏩ SKIP";
-    
+
     console.log(`   Expected: ${expected}`);
     console.log(`   Actual: ${result}`);
     console.log(`   Status: ${result === expected ? "✅ PASS" : "❌ FAIL"}`);
@@ -220,11 +250,11 @@ function runAllTests() {
   console.log("🚀 Navigation Bug Fix Verification Tests");
   console.log("==========================================");
   console.log("Legend: 🟢 All Users | 🟡 Admin+ | 🔴 SuperAdmin Only");
-  
+
   testNavigationFiltering();
   testRolePromotionScenarios();
   testAuthContextRefresh();
-  
+
   console.log("\n\n✅ All tests completed!");
   console.log("\n📋 Summary:");
   console.log("   - Navigation filtering works correctly for all user roles");

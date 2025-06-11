@@ -13,6 +13,7 @@
 **File:** `/src/services/stockService.ts` (around line 1140)
 
 **Before:**
+
 ```typescript
 if (
   data &&
@@ -24,17 +25,21 @@ if (
 ```
 
 **After:**
+
 ```typescript
 if (
   data &&
   data.productCode &&
   data.name &&
   typeof data.price === "number" &&
-  (typeof data.stock === "number" || data.stock === 0 || data.stock === null || data.stock === undefined)
+  (typeof data.stock === "number" ||
+    data.stock === 0 ||
+    data.stock === null ||
+    data.stock === undefined)
 ) {
   // Ensure stock is always a number (default to 0 for null/undefined)
   const stockValue = typeof data.stock === "number" ? data.stock : 0;
-  
+
   stocks.push({
     id: doc.id,
     ...data,
@@ -50,6 +55,7 @@ if (
 **File:** `/src/services/stockService.ts` (around line 250)
 
 **Before:**
+
 ```typescript
 if (
   data.productCode &&
@@ -62,6 +68,7 @@ if (
 ```
 
 **After:**
+
 ```typescript
 if (
   data.productCode &&
@@ -71,7 +78,7 @@ if (
 ) {
   // Ensure stock is always a number (default to 0 for null/undefined)
   const stockValue = typeof data.stock === "number" ? data.stock : 0;
-  
+
   stock: stockValue, // Use normalized stock value
 }
 ```
@@ -81,22 +88,26 @@ if (
 **File:** `/src/services/stockService.ts` (around line 400)
 
 **Added validation:**
+
 ```typescript
 // Ensure stock value is always a number if provided
 const updateData = { ...data };
-if ('stock' in updateData && updateData.stock !== undefined) {
-  updateData.stock = typeof updateData.stock === 'number' ? updateData.stock : 0;
+if ("stock" in updateData && updateData.stock !== undefined) {
+  updateData.stock =
+    typeof updateData.stock === "number" ? updateData.stock : 0;
 }
 ```
 
 ## 🎯 EXPECTED BEHAVIOR NOW
 
 ### Before Fix:
+
 - Items with stock = 0 disappeared from dashboard
 - Items with null/undefined stock values were filtered out
 - Users couldn't see or restock out-of-stock items
 
 ### After Fix:
+
 - ✅ Items with stock = 0 appear in dashboard with "Out of Stock" badge
 - ✅ Items show "Add Stock" and "Edit" buttons when stock is 0
 - ✅ All stock values are normalized to numbers (default: 0)
@@ -105,16 +116,19 @@ if ('stock' in updateData && updateData.stock !== undefined) {
 ## 🔍 VERIFICATION STEPS
 
 ### 1. Test Out-of-Stock Display
+
 1. Go to `/dashboard/stock`
 2. Look for items with "Out of Stock" status
 3. Verify they show "Add Stock" and "Edit" buttons
 
 ### 2. Test Stock Depletion
+
 1. Purchase or reduce stock of an item to 0
 2. Check that item still appears in `/dashboard/stock`
 3. Verify "Out of Stock" badge is displayed
 
 ### 3. Test Stock Addition
+
 1. Click "Add Stock" on an out-of-stock item
 2. Increase stock quantity
 3. Verify item updates to show stock count
@@ -122,11 +136,13 @@ if ('stock' in updateData && updateData.stock !== undefined) {
 ## 📊 TECHNICAL DETAILS
 
 ### Data Flow Fix:
+
 1. **Database Query** → Now includes items with stock = 0, null, or undefined
 2. **Validation** → Normalizes all stock values to numbers
 3. **Frontend Display** → Shows appropriate UI for out-of-stock items
 
 ### Backward Compatibility:
+
 - ✅ Existing items with proper stock values unchanged
 - ✅ New items will have proper numeric stock values
 - ✅ Out-of-stock items are preserved and visible
@@ -141,8 +157,9 @@ if ('stock' in updateData && updateData.stock !== undefined) {
 ## 📋 FILES MODIFIED
 
 1. **`/src/services/stockService.ts`**
+
    - `subscribeToAdminStock()` method
-   - `getAllStockItems()` method  
+   - `getAllStockItems()` method
    - `updateStockItem()` method
 
 2. **`/scripts/debug-out-of-stock-items.js`** (Created)

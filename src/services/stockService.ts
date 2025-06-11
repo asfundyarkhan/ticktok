@@ -5,10 +5,10 @@
  * IMPORTANT: Zero-quantity handling (UPDATED BEHAVIOR)
  * As of June 2025, this service NO LONGER automatically deletes stock items when their quantity reaches zero.
  * Items now remain visible with "Out of Stock" status and "Restock Needed" functionality.
- * 
+ *
  * This change applies to:
  * - Admin stock items that reach zero quantity
- * - Seller listings that reach zero quantity  
+ * - Seller listings that reach zero quantity
  * - Inventory items that reach zero quantity
  *
  * This ensures that when stock is depleted, product information is preserved,
@@ -240,7 +240,8 @@ export class StockService {
    * @returns Promise with array of stock items
    */
   static async getAllStockItems(): Promise<StockItem[]> {
-    try {      const q = query(
+    try {
+      const q = query(
         collection(firestore, StockService.COLLECTION),
         where("listed", "==", true), // Only show items that are listed
         orderBy("createdAt", "desc")
@@ -250,16 +251,19 @@ export class StockService {
       const items: StockItem[] = [];
 
       for (const docSnapshot of querySnapshot.docs) {
-        const data = docSnapshot.data();        // Validate required fields exist
+        const data = docSnapshot.data(); // Validate required fields exist
         if (
           data.productCode &&
           data.name &&
           typeof data.price === "number" &&
-          (typeof data.stock === "number" || data.stock === 0 || data.stock === null || data.stock === undefined)
+          (typeof data.stock === "number" ||
+            data.stock === 0 ||
+            data.stock === null ||
+            data.stock === undefined)
         ) {
           // Ensure stock is always a number (default to 0 for null/undefined)
           const stockValue = typeof data.stock === "number" ? data.stock : 0;
-          
+
           // Ensure all fields are properly formatted
           const item: StockItem = {
             id: docSnapshot.id,
@@ -396,7 +400,7 @@ export class StockService {
    * @param id Stock item ID
    * @param data Updated data
    * @returns Promise with success
-   */  static async updateStockItem(
+   */ static async updateStockItem(
     id: string,
     data: Partial<StockItem>
   ): Promise<void> {
@@ -405,8 +409,9 @@ export class StockService {
 
       // Ensure stock value is always a number if provided
       const updateData = { ...data };
-      if ('stock' in updateData && updateData.stock !== undefined) {
-        updateData.stock = typeof updateData.stock === 'number' ? updateData.stock : 0;
+      if ("stock" in updateData && updateData.stock !== undefined) {
+        updateData.stock =
+          typeof updateData.stock === "number" ? updateData.stock : 0;
       }
 
       // Perform normal update (no longer delete when stock reaches zero)
@@ -511,7 +516,7 @@ export class StockService {
           t.update(userRef, {
             balance: userData.balance - totalCost,
             updatedAt: Timestamp.now(),
-          });          // Calculate new stock quantity
+          }); // Calculate new stock quantity
           const newStockQuantity = stockData.stock - quantity;
 
           // Always update admin stock (no longer delete when reaching zero)
@@ -692,14 +697,14 @@ export class StockService {
           t.update(sellerRef, {
             balance: (sellerData.balance || 0) + totalCost,
             updatedAt: Timestamp.now(),
-          });          // Update listing quantity
+          }); // Update listing quantity
           const newQuantity = listingData.quantity - quantity;
 
           // Always update listing quantity (no longer delete when reaching zero)
           t.update(listingRef, {
             quantity: newQuantity,
             updatedAt: Timestamp.now(),
-          });// Record the admin purchase
+          }); // Record the admin purchase
           const purchaseRef = collection(
             firestore,
             StockService.PURCHASES_COLLECTION
@@ -910,7 +915,7 @@ export class StockService {
             };
           }
 
-          const listingData = listingDoc.data();          // If updating quantity, validate inventory
+          const listingData = listingDoc.data(); // If updating quantity, validate inventory
           if (updates.quantity && updates.quantity > listingData.quantity) {
             const additionalQuantity = updates.quantity - listingData.quantity;
 
@@ -1145,7 +1150,8 @@ export class StockService {
       const listenerKey = "admin_stock";
 
       // Unsubscribe existing listener if any
-      this.unsubscribeListener(listenerKey);      const stockQuery = query(
+      this.unsubscribeListener(listenerKey);
+      const stockQuery = query(
         collection(firestore, this.COLLECTION),
         where("listed", "==", true),
         orderBy("createdAt", "desc")
@@ -1154,17 +1160,23 @@ export class StockService {
       const unsubscribe = onSnapshot(
         stockQuery,
         (snapshot: QuerySnapshot<DocumentData>) => {
-          const stocks: StockItem[] = [];          snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
-            const data = doc.data();            if (
+          const stocks: StockItem[] = [];
+          snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
+            const data = doc.data();
+            if (
               data &&
               data.productCode &&
               data.name &&
               typeof data.price === "number" &&
-              (typeof data.stock === "number" || data.stock === 0 || data.stock === null || data.stock === undefined)
+              (typeof data.stock === "number" ||
+                data.stock === 0 ||
+                data.stock === null ||
+                data.stock === undefined)
             ) {
               // Ensure stock is always a number (default to 0 for null/undefined)
-              const stockValue = typeof data.stock === "number" ? data.stock : 0;
-              
+              const stockValue =
+                typeof data.stock === "number" ? data.stock : 0;
+
               stocks.push({
                 id: doc.id,
                 ...data,
@@ -1204,7 +1216,8 @@ export class StockService {
   ): () => void {
     try {
       const listenerKey = "all_listings";
-      this.unsubscribeListener(listenerKey);      const listingsQuery = query(
+      this.unsubscribeListener(listenerKey);
+      const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
         orderBy("updatedAt", "desc")
       );
@@ -1476,7 +1489,8 @@ export class StockService {
   static async searchListingsByProductId(
     productId: string
   ): Promise<StockListing[]> {
-    try {      const listingsQuery = query(
+    try {
+      const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
         where("productId", "==", productId),
         orderBy("price", "asc") // Get best deals first
