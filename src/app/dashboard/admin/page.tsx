@@ -6,6 +6,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { UserService } from "../../../services/userService";
 import { LoadingSpinner } from "../../components/Loading";
+import toast from "react-hot-toast";
 
 // Modified User interface to match our Firebase structure
 interface User {
@@ -26,17 +27,18 @@ interface CreditInput {
 
 // Wrap the content in the AdminPage component
 function AdminPageContent() {
-  // We don't need userProfile here but we keep the auth hook for later use
-  const { } = useAuth();
+  // Get current user for tracking deposits
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");  const [creditInput, setCreditInput] = useState<CreditInput>({
     uid: "",
     amount: "",
     operation: 'add',
-  });const [showConfirmation, setShowConfirmation] = useState(false);
+  });  const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [creditOperationLoading, setCreditOperationLoading] = useState(false);
   
   // Referral code generation state
   const [generatingReferralCode, setGeneratingReferralCode] = useState(false);
@@ -115,23 +117,40 @@ function AdminPageContent() {
   const closeConfirmation = () => {
     setShowConfirmation(false);
     setSelectedUser(null);
-  };
-  // Handle both adding and subtracting credits
+  };  // Handle both adding and subtracting credits
   const handleCreditChange = async (uid: string) => {
     const amount = parseFloat(creditInput.amount);
     if (isNaN(amount) || amount <= 0) {
-      alert("Please enter a valid positive amount");
+      toast.error("Please enter a valid positive amount");
       return;
     }
 
+    setCreditOperationLoading(true);
+    const loadingToast = toast.loading(`${creditInput.operation === 'add' ? 'Adding' : 'Subtracting'} credits...`);
+
     try {
       let newBalance: number;
+      let commissionMessage = "";
       
       if (creditInput.operation === 'add') {
-        // Add credits using existing method
-        newBalance = await UserService.updateUserBalance(uid, amount);
+        // Add credits using new method that tracks commissions
+        const result = await UserService.addUserBalance(
+          uid, 
+          amount, 
+          user?.uid || "unknown", // depositedBy (current admin/superadmin)
+          `Admin deposit by ${user?.email || "admin"}`
+        );
+        
+        if (result.success && result.newBalance !== undefined) {
+          newBalance = result.newBalance;
+          if (result.commissionPaid && result.commissionPaid > 0) {
+            commissionMessage = ` (Commission paid: $${result.commissionPaid.toFixed(2)})`;
+          }
+        } else {
+          throw new Error(result.message);
+        }
       } else {
-        // Subtract credits using new method
+        // Subtract credits using existing method
         newBalance = await UserService.subtractUserBalance(uid, amount);
       }
 
@@ -151,20 +170,26 @@ function AdminPageContent() {
       closeConfirmation();
       
       const operationText = creditInput.operation === 'add' ? 'added to' : 'subtracted from';
-      alert(`Successfully ${operationText} user balance. New balance: $${newBalance.toFixed(2)}`);
+      toast.dismiss(loadingToast);
+      toast.success(`Successfully ${operationText} user balance. New balance: $${newBalance.toFixed(2)}${commissionMessage}`, {
+        duration: 4000,
+      });
     } catch (err) {
       console.error("Failed to update user balance:", err);
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
-      alert(`Failed to update credit: ${errorMessage}`);
+      toast.dismiss(loadingToast);
+      toast.error(`Failed to update credit: ${errorMessage}`);
+    } finally {
+      setCreditOperationLoading(false);
     }
   };
-
   const toggleSuspension = async (uid: string) => {
     try {
       const user = users.find((u) => u.uid === uid);
       if (!user) return;
 
       const newSuspendedState = !user.suspended;
+      const loadingToast = toast.loading(`${newSuspendedState ? 'Suspending' : 'Unsuspending'} user...`);
 
       // Update user profile in Firestore
       await UserService.updateUserProfile(uid, {
@@ -179,17 +204,20 @@ function AdminPageContent() {
             : user
         )
       );
+
+      toast.dismiss(loadingToast);
+      toast.success(`User ${newSuspendedState ? 'suspended' : 'unsuspended'} successfully`);
     } catch (err) {
       console.error("Failed to update suspension status:", err);
-      alert("Failed to update user status. Please try again.");
+      toast.error("Failed to update user status. Please try again.");
     }
   };
-
   // Function to generate a referral code for a user
   const generateReferralCode = async (uid: string) => {
     try {
       setGeneratingReferralCode(true);
       setReferralCodeGeneratedFor(uid);
+      const loadingToast = toast.loading("Generating referral code...");
       
       // Generate a referral code through the UserService
       const code = await UserService.generateReferralCode(uid);
@@ -204,10 +232,13 @@ function AdminPageContent() {
       );
       
       // Show a success message
-      alert(`Referral code generated successfully: ${code}`);
+      toast.dismiss(loadingToast);
+      toast.success(`Referral code generated successfully: ${code}`, {
+        duration: 4000,
+      });
     } catch (error) {
       console.error("Error generating referral code:", error);
-      alert("Failed to generate referral code. Please try again.");
+      toast.error("Failed to generate referral code. Please try again.");
     } finally {
       setGeneratingReferralCode(false);
       setReferralCodeGeneratedFor(null);
@@ -306,11 +337,10 @@ function AdminPageContent() {
                     <td className="px-6 py-4 text-sm">
                       {user.referralCode ? (
                         <div className="flex items-center">
-                          <span className="font-medium text-pink-600">{user.referralCode}</span>
-                          <button
+                          <span className="font-medium text-pink-600">{user.referralCode}</span>                          <button
                             onClick={() => {
                               navigator.clipboard.writeText(user.referralCode || "");
-                              alert("Referral code copied to clipboard!");
+                              toast.success("Referral code copied to clipboard!");
                             }}
                             className="ml-2 p-1 text-gray-400 hover:text-gray-600"
                             title="Copy to clipboard"
@@ -396,8 +426,7 @@ function AdminPageContent() {
                             Subtract
                           </button>
                         </div>
-                        
-                        <button
+                          <button
                           onClick={() => {
                             if (
                               creditInput.uid === user.uid &&
@@ -412,14 +441,26 @@ function AdminPageContent() {
                               : creditInput.uid === user.uid && creditInput.operation === 'subtract'
                               ? 'text-red-600 hover:text-red-900 bg-red-50'
                               : 'text-pink-600 hover:text-pink-900 bg-pink-50'
-                          }`}                          disabled={
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          disabled={
                             creditInput.uid !== user.uid ||
-                            !creditInput.amount
+                            !creditInput.amount ||
+                            creditOperationLoading
                           }
                         >
-                          {creditInput.uid === user.uid && creditInput.operation === 'subtract' 
-                            ? 'Subtract Credit' 
-                            : 'Add Credit'}
+                          {creditOperationLoading && creditInput.uid === user.uid ? (
+                            <div className="flex items-center">
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </div>
+                          ) : (
+                            creditInput.uid === user.uid && creditInput.operation === 'subtract' 
+                              ? 'Subtract Credit' 
+                              : 'Add Credit'
+                          )}
                         </button>
                       </div>
                     </td>
@@ -482,11 +523,10 @@ function AdminPageContent() {
                     </p>
                     {user.referralCode ? (
                       <div className="flex items-center justify-between bg-gray-50 rounded-md p-2">
-                        <span className="font-medium text-pink-600">{user.referralCode}</span>
-                        <button
+                        <span className="font-medium text-pink-600">{user.referralCode}</span>                        <button
                           onClick={() => {
                             navigator.clipboard.writeText(user.referralCode || "");
-                            alert("Referral code copied to clipboard!");
+                            toast.success("Referral code copied to clipboard!");
                           }}
                           className="p-1 text-gray-400 hover:text-gray-600"
                           title="Copy to clipboard"
@@ -575,8 +615,7 @@ function AdminPageContent() {
                             })
                           }
                         />
-                      </div>
-                      <button
+                      </div>                      <button
                         onClick={() => {
                           if (
                             creditInput.uid === user.uid &&
@@ -591,15 +630,26 @@ function AdminPageContent() {
                             : creditInput.uid === user.uid && creditInput.operation === 'subtract'
                             ? 'text-red-600 hover:text-red-900 bg-red-50 border-red-200'
                             : 'text-pink-600 hover:text-pink-900 bg-pink-50 border-pink-200'
-                        }`}
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                         disabled={
                           creditInput.uid !== user.uid ||
-                          !creditInput.amount
+                          !creditInput.amount ||
+                          creditOperationLoading
                         }
                       >
-                        {creditInput.uid === user.uid && creditInput.operation === 'subtract' 
-                          ? 'Subtract' 
-                          : 'Add'}
+                        {creditOperationLoading && creditInput.uid === user.uid ? (
+                          <div className="flex items-center">
+                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                          </div>
+                        ) : (
+                          creditInput.uid === user.uid && creditInput.operation === 'subtract' 
+                            ? 'Subtract' 
+                            : 'Add'
+                        )}
                       </button>
                     </div>
                   </div>
@@ -709,20 +759,30 @@ function AdminPageContent() {
                   <strong>Note:</strong> This will reduce the seller&apos;s balance, but will not affect the Total Referral Balance displayed to admins (it only increases).
                 </p>
               </div>
-            )}
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">
+            )}            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">
               <button
                 onClick={closeConfirmation}
-                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 order-2 sm:order-1"
+                disabled={creditOperationLoading}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 order-2 sm:order-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleCreditChange(selectedUser.uid)}
-                className="w-full sm:w-auto px-4 py-2 bg-pink-600 text-white rounded-md text-sm font-medium hover:bg-pink-700 order-1 sm:order-2"
+                disabled={creditOperationLoading}
+                className="w-full sm:w-auto px-4 py-2 bg-pink-600 text-white rounded-md text-sm font-medium hover:bg-pink-700 order-1 sm:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Confirm
+                {creditOperationLoading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </div>
+                ) : (
+                  'Confirm'
+                )}
               </button>
             </div>
           </div>

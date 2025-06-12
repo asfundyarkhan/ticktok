@@ -782,4 +782,71 @@ export class UserService {
       throw error;
     }
   }
+
+  // Add credits to user balance with commission tracking (for admin use)
+  static async addUserBalance(
+    uid: string, 
+    amount: number, 
+    depositedBy: string,
+    description: string = "Admin deposit"
+  ): Promise<{ success: boolean; message: string; newBalance?: number; commissionPaid?: number }> {
+    try {
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnap.data() as UserProfile;
+      const currentBalance = userData.balance || 0;
+      const newBalance = currentBalance + amount;
+
+      // Update the user's balance
+      await updateDoc(userRef, {
+        balance: newBalance,
+        updatedAt: Timestamp.now(),
+      });
+
+      // Check if user has a referrer (admin) and record commission
+      let commissionPaid = 0;
+      if (userData.referredBy) {
+        const { CommissionService } = await import("./commissionService");
+        
+        const commissionResult = await CommissionService.recordSuperadminDeposit(
+          userData.referredBy,
+          uid,
+          amount,
+          depositedBy,
+          description
+        );
+
+        if (commissionResult.success && commissionResult.commissionAmount) {
+          commissionPaid = commissionResult.commissionAmount;
+        }
+      }
+
+      // Update peak balances for all admins
+      const allAdmins = await this.getUsersByRole("admin");
+      const superAdmins = await this.getUsersByRole("superadmin");
+      const allAdminUsers = [...allAdmins, ...superAdmins];
+
+      for (const admin of allAdminUsers) {
+        await this.updatePeakReferralBalance(admin.uid);
+      }
+
+      return {
+        success: true,
+        message: `Successfully added $${amount.toFixed(2)} to user balance${commissionPaid > 0 ? ` (Commission: $${commissionPaid.toFixed(2)})` : ""}`,
+        newBalance,
+        commissionPaid,
+      };
+    } catch (error) {
+      console.error("Error adding user balance:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to add balance",
+      };
+    }
+  }
 }

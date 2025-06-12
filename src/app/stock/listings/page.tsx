@@ -124,39 +124,36 @@ export default function MyListingsPage() {
         </div>
       </div>
     );
-  }
-  return (
-    <div className="min-h-screen bg-white">
-      <div className="p-6">
-        <h1 className="text-xl font-medium mb-6 text-gray-900">My Listings</h1>
+  }  return (
+    <div className="min-h-screen bg-gray-50 sm:bg-white">
+      <div className="p-4 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-medium mb-4 sm:mb-6 text-gray-900">My Listings</h1>
         
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
-          <Link href="/profile" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
+        {/* Mobile-friendly tabs with horizontal scroll */}
+        <div className="flex border-b border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
+          <Link href="/profile" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             General
           </Link>
-          <Link href="/receipts" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
+          <Link href="/receipts" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Wallet
           </Link>
-          <Link href="/stock" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
+          <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Buy stock
           </Link>
-          <Link href="/stock/inventory" className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium">
+          <Link href="/stock/inventory" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Inventory
           </Link>
-          <Link href="/stock/listings" className="px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px]">
+          <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
             My Listings
-          </Link>        </div>
-
-        {/* Search Bar */}
-        <div className="mb-6">
+          </Link>        </div>        {/* Mobile-optimized Search Bar */}
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
             <input
               type="text"
               placeholder="Search listings..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent text-base sm:text-sm"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,77 +161,196 @@ export default function MyListingsPage() {
               </svg>
             </div>
           </div>
-        </div>
-
-        {/* Listings Table */}
+        </div>        {/* Responsive Listings Layout */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           {currentListings.length > 0 ? (
             <>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listed Date</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentListings.map((listing) => (
-                    <tr key={listing.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <Image
-                              src={getBestProductImage(listing)}
-                              alt={listing.name}
-                              width={40}
-                              height={40}
-                              className="object-cover w-full h-full rounded-lg"
-                              onError={(e) => {
-                                e.currentTarget.src = '/images/placeholders/product.svg';
+              {/* Desktop Table View - Hidden on mobile */}
+              <div className="hidden lg:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listed Date</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentListings.map((listing) => (
+                      <tr key={listing.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-10 w-10">
+                              <Image
+                                src={getBestProductImage(listing)}
+                                alt={listing.name}
+                                width={40}
+                                height={40}
+                                className="object-cover w-full h-full rounded-lg"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/images/placeholders/product.svg';
+                                }}
+                                unoptimized
+                                priority
+                              />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {listing.name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {listing.productId}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            ${listing.price.toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            listing.quantity > 10
+                              ? "bg-green-100 text-green-800"
+                              : listing.quantity > 0
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {listing.quantity === 0 ? "Out of Stock" : `${listing.quantity} units`}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {listing.quantity === 0 ? (
+                            <button
+                              onClick={() => {
+                                localStorage.setItem("productToRestock", listing.productId);
+                                window.location.href = "/stock";
                               }}
-                              unoptimized
-                              priority
-                            />
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {listing.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {listing.productId}
-                            </div>
-                          </div>
+                              className="px-3 py-1 bg-gray-400 text-white rounded-md text-sm font-medium hover:bg-gray-500"
+                            >
+                              Restock Needed
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    if (!user?.uid) {
+                                      toast.error("Authentication required");
+                                      return;
+                                    }
+                                    const inventoryItems = await StockService.getInventoryItems(user.uid);
+                                    const inventoryItem = inventoryItems.find(item => item.productId === listing.productId);
+                                    const maxQuantity = listing.quantity + (inventoryItem?.stock || 0);
+                                    
+                                    if (maxQuantity <= 0) {
+                                      toast.error("No inventory available for this product");
+                                      return;
+                                    }
+                                    
+                                    const newQuantity = parseInt(
+                                      prompt(`Enter new quantity (max available: ${maxQuantity}):`, 
+                                      listing.quantity.toString()) || listing.quantity.toString()
+                                    );
+                                    
+                                    if (newQuantity > maxQuantity) {
+                                      toast.error(`Quantity cannot exceed ${maxQuantity}`);
+                                      return;
+                                    }
+                                    
+                                    handleEditListing(listing.id!, newQuantity);
+                                  } catch (error) {
+                                    console.error("Error checking inventory:", error);
+                                    toast.error("Failed to check inventory availability");
+                                  }
+                                }}
+                                disabled={editingListing === listing.id}
+                                className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
+                              >
+                                {editingListing === listing.id ? "Updating..." : "Edit Quantity"}
+                              </button>
+                              <button
+                                onClick={() => handleRemoveListing(listing.id!)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View - Visible on mobile and tablet */}
+              <div className="lg:hidden">
+                <div className="divide-y divide-gray-200">
+                  {currentListings.map((listing) => (
+                    <div key={listing.id} className="p-4 sm:p-6">
+                      {/* Product Header */}
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="flex-shrink-0">
+                          <Image
+                            src={getBestProductImage(listing)}
+                            alt={listing.name}
+                            width={60}
+                            height={60}
+                            className="object-cover w-15 h-15 sm:w-16 sm:h-16 rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.src = '/images/placeholders/product.svg';
+                            }}
+                            unoptimized
+                            priority
+                          />
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          ${listing.price.toFixed(2)}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base sm:text-lg font-medium text-gray-900 truncate">
+                            {listing.name}
+                          </h3>
+                          <p className="text-sm text-gray-500 mt-1">
+                            ID: {listing.productId}
+                          </p>
+                          <p className="text-lg sm:text-xl font-semibold text-gray-900 mt-1">
+                            ${listing.price.toFixed(2)}
+                          </p>
                         </div>
-                      </td>                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          listing.quantity > 10
-                            ? "bg-green-100 text-green-800"
-                            : listing.quantity > 0
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}>
-                          {listing.quantity === 0 ? "Out of Stock" : `${listing.quantity} units`}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        Listed on {listing.createdAt?.toLocaleDateString() || "N/A"}
-                      </td>                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      </div>
+
+                      {/* Status and Stock */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                            listing.quantity > 10
+                              ? "bg-green-100 text-green-800"
+                              : listing.quantity > 0
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-red-100 text-red-800"
+                          }`}>
+                            {listing.quantity === 0 ? "Out of Stock" : `${listing.quantity} units`}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Listed {listing.createdAt?.toLocaleDateString() || "N/A"}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-col sm:flex-row gap-3">
                         {listing.quantity === 0 ? (
                           <button
                             onClick={() => {
-                              // Navigate to stock purchase page and highlight this product
                               localStorage.setItem("productToRestock", listing.productId);
                               window.location.href = "/stock";
                             }}
-                            className="px-3 py-1 bg-gray-400 text-white rounded-md text-sm font-medium hover:bg-gray-500"
+                            className="w-full sm:flex-1 px-4 py-2 bg-gray-400 text-white rounded-lg font-medium hover:bg-gray-500 text-center"
                           >
                             Restock Needed
                           </button>
@@ -243,16 +359,12 @@ export default function MyListingsPage() {
                             <button
                               onClick={async () => {
                                 try {
-                                  // Get current inventory to check maximum available quantity
                                   if (!user?.uid) {
                                     toast.error("Authentication required");
                                     return;
                                   }
-                                  
                                   const inventoryItems = await StockService.getInventoryItems(user.uid);
                                   const inventoryItem = inventoryItems.find(item => item.productId === listing.productId);
-                                  
-                                  // Calculate max quantity (current listed + available in inventory)
                                   const maxQuantity = listing.quantity + (inventoryItem?.stock || 0);
                                   
                                   if (maxQuantity <= 0) {
@@ -265,7 +377,6 @@ export default function MyListingsPage() {
                                     listing.quantity.toString()) || listing.quantity.toString()
                                   );
                                   
-                                  // Validate that the quantity doesn't exceed inventory
                                   if (newQuantity > maxQuantity) {
                                     toast.error(`Quantity cannot exceed ${maxQuantity}`);
                                     return;
@@ -278,26 +389,24 @@ export default function MyListingsPage() {
                                 }
                               }}
                               disabled={editingListing === listing.id}
-                              className="text-indigo-600 hover:text-indigo-900 mr-4 disabled:opacity-50"
+                              className="w-full sm:flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 text-center"
                             >
                               {editingListing === listing.id ? "Updating..." : "Edit Quantity"}
                             </button>
                             <button
                               onClick={() => handleRemoveListing(listing.id!)}
-                              className="text-red-600 hover:text-red-900"
+                              className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 text-center"
                             >
-                              Remove
+                              Remove Listing
                             </button>
                           </>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-
-              {/* Pagination */}
-              <div className="px-6 py-3 bg-white border-t border-gray-200">
+                </div>
+              </div>              {/* Mobile-friendly Pagination */}
+              <div className="px-4 sm:px-6 py-3 bg-white border-t border-gray-200">
                 <PaginationWithCustomRows
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -314,13 +423,13 @@ export default function MyListingsPage() {
               </div>
             </>
           ) : (
-            <div className="py-20 text-center">
-              <div className="text-gray-500 mb-4">
+            <div className="py-12 sm:py-20 text-center px-4">
+              <div className="text-gray-500 mb-4 text-base sm:text-lg">
                 You don&apos;t have any product listings yet
               </div>
               <Link
                 href="/stock/inventory"
-                className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
+                className="inline-block px-6 py-3 bg-[#FF0059] text-white rounded-lg text-base font-medium hover:bg-[#E6004F] transition-colors"
               >
                 List Products for Sale
               </Link>

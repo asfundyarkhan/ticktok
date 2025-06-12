@@ -5,6 +5,7 @@ import { Users, CreditCard } from "lucide-react";
 import StatsCard from "../components/StatsCard";
 import ActivityTable from "../components/ActivityTable";
 import TransactionHistory from "../components/TransactionHistory";
+import CommissionHistory from "../components/CommissionHistory";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
@@ -12,6 +13,8 @@ import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
 import AdminReferralBalanceCard from "../components/AdminReferralBalanceCard";
 import IndividualReferralBalanceCard from "../components/IndividualReferralBalanceCard";
+import CommissionBalanceCard from "../components/CommissionBalanceCard";
+import TotalCommissionOverviewCard from "../components/TotalCommissionOverviewCard";
 
 export default function DashboardPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -103,19 +106,18 @@ export default function DashboardPage() {
   }
 
   return (    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
-
-      {/* Display AdminReferralBalanceCard only for superadmins */}
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>      {/* Display cards based on user role */}
       {userProfile?.role === "superadmin" && (
-        <div className="mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <AdminReferralBalanceCard />
+          <TotalCommissionOverviewCard />
         </div>
       )}
 
-      {/* Display IndividualReferralBalanceCard for regular admins */}
       {userProfile?.role === "admin" && (
-        <div className="mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <IndividualReferralBalanceCard />
+          <CommissionBalanceCard />
         </div>
       )}
 
@@ -129,9 +131,7 @@ export default function DashboardPage() {
             icon={stat.icon}
           />
         ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      </div>      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Activity Table */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
@@ -143,6 +143,14 @@ export default function DashboardPage() {
           <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
           <TransactionHistory />
         </div>
+
+        {/* Commission History - Only for admins and superadmins */}
+        {(userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Commission History</h2>
+            <CommissionHistory />
+          </div>
+        )}
       </div>
     </div>
   );

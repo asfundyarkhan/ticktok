@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Menu,
   X,
+  DollarSign,
 } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 import { useAuth } from "../../context/AuthContext";
@@ -31,11 +32,16 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: Layout, adminOnly: true },
-  { name: "My Profile", href: "/dashboard/profile", icon: Settings },
-  {
+  { name: "My Profile", href: "/dashboard/profile", icon: Settings },  {
     name: "My Referrals",
     href: "/dashboard/admin/referrals",
     icon: Share2,
+    adminOnly: true,
+  },
+  {
+    name: "Commission",
+    href: "/dashboard/commission",
+    icon: DollarSign,
     adminOnly: true,
   },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },

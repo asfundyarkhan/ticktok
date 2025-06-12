@@ -379,9 +379,7 @@ export class ReceiptService {
 
         const userData = userSnap.data();
         const currentBalance = userData.balance || 0;
-        const newBalance = currentBalance + receiptData.amount;
-
-        // Update user's balance
+        const newBalance = currentBalance + receiptData.amount;        // Update user's balance
         transaction.update(userRef, {
           balance: newBalance,
           updatedAt: Timestamp.now(),
@@ -393,7 +391,28 @@ export class ReceiptService {
           approvedBy: superadminId,
           approvedAt: Timestamp.now(),
           notes: notes || "Receipt approved",
-        }); // Create activity log for the approved withdrawal
+        });
+
+        // Record commission if user has a referrer (admin)
+        if (userData.referredBy) {
+          try {
+            // Import commission service dynamically to avoid circular dependencies
+            const { CommissionService } = await import("./commissionService");
+            
+            await CommissionService.recordReceiptApprovalCommission(
+              userData.referredBy,
+              receiptData.userId,
+              receiptData.amount,
+              receiptId,
+              `Receipt approval commission for ${receiptData.userEmail || "user"}`
+            );
+          } catch (commissionError) {
+            console.error("Error recording receipt approval commission:", commissionError);
+            // Don't fail the main transaction for commission error
+          }
+        }
+
+        // Create activity log for the approved withdrawal
         const activityRef = collection(firestore, "activities");
         const newActivityDoc = doc(activityRef);
 
