@@ -28,6 +28,7 @@ interface NavItem {
   icon: LucideIcon;
   adminOnly?: boolean;
   superadminOnly?: boolean;
+  excludeSuperadmin?: boolean;
 }
 
 const navigation: NavItem[] = [
@@ -37,12 +38,12 @@ const navigation: NavItem[] = [
     href: "/dashboard/admin/referrals",
     icon: Share2,
     adminOnly: true,
-  },
-  {
+  },  {
     name: "Commission",
     href: "/dashboard/commission",
     icon: DollarSign,
     adminOnly: true,
+    excludeSuperadmin: true,
   },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
   {
@@ -99,12 +100,14 @@ export default function Sidebar() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
   const filteredNavigation = navigation.filter((item) => {
     if (item.superadminOnly && (!userProfile || userProfile.role !== "superadmin")) {
       return false;
     }
     if (item.adminOnly && (!userProfile || (userProfile.role !== "admin" && userProfile.role !== "superadmin"))) {
+      return false;
+    }
+    if (item.excludeSuperadmin && userProfile?.role === "superadmin") {
       return false;
     }
     return true;

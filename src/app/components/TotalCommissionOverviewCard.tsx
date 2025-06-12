@@ -66,9 +66,8 @@ export default function TotalCommissionOverviewCard() {
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Total Commission Overview
+        <div className="flex-1">          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Total Revenue Overview
           </h3>
           
           <div className="space-y-4">

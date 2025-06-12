@@ -11,8 +11,6 @@ import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
 import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
-import AdminReferralBalanceCard from "../components/AdminReferralBalanceCard";
-import IndividualReferralBalanceCard from "../components/IndividualReferralBalanceCard";
 import CommissionBalanceCard from "../components/CommissionBalanceCard";
 import TotalCommissionOverviewCard from "../components/TotalCommissionOverviewCard";
 
@@ -109,14 +107,14 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>      {/* Display cards based on user role */}
       {userProfile?.role === "superadmin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <AdminReferralBalanceCard />
+          {/* <AdminReferralBalanceCard /> */}
           <TotalCommissionOverviewCard />
         </div>
       )}
 
       {userProfile?.role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <IndividualReferralBalanceCard />
+          {/* <IndividualReferralBalanceCard /> */}
           <CommissionBalanceCard />
         </div>
       )}
