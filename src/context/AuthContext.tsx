@@ -216,13 +216,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsubscribe();
   }, []);
 
+  // Helper function to retry Firebase operations with exponential backoff
+  const retryOperation = async <T,>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: unknown) {
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        
+        // Only retry on network errors
+        const errorCode = (error as FirebaseError)?.code;
+        const errorMessage = (error as Error)?.message;
+        if (errorCode === 'auth/network-request-failed' || 
+            errorCode === 'auth/timeout' ||
+            errorMessage?.includes('network') ||
+            errorMessage?.includes('Network')) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          console.log(`Network error detected, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
+    throw new Error('Max retries exceeded');
+  };
+
   // Sign in function  
   const signIn = async (email: string, password: string): Promise<User> => {
     try {
       console.log("Attempting to sign in with email:", email);
       
-      // First authenticate with Firebase Auth
-      const result = await signInWithEmailAndPassword(auth, email, password);
+      // First authenticate with Firebase Auth with retry logic
+      const result = await retryOperation(async () => {
+        return await signInWithEmailAndPassword(auth, email, password);
+      });
+      
       console.log("Firebase Auth successful, checking Firestore profile");
 
       // Then verify if the user exists in Firestore
@@ -315,16 +350,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ): Promise<void> => {
     let createdUser = null;
     try {
-      // Step 1: Create user in Firebase Authentication
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      // Step 1: Create user in Firebase Authentication with retry logic
+      const result = await retryOperation(async () => {
+        return await createUserWithEmailAndPassword(auth, email, password);
+      });
       createdUser = result.user;
       
-      // Step 2: Update profile with display name
-      await updateProfile(result.user, { displayName });
+      // Step 2: Update profile with display name with retry logic
+      await retryOperation(async () => {
+        return await updateProfile(result.user, { displayName });
+      });
       
       // Step 3: Create user profile in Firestore
       const userProfile: UserProfile = {

@@ -1,0 +1,447 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for role checking
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'superadmin';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isSeller() {
+      return isAuthenticated() && getUserData().role == 'seller';
+    }
+    
+    function isAdminOrSuperAdmin() {
+      return isAdmin() || isSuperAdmin();
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data, admins and superadmins can read all
+      allow read: if isOwner(userId) || isAdminOrSuperAdmin();
+      
+      // Users can update their own profile (except role and balance)
+      allow update: if isOwner(userId) && 
+        !('role' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        !('balance' in request.resource.data.diff(resource.data).affectedKeys());
+      
+      // Only superadmins can create users 
+      allow create: if isSuperAdmin();
+      
+      // Superadmins can update roles
+      // Both admins and superadmins can update balances (for admin purchases)
+      allow update: if (isSuperAdmin() && 
+                      ('role' in request.resource.data.diff(resource.data).affectedKeys())) ||
+                     (isAdminOrSuperAdmin() && 
+                      ('balance' in request.resource.data.diff(resource.data).affectedKeys()));
+      
+      // Only superadmins can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // Products collection
+    match /products/{productId} {
+      // Everyone can read products
+      allow read: if true;
+      
+      // Only sellers can create products, and only their own
+      allow create: if isSeller() && request.auth.uid == request.resource.data.sellerId;
+      
+      // Sellers can update their own products, admins and superadmins can update any
+      allow update: if (isSeller() && request.auth.uid == resource.data.sellerId) || 
+                       isAdminOrSuperAdmin();
+      
+      // Sellers can delete their own products, superadmins can delete any
+      allow delete: if (isSeller() && request.auth.uid == resource.data.sellerId) || 
+                       isSuperAdmin();
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Users can read their own orders (buyers), sellers can read orders for their products
+      allow read: if isOwner(resource.data.buyerId) || 
+                     isOwner(resource.data.sellerId) || 
+                     isAdminOrSuperAdmin();
+      
+      // Only authenticated users can create orders
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.buyerId;
+      
+      // Sellers can update order status, buyers can update certain fields
+      allow update: if (isOwner(resource.data.sellerId) && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+                      (isOwner(resource.data.buyerId) && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shippingAddress', 'updatedAt'])) ||
+                      isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete orders
+      allow delete: if isSuperAdmin();
+    }
+
+    // Activity feed security rules
+    match /activities/{activityId} {
+      // Users can read activities that they are involved in or that are public
+      allow read: if isOwner(resource.data.userId) || isAdminOrSuperAdmin();
+
+      // Only authenticated users can create activities
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+        
+      // Only admins can update activity status
+      allow update: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete activities
+      allow delete: if isSuperAdmin();
+    }
+
+    // Receipts collection
+    match /receipts/{receiptId} {
+      // Users can read their own receipts, admins and superadmins can read all
+      allow read: if isOwner(resource.data.userId) || isAdminOrSuperAdmin();
+      
+      // Only authenticated users can create receipts for themselves
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      
+      // Only superadmins can update receipts (for approval/rejection)
+      allow update: if isSuperAdmin();
+      
+      // Only superadmins can delete receipts
+      allow delete: if isSuperAdmin();
+    }
+
+    // Commission Balances collection
+    match /commission_balances/{balanceId} {
+      // Admins can read their own commission balance, superadmins can read all
+      allow read: if (isAdmin() && request.auth.uid == resource.data.adminId) || 
+                     isSuperAdmin();
+      
+      // Only superadmins can create/update commission balances
+      allow create, update: if isSuperAdmin();
+      
+      // Only superadmins can delete commission balances
+      allow delete: if isSuperAdmin();
+    }
+
+    // Commission Transactions collection
+    match /commission_transactions/{transactionId} {
+      // Admins can read their own commission transactions, superadmins can read all
+      allow read: if (isAdmin() && request.auth.uid == resource.data.adminId) || 
+                     isSuperAdmin();
+      
+      // Only superadmins can create commission transactions
+      allow create: if isSuperAdmin();
+      
+      // Commission transactions should be immutable once created
+      allow update: if false;
+      
+      // Only superadmins can delete commission transactions
+      allow delete: if isSuperAdmin();
+    }
+
+    // Transactions collection (for balance changes)
+    match /transactions/{transactionId} {
+      // Users can read their own transactions, admins and superadmins can read all
+      allow read: if isOwner(resource.data.userId) || isAdminOrSuperAdmin();
+      
+      // Only superadmins can create transactions (for balance management)
+      allow create: if isSuperAdmin();
+      
+      // Transactions should be immutable once created
+      allow update: if false;
+      
+      // Only superadmins can delete transactions
+      allow delete: if isSuperAdmin();
+    }
+
+    // Referral Codes collection
+    match /referral_codes/{codeId} {
+      // Admins can read their own referral codes, superadmins can read all
+      allow read: if (isAdmin() && request.auth.uid == resource.data.adminId) || 
+                     isSuperAdmin();
+      
+      // Admins can create their own referral codes, superadmins can create any
+      allow create: if (isAdmin() && request.auth.uid == request.resource.data.adminId) || 
+                       isSuperAdmin();
+      
+      // Admins can update their own referral codes, superadmins can update any
+      allow update: if (isAdmin() && request.auth.uid == resource.data.adminId) || 
+                       isSuperAdmin();
+      
+      // Only superadmins can delete referral codes
+      allow delete: if isSuperAdmin();
+    }
+
+    // Categories collection
+    match /categories/{categoryId} {
+      // Everyone can read categories
+      allow read: if true;
+      
+      // Only superadmins can manage categories
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // Reviews collection
+    match /reviews/{reviewId} {
+      // Everyone can read reviews
+      allow read: if true;
+      
+      // Only buyers who purchased the product can create reviews
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.buyerId;
+      
+      // Users can update their own reviews
+      allow update: if isOwner(resource.data.buyerId);
+      
+      // Users can delete their own reviews, superadmins can delete any
+      allow delete: if isOwner(resource.data.buyerId) || isSuperAdmin();
+    }
+
+    // Messages/Chat collection
+    match /messages/{messageId} {
+      // Users can read messages they're part of
+      allow read: if isOwner(resource.data.senderId) || 
+                     isOwner(resource.data.receiverId) || 
+                     isAdminOrSuperAdmin();
+      
+      // Users can create messages
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+      
+      // Users can update their own messages
+      allow update: if isOwner(resource.data.senderId);
+      
+      // Users can delete their own messages, superadmins can delete any
+      allow delete: if isOwner(resource.data.senderId) || isSuperAdmin();
+    }
+
+    // Admin Analytics collection
+    match /analytics/{analyticsId} {
+      // Only admins and superadmins can read analytics
+      allow read: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can create/update analytics
+      allow create, update: if isSuperAdmin();
+      
+      // Only superadmins can delete analytics
+      allow delete: if isSuperAdmin();
+    }
+
+    // Settings collection
+    match /settings/{settingId} {
+      // Everyone can read public settings
+      allow read: if true;
+      
+      // Only superadmins can manage settings
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isOwner(resource.data.userId);
+      
+      // System and admins can create notifications
+      allow create: if isAdminOrSuperAdmin();
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isOwner(resource.data.userId);
+      
+      // Users can delete their own notifications
+      allow delete: if isOwner(resource.data.userId) || isSuperAdmin();
+    }
+
+    // Admin Stock collection
+    match /adminStock/{stockId} {
+      // Everyone can read stock items (for store browsing)
+      allow read: if true;
+      
+      // Only sellers, admins, and superadmins can create stock items
+      allow create: if isSeller() || isAdminOrSuperAdmin();
+      
+      // Only owners, admins, and superadmins can update
+      allow update: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Only owners, admins, and superadmins can delete
+      allow delete: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+    }
+
+    // Seller Listings collection
+    match /listings/{listingId} {
+      // Everyone can read listings (for store browsing)
+      allow read: if true;
+      
+      // Only sellers can create listings for themselves
+      allow create: if isSeller() && request.auth.uid == request.resource.data.sellerId;
+      
+      // Only listing owners, admins, and superadmins can update
+      allow update: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Only listing owners, admins, and superadmins can delete
+      allow delete: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+    }
+
+    // Inventory collection - User-specific inventory
+    match /inventory/{userId}/products/{productId} {
+      // Users can read their own inventory, admins can read all
+      allow read: if isOwner(userId) || isAdminOrSuperAdmin();
+      
+      // Users can create/update their own inventory
+      allow create, update: if isOwner(userId) || isAdminOrSuperAdmin();
+      
+      // Users can delete their own inventory items
+      allow delete: if isOwner(userId) || isAdminOrSuperAdmin();
+    }
+
+    // Inventory collection - User subcollection access
+    match /inventory/{userId}/products {
+      // Users can read their own inventory subcollection, admins can read all
+      allow read: if isOwner(userId) || isAdminOrSuperAdmin();
+    }
+
+    // Global inventory collection (for admin-managed inventory)
+    match /inventory/{inventoryId} {
+      // Everyone can read inventory items (for store browsing)
+      allow read: if true;
+      
+      // Only admins and superadmins can manage global inventory
+      allow create, update, delete: if isAdminOrSuperAdmin();
+    }
+
+    // Purchases collection
+    match /purchases/{purchaseId} {
+      // Users can read their own purchases, sellers can read their sales, admins can read all
+      allow read: if isOwner(resource.data.buyerId) || 
+                     isOwner(resource.data.sellerId) || 
+                     isAdminOrSuperAdmin();
+      
+      // Authenticated users can create purchases
+      // Admin purchases with isAdminPurchase flag are only allowed for admins and superadmins
+      allow create: if isAuthenticated() && 
+                      (!request.resource.data.isAdminPurchase || isAdminOrSuperAdmin());
+      
+      // Only admins and superadmins can update purchases (for status changes)
+      allow update: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete purchases
+      allow delete: if isSuperAdmin();
+    }
+
+    // Seller Wallet collection
+    match /sellerWallets/{sellerId} {
+      // Sellers can read their own wallet, admins can read all
+      allow read: if isOwner(sellerId) || isAdminOrSuperAdmin();
+      
+      // Sellers can update their own wallet, admins and superadmins can update any wallet
+      allow create, update: if isOwner(sellerId) || isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete wallets
+      allow delete: if isSuperAdmin();
+    }
+
+    // Pending Profits collection
+    match /pending_profits/{profitId} {
+      // Sellers can read their own pending profits, admins and superadmins can read all
+      allow read: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Any authenticated user (including admins and superadmins) can create pending profits
+      allow create: if isAuthenticated();
+      
+      // Sellers can update their own pending profits, admins and superadmins can update any
+      allow update: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete pending profits
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Sales collection
+    match /sales/{saleId} {
+      // Buyers can read their own sales, sellers can see their own sales, admins can read all
+      allow read: if isOwner(resource.data.buyerId) || 
+                     isOwner(resource.data.sellerId) || 
+                     isAdminOrSuperAdmin();
+      
+      // Any authenticated user (including admins and superadmins) can create sales
+      allow create: if isAuthenticated();
+      
+      // Only admins and superadmins can update sales
+      allow update: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete sales
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Seller Deposits collection
+    match /seller_deposits/{depositId} {
+      // Sellers can read their own deposits, admins and superadmins can read all
+      allow read: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Sellers can create deposits for themselves, admins and superadmins can create for anyone
+      allow create: if isAuthenticated();
+      
+      // Only admins and superadmins can update deposits (for confirmation)
+      allow update: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete deposits
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Withdrawal Requests collection
+    match /withdrawal_requests/{requestId} {
+      // Sellers can read their own withdrawal requests, admins and superadmins can read all
+      allow read: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Sellers can create withdrawal requests, admins and superadmins can create for anyone
+      allow create: if isAuthenticated();
+      
+      // Only admins and superadmins can update withdrawal requests (for approval/processing)
+      allow update: if isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete withdrawal requests
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Admin Buy Requests collection
+    match /adminBuyRequests/{requestId} {
+      // Only admins and superadmins can read/write to admin buy requests
+      allow read: if isAdminOrSuperAdmin();
+      allow create: if isAdminOrSuperAdmin();
+      allow update: if isAdminOrSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    // Pending Deposits collection
+    match /pending_deposits/{depositId} {
+      // Sellers can read their own pending deposits, admins and superadmins can read all
+      allow read: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Any authenticated user (including admins and superadmins) can create pending deposits
+      allow create: if isAuthenticated();
+      
+      // Sellers can update their own pending deposits, admins and superadmins can update any
+      allow update: if isOwner(resource.data.sellerId) || isAdminOrSuperAdmin();
+      
+      // Only superadmins can delete pending deposits
+      allow delete: if isSuperAdmin();
+    }
+
+    // Allow admins and superadmins to update user balances during purchases
+
+
+    // Fallback rule - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

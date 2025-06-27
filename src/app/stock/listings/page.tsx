@@ -16,7 +16,25 @@ export default function MyListingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(5);  const [loading, setLoading] = useState(true);
   const [editingListing, setEditingListing] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
+
+  // Check authentication and seller role
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = "/login?redirect=/stock/listings";
+      return;
+    }
+
+    if (!authLoading && userProfile && userProfile.role !== "seller") {
+      toast.error("Only sellers can access product listings");
+      if (userProfile.role === "admin" || userProfile.role === "superadmin") {
+        window.location.href = "/dashboard";
+      } else {
+        window.location.href = "/store";
+      }
+      return;
+    }
+  }, [user, userProfile, authLoading]);
 
   // Subscribe to Firebase real-time listings updates
   useEffect(() => {
@@ -140,11 +158,11 @@ export default function MyListingsPage() {
           <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Buy stock
           </Link>
-          <Link href="/stock/inventory" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Inventory
-          </Link>
           <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
             My Listings
+          </Link>
+          <Link href="/stock/pending" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            Pending Products
           </Link>        </div>        {/* Mobile-optimized Search Bar */}
         <div className="mb-4 sm:mb-6">
           <div className="relative">
@@ -431,7 +449,7 @@ export default function MyListingsPage() {
                 href="/stock/inventory"
                 className="inline-block px-6 py-3 bg-[#FF0059] text-white rounded-lg text-base font-medium hover:bg-[#E6004F] transition-colors"
               >
-                List Products for Sale
+                Go to Inventory to List Products
               </Link>
             </div>
           )}

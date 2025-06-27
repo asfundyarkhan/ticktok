@@ -65,8 +65,8 @@ export default function Navbar() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">            {/* Left section with logo */}
-            <div className="flex items-center">
+          <div className="flex items-center justify-between h-16">            {/* Left section with logo and navigation */}
+            <div className="flex items-center space-x-8">
               <Link
                 href={isLoggedInPage ? (isSeller ? "/profile" : "/store") : "/"}
                 className="flex items-center"
@@ -74,6 +74,20 @@ export default function Navbar() {
                 <span className="text-lg font-bold text-[#FF0059]">TikTok</span>
                 <span className="ml-1 text-lg font-semibold text-gray-900">Shop</span>
               </Link>
+              
+              {/* Store navigation link */}
+              <div className="hidden md:flex">
+                <Link
+                  href="/store"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    pathname === "/store" 
+                      ? "text-[#FF0059] bg-pink-50" 
+                      : "text-gray-700 hover:text-[#FF0059] hover:bg-gray-50"
+                  }`}
+                >
+                  Store
+                </Link>
+              </div>
             </div>
             
             {/* Right section */}
@@ -161,7 +175,22 @@ export default function Navbar() {
         <div className="bg-white shadow-lg border-t">
           <div className="max-w-7xl mx-auto divide-y divide-gray-200">
             {isLoggedInPage ? (
-              <>                <div className="py-3 px-4 space-y-3">
+              <>
+                {/* Store link for mobile */}
+                <div className="py-2 px-4">
+                  <Link
+                    href="/store"
+                    className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
+                      pathname === "/store" 
+                        ? "text-[#FF0059] bg-pink-50" 
+                        : "text-gray-600 hover:text-[#FF0059] hover:bg-gray-50"
+                    }`}
+                  >
+                    Store
+                  </Link>
+                </div>
+                
+                <div className="py-3 px-4 space-y-3">
                   {/* Balance card for mobile - always show for logged in users */}
                   <div className="bg-gradient-to-r from-pink-50 to-pink-100 p-4 rounded-lg">
                     <div className="flex items-center justify-between">
@@ -204,6 +233,18 @@ export default function Navbar() {
               </>
             ) : (
               <div className="py-3 px-4 space-y-3">
+                {/* Store link for unauthenticated mobile users */}
+                <Link
+                  href="/store"
+                  className={`block px-3 py-2 text-base font-medium rounded-md transition-colors ${
+                    pathname === "/store" 
+                      ? "text-[#FF0059] bg-pink-50" 
+                      : "text-gray-600 hover:text-[#FF0059] hover:bg-gray-50"
+                  }`}
+                >
+                  Browse Store
+                </Link>
+                
                 <Link
                   href="/login"
                   className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"

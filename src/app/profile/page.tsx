@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
+import SellerWalletDashboard from "../components/SellerWalletDashboard";
 import { Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
@@ -190,12 +191,20 @@ function UserProfileContent() {
                 </div>
               </div>              <div className="flex space-x-2">
                 {userProfile.role === "seller" && (
-                  <Link
-                    href="/stock/inventory"
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-                  >
-                    Inventory
-                  </Link>
+                  <>
+                    <Link
+                      href="/stock/listings"
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                    >
+                      My Listings
+                    </Link>
+                    <Link
+                      href="/stock/pending"
+                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                    >
+                      Pending Products
+                    </Link>
+                  </>
                 )}
                 
                 <button
@@ -412,6 +421,13 @@ function UserProfileContent() {
             </div>
           </div>
         </div>
+
+        {/* Seller Wallet Dashboard */}
+        {userProfile.role === "seller" && (
+          <div className="mt-6">
+            <SellerWalletDashboard sellerId={userProfile.uid} />
+          </div>
+        )}
       </div>
     </div>
   );

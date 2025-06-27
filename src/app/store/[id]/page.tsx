@@ -21,6 +21,8 @@ import { FlyToCartAnimation } from "@/app/components/CartAnimations";
 import { useCart } from "@/app/components/NewCartContext";
 import { getBestProductImage, normalizeProductImages } from "@/app/utils/imageHelpers";
 import { generateUniqueId } from "@/utils/idGenerator";
+import { useAuth } from "@/context/AuthContext";
+import LoginModal from "@/app/components/LoginModal";
 import styles from "./page.module.css";
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -30,8 +32,11 @@ import "swiper/css/thumbs";
 export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id as string;
-    const [product, setProduct] = useState<StockItem | null>(null);
-  const [loading, setLoading] = useState(true);  const [quantity, setQuantity] = useState<number>(1);
+  const { user } = useAuth();
+  const [product, setProduct] = useState<StockItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [quantity, setQuantity] = useState<number>(1);
   const [thumbsSwiper, setThumbsSwiper] = useState<SwiperType | null>(null);
   const [showAnimation, setShowAnimation] = useState(false);
   const [animationStartPosition, setAnimationStartPosition] = useState({
@@ -209,7 +214,23 @@ export default function ProductDetailPage() {
     setQuantity(Math.min(safeStock, safeQuantity + 1));
   };
 
+  // Handler for related product quick add
+  const handleRelatedProductQuickAdd = (e: React.MouseEvent) => {
+    // Check if user is authenticated
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    // If authenticated, let the default behavior handle the cart addition
+  };
+
   const handleAddToCart = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Check if user is authenticated
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
     if (!product) {
       toast.error("Product not found");
       return;
@@ -309,7 +330,16 @@ export default function ProductDetailPage() {
   }
   return (
     <div className="bg-white">
-      <Toaster position="top-right" />      {/* Cart Animation */}      {showAnimation && (
+      <Toaster position="top-right" />
+      
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)} 
+      />
+      
+      {/* Cart Animation */}
+      {showAnimation && (
         <FlyToCartAnimation
           startPosition={animationStartPosition}
           endPosition={animationEndPosition}
@@ -754,14 +784,16 @@ export default function ProductDetailPage() {
                         </div>
                       </div>
                     </div>
-                    <EnhancedQuickAddButton                      product={{
+                    <EnhancedQuickAddButton
+                      product={{
                         id: relatedProduct.id || "",
                         name: relatedProduct.name || "",
                         price: relatedProduct.isSale && relatedProduct.salePrice ? relatedProduct.salePrice : (relatedProduct.price || 0),
                         image: relatedProduct.mainImage || "",
                         category: relatedProduct.category || "",
                         description: relatedProduct.description || "",
-                        quantity: relatedProduct.stock || 0,                        sellerId: relatedProduct.sellerId || "",
+                        quantity: relatedProduct.stock || 0,
+                        sellerId: relatedProduct.sellerId || "",
                         sellerName: relatedProduct.sellerName || "",
                         productId: relatedProduct.productId || "",
                         isSale: relatedProduct.isSale || false,
@@ -770,7 +802,9 @@ export default function ProductDetailPage() {
                       className="flex items-center justify-center"
                       showIcon={true}
                       variant="round"
-                      size="sm"                    />
+                      size="sm"
+                      onClick={handleRelatedProductQuickAdd}
+                    />
                   </div>
                 </div>
               </div>

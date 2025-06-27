@@ -7,6 +7,7 @@ import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
 import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
+import LoginModal from "@/app/components/LoginModal";
 import { useCart } from "@/app/components/NewCartContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
 import { StockService } from "@/services/stockService";
@@ -51,9 +52,10 @@ export default function StorePage() {
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
   const { userProfile, loading } = useAuth();
 
-  // Redirect sellers to their profile page
+  // Only redirect regular sellers, allow everyone else to access the store
   useEffect(() => {
     if (!loading && userProfile?.role === "seller") {
+      // The type check shows we can only have one role type, so sellers will be redirected
       console.log("Seller attempted to access store page, redirecting to profile");
       window.location.href = "/profile";
       return;
@@ -77,32 +79,62 @@ export default function StorePage() {
     window.addEventListener("resize", updateCartPosition);
     return () => window.removeEventListener("resize", updateCartPosition);
   }, []);
+  
   useEffect(() => {
-    const unsubscribe = StockService.subscribeToAllListings((listings) => {
-      const stockItems = listings.map((listing) => ({
-        id: listing.productId, // Use productId instead of listing.id for navigation
-        productId: listing.productId,
-        productCode: listing.productCode || listing.productId,
-        name: listing.name,
-        description: listing.description,
-        price: listing.price,
-        stock: listing.quantity,
-        images: listing.images || (listing.image ? [listing.image] : []),
-        mainImage: listing.mainImage || listing.image,
-        category: listing.category,
-        listed: true,
-        sellerId: listing.sellerId,
-        sellerName: listing.sellerName,        rating: listing.rating || 0,
-        reviews: Array.isArray(listing.reviews) ? listing.reviews : [],
-        isSale: false,
-        salePercentage: 0,
-        createdAt: listing.createdAt,
-        updatedAt: listing.updatedAt,
-      }));
-      setProducts(stockItems);
-    });
+    const loadProducts = async () => {
+      try {
+        // Try real-time subscription first
+        const unsubscribe = StockService.subscribeToAllListings(
+          (listings) => {
+            const stockItems = listings.map((listing) => ({
+              id: listing.productId, // Use productId instead of listing.id for navigation
+              productId: listing.productId,
+              productCode: listing.productCode || listing.productId,
+              name: listing.name,
+              description: listing.description,
+              price: listing.price,
+              stock: listing.quantity,
+              images: listing.images || (listing.image ? [listing.image] : []),
+              mainImage: listing.mainImage || listing.image,
+              category: listing.category,
+              listed: true,
+              sellerId: listing.sellerId,
+              sellerName: listing.sellerName,
+              rating: listing.rating || 0,
+              reviews: Array.isArray(listing.reviews) ? listing.reviews : [],
+              isSale: false,
+              salePercentage: 0,
+              createdAt: listing.createdAt,
+              updatedAt: listing.updatedAt,
+            }));
+            setProducts(stockItems);
+          },
+          (error) => {
+            console.error("Real-time subscription failed, falling back to static load:", error);
+            // Fallback to static load if subscription fails
+            loadProductsStatic();
+          }
+        );
 
-    return () => unsubscribe();
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("Subscription setup failed, using static load:", error);
+        // Fallback to static load if subscription setup fails
+        loadProductsStatic();
+      }
+    };
+
+    const loadProductsStatic = async () => {
+      try {
+        const stockItems = await StockService.getAllStockItems();
+        setProducts(stockItems);
+      } catch (error) {
+        console.error("Failed to load products:", error);
+        toast.error("Failed to load products. Please try again later.");
+      }
+    };
+
+    loadProducts();
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -155,7 +187,7 @@ export default function StorePage() {
     setTimeout(() => {      // Create a clean cart item from the product
       const cartItem = {
         id: product.id || product.productId || generateUniqueId('item'),
-        productId: product.productId || product.id || generateUniqueId('prod'),
+        productId: product.productId || generateUniqueId('prod'), // Ensure productId is never undefined
         name: product.name || "Unknown Product",
         price: typeof product.price === 'number' ? product.price : 0,
         salePrice: product.salePrice && typeof product.salePrice === 'number' ? product.salePrice : undefined,
@@ -167,6 +199,9 @@ export default function StorePage() {
         stock: typeof product.stock === 'number' ? product.stock : 0,
         rating: typeof product.rating === 'number' ? product.rating : 0,
       };
+
+      console.log(`Adding to cart - product:`, product);
+      console.log(`Cart item created:`, cartItem);
 
       addToCart(cartItem);
 

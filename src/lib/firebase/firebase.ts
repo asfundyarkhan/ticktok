@@ -20,7 +20,8 @@ const firebaseConfig: {
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
     "AIzaSyBwqU1SU4jNWYKjhqkN1tEyyp64HXzmyG8",
   authDomain:
-    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "tiktokshop.international",
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    "ticktokshop-5f1e9.firebaseapp.com", // Using standard Firebase domain for better reliability
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "ticktokshop-5f1e9",
   storageBucket:
     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
@@ -49,6 +50,11 @@ try {
   // Initialize Firebase services with individual error handling
   try {
     auth = getAuth(app);
+
+    // Add development environment logging
+    if (process.env.NODE_ENV === "development") {
+      console.log("Firebase Auth initialized for localhost development");
+    }
   } catch (authError) {
     console.error("Firebase Auth initialization error:", authError);
     // We'll attempt to recover from this below if needed

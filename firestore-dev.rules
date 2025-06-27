@@ -1,0 +1,148 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 🚨 DEVELOPMENT/TESTING RULES - VERY PERMISSIVE! 🚨
+    // ⚠️  DO NOT USE IN PRODUCTION! ⚠️
+    
+    // Helper functions for role checking (kept for compatibility)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'superadmin';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+    
+    function isSeller() {
+      return isAuthenticated() && getUserData().role == 'seller';
+    }
+    
+    function isAdminOrSuperAdmin() {
+      return isAdmin() || isSuperAdmin();
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 🔓 OPEN ACCESS FOR DEVELOPMENT/TESTING
+    // Users collection - Allow all operations
+    match /users/{userId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Products collection - Allow all operations
+    match /products/{productId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Admin Stock collection - Allow all operations
+    match /adminStock/{stockId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Listings collection - Allow all operations
+    match /listings/{listingId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Orders collection - Allow all operations
+    match /orders/{orderId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // User inventory subcollection - Allow all operations
+    match /inventory/{userId}/products/{productId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // User wallet subcollection - Allow all operations
+    match /wallets/{userId}/transactions/{transactionId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Activity feed - Allow all operations
+    match /activities/{activityId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Receipts collection - Allow all operations
+    match /receipts/{receiptId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Commission Balances collection - Allow all operations
+    match /commission_balances/{balanceId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Commission Transactions collection - Allow all operations
+    match /commission_transactions/{transactionId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Referral system collections - Allow all operations
+    match /referrals/{referralId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // User referral earnings - Allow all operations
+    match /users/{userId}/referralEarnings/{earningId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Seller wallets - Allow all operations
+    match /sellerWallets/{sellerId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Seller wallet transactions - Allow all operations
+    match /sellerWallets/{sellerId}/transactions/{transactionId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Admin buy system - Allow all operations
+    match /adminBuyRequests/{requestId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Admin credit transactions - Allow all operations
+    match /adminCreditTransactions/{transactionId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Admin stats and analytics - Allow all operations
+    match /adminStats/{statId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // System configuration - Allow all operations
+    match /systemConfig/{configId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Notifications - Allow all operations
+    match /notifications/{notificationId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // User notifications - Allow all operations
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, write, create, update, delete: if true;
+    }
+
+    // Catch-all rule for any other collections - Allow all operations
+    match /{document=**} {
+      allow read, write, create, update, delete: if true;
+    }
+  }
+}

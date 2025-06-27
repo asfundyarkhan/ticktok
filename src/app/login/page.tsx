@@ -197,6 +197,16 @@ function LoginForm() {
                   )}
                 </button>
               </div>
+
+              {/* Forgot Password Link */}
+              <div className="text-center">
+                <Link
+                  href="/auth/reset-password"
+                  className="text-sm text-pink-600 hover:text-pink-500 font-medium"
+                >
+                  Forgot your password?
+                </Link>
+              </div>
             </Form>
           )}
         </Formik>

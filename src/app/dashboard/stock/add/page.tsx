@@ -21,7 +21,25 @@ const calculateSalePrice = (price: string, isSale: boolean, salePercentage: stri
 
 function AddStockPageContent() {
   const router = useRouter();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
+  
+  // Check authentication and seller role
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = "/login?redirect=/dashboard/stock/add";
+      return;
+    }
+
+    if (!authLoading && userProfile && userProfile.role !== "seller") {
+      toast.error("Only sellers can add products");
+      if (userProfile.role === "admin" || userProfile.role === "superadmin") {
+        window.location.href = "/dashboard";
+      } else {
+        window.location.href = "/store";
+      }
+      return;
+    }
+  }, [user, userProfile, authLoading]);
   
   const [formData, setFormData] = useState({
     name: "",

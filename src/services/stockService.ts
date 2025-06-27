@@ -24,6 +24,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -613,7 +614,7 @@ export class StockService {
   }
 
   /**
-   * Process admin purchase from seller listings (no fees, direct transfer)
+   * Process admin purchase of a listing
    * @param adminId The admin's ID
    * @param listingId The listing ID to purchase from
    * @param quantity Quantity to purchase (typically 1)
@@ -629,109 +630,246 @@ export class StockService {
     price: number
   ): Promise<PurchaseResult> {
     try {
-      return await runTransaction(
-        firestore,
-        async (t: Transaction): Promise<PurchaseResult> => {
-          // Get all references
-          const listingRef = doc(
-            firestore,
-            this.LISTINGS_COLLECTION,
-            listingId
+      // First, get listing data to check product ID
+      const listingRef = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+      const listingDoc = await getDoc(listingRef);
+      
+      if (!listingDoc.exists()) {
+        return {
+          success: false,
+          message: "Listing not found",
+          quantity: 0,
+          totalCost: 0,
+        };
+      }
+
+      const listingData = listingDoc.data() as DocumentData;
+      const productId = listingData.productId || `listing-${listingId}`;
+
+      console.log(`Admin purchase attempt - productId: ${productId}, sellerId: ${sellerId}`);
+
+      // Check if this product has a pending deposit entry (new system)
+      const { PendingDepositService } = await import('./pendingDepositService');
+      const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
+        sellerId,
+        productId
+      );
+
+      console.log(`Pending deposit search result - found: ${found}, deposit:`, deposit);
+
+      if (found && deposit) {
+        console.log(`Using new pending deposit system for admin purchase of product ${productId}`);
+        
+        // Use new pending deposit system - process the sale properly
+        try {
+          // First update the listing quantity in a transaction
+          await runTransaction(firestore, async (t: Transaction) => {
+            const listingRefTx = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+            const listingDocTx = await t.get(listingRefTx);
+
+            if (!listingDocTx.exists()) {
+              throw new Error("Listing not found in transaction");
+            }
+
+            const listingDataTx = listingDocTx.data() as DocumentData;
+
+            // Validate listing quantity
+            if (listingDataTx.quantity < quantity) {
+              throw new Error("Insufficient stock in listing");
+            }
+
+            // Update listing quantity
+            const newQuantity = listingDataTx.quantity - quantity;
+            t.update(listingRefTx, {
+              quantity: newQuantity,
+              updatedAt: Timestamp.now(),
+            });
+          });
+
+          // Process the sale through the pending deposit system
+          const saleResult = await PendingDepositService.markProductSold(
+            deposit.id!,
+            sellerId,
+            price, // Sale price
+            quantity // Quantity sold
           );
-          const adminRef = doc(firestore, "users", adminId);
-          const sellerRef = doc(firestore, "users", sellerId);
 
-          // Get current data - ALL READS FIRST
-          const listingDoc = await t.get(listingRef);
-          const adminDoc = await t.get(adminRef);
-          const sellerDoc = await t.get(sellerRef);
+          if (saleResult.success) {
+            console.log(`Successfully processed admin purchase with pending deposit system`);
+            
+            // Record the admin purchase for tracking
+            const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
+            const newPurchaseDoc = doc(purchaseRef);
+            await setDoc(newPurchaseDoc, {
+              userId: adminId,
+              sellerId: sellerId,
+              listingId: listingId,
+              productId: productId,
+              productCode: listingData.productCode || `LISTING-${listingId}`,
+              productName: listingData.name || "Unknown Product",
+              quantity,
+              pricePerUnit: price,
+              totalPrice: price * quantity,
+              isAdminPurchase: true,
+              usesPendingDepositSystem: true,
+              createdAt: Timestamp.now(),
+            });
 
-          if (
-            !listingDoc.exists() ||
-            !adminDoc.exists() ||
-            !sellerDoc.exists()
-          ) {
+            // Also create pending product entry for receipt upload workflow
+            const { PendingProductService } = await import('./pendingProductService');
+            const { UserService } = await import('./userService');
+            
+            // Fetch seller information
+            let sellerName = "Unknown Seller";
+            let sellerEmail = "";
+            try {
+              const sellerProfile = await UserService.getUserProfile(sellerId);
+              if (sellerProfile) {
+                sellerName = sellerProfile.displayName || sellerProfile.email?.split('@')[0] || "Unknown Seller";
+                sellerEmail = sellerProfile.email || "";
+              }
+            } catch (error) {
+              console.warn("Could not fetch seller profile for pending product:", error);
+            }
+            
+            await PendingProductService.createPendingProduct(
+              sellerId,
+              productId,
+              listingData.name || "Unknown Product",
+              quantity,
+              price,
+              adminId, // buyerId (admin)
+              listingData.mainImage || listingData.images?.[0], // productImage
+              sellerName,
+              sellerEmail,
+              "Admin", // buyerName
+              "" // buyerEmail (admin email not needed)
+            );
+
             return {
-              success: false,
-              message: "Listing, admin, or seller not found",
-              quantity: 0,
-              totalCost: 0,
+              success: true,
+              message: "Admin purchase successful (using pending deposit system)",
+              quantity,
+              totalCost: price * quantity,
             };
-          }
-
-          const listingData = listingDoc.data() as DocumentData;
-          const adminData = adminDoc.data() as DocumentData;
-          const sellerData = sellerDoc.data() as DocumentData;
-
-          // Validate listing data
-          if (listingData.quantity < quantity) {
+          } else {
+            console.error("Failed to process sale through pending deposit system:", saleResult.message);
             return {
               success: false,
-              message: "Insufficient stock in listing",
+              message: `Sale processing failed: ${saleResult.message}`,
               quantity: 0,
               totalCost: price * quantity,
             };
           }
+        } catch (error) {
+          console.error("Error processing admin purchase with pending deposit system:", error);
+          return {
+            success: false,
+            message: error instanceof Error ? error.message : "Failed to process admin purchase",
+            quantity: 0,
+            totalCost: price * quantity,
+          };
+        }
+      } else {
+        console.log(`Using old system for admin purchase of product ${productId} - no pending deposit found`);
+        
+        // Fall back to existing system for products without pending deposits
+        return await runTransaction(
+          firestore,
+          async (t: Transaction): Promise<PurchaseResult> => {
+            // Get all references
+            const listingRefTx = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+            const adminRef = doc(firestore, "users", adminId);
+            const sellerRef = doc(firestore, "users", sellerId);
 
-          const totalCost = price * quantity;
+            // Get current data - ALL READS FIRST
+            const listingDocTx = await t.get(listingRefTx);
+            const adminDoc = await t.get(adminRef);
+            const sellerDoc = await t.get(sellerRef);
 
-          // Check admin's balance
-          if (adminData.balance < totalCost) {
+            if (!listingDocTx.exists() || !adminDoc.exists() || !sellerDoc.exists()) {
+              return {
+                success: false,
+                message: "Listing, admin, or seller not found",
+                quantity: 0,
+                totalCost: 0,
+              };
+            }
+
+            const listingDataTx = listingDocTx.data() as DocumentData;
+            const adminData = adminDoc.data() as DocumentData;
+            const sellerData = sellerDoc.data() as DocumentData;
+
+            // Validate listing data
+            if (listingDataTx.quantity < quantity) {
+              return {
+                success: false,
+                message: "Insufficient stock in listing",
+                quantity: 0,
+                totalCost: price * quantity,
+              };
+            }
+
+            const totalCost = price * quantity;
+
+            // Check admin's balance
+            if (adminData.balance < totalCost) {
+              return {
+                success: false,
+                message: "Insufficient admin balance",
+                quantity: 0,
+                totalCost,
+              };
+            }
+
+            // Now perform all write operations
+
+            // Deduct from admin balance
+            t.update(adminRef, {
+              balance: adminData.balance - totalCost,
+              updatedAt: Timestamp.now(),
+            });
+
+            // Add to seller balance (direct transfer, no fees)
+            t.update(sellerRef, {
+              balance: (sellerData.balance || 0) + totalCost,
+              updatedAt: Timestamp.now(),
+            });
+
+            // Update listing quantity
+            const newQuantity = listingDataTx.quantity - quantity;
+            t.update(listingRefTx, {
+              quantity: newQuantity,
+              updatedAt: Timestamp.now(),
+            });
+
+            // Record the admin purchase
+            const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
+            const newPurchaseDoc = doc(purchaseRef);
+            t.set(newPurchaseDoc, {
+              userId: adminId,
+              sellerId: sellerId,
+              listingId: listingId,
+              productId: productId,
+              productCode: listingDataTx.productCode || `LISTING-${listingId}`,
+              productName: listingDataTx.name || "Unknown Product",
+              quantity,
+              pricePerUnit: price,
+              totalPrice: totalCost,
+              isAdminPurchase: true,
+              usesPendingDepositSystem: false, // Flag for old system
+              createdAt: Timestamp.now(),
+            });
+
             return {
-              success: false,
-              message: "Insufficient admin balance",
-              quantity: 0,
+              success: true,
+              message: "Admin purchase successful (using legacy system)",
+              quantity,
               totalCost,
             };
           }
-
-          // Now perform all write operations
-
-          // Deduct from admin balance
-          t.update(adminRef, {
-            balance: adminData.balance - totalCost,
-            updatedAt: Timestamp.now(),
-          });
-
-          // Add to seller balance (direct transfer, no fees)
-          t.update(sellerRef, {
-            balance: (sellerData.balance || 0) + totalCost,
-            updatedAt: Timestamp.now(),
-          }); // Update listing quantity
-          const newQuantity = listingData.quantity - quantity;
-
-          // Always update listing quantity (no longer delete when reaching zero)
-          t.update(listingRef, {
-            quantity: newQuantity,
-            updatedAt: Timestamp.now(),
-          }); // Record the admin purchase
-          const purchaseRef = collection(
-            firestore,
-            StockService.PURCHASES_COLLECTION
-          );
-          const newPurchaseDoc = doc(purchaseRef);
-          t.set(newPurchaseDoc, {
-            userId: adminId,
-            sellerId: sellerId,
-            listingId: listingId,
-            productId: listingData.productId || `listing-${listingId}`,
-            productCode: listingData.productCode || `LISTING-${listingId}`,
-            productName: listingData.name || "Unknown Product",
-            quantity,
-            pricePerUnit: price,
-            totalPrice: totalCost,
-            isAdminPurchase: true, // Flag to identify admin purchases
-            createdAt: Timestamp.now(),
-          });
-
-          return {
-            success: true,
-            message: "Admin purchase successful",
-            quantity,
-            totalCost,
-          };
-        }
-      );
+        );
+      }
     } catch (error: unknown) {
       console.error("Error processing admin purchase:", error);
       throw error;
@@ -1513,6 +1651,253 @@ export class StockService {
       return listings;
     } catch (error) {
       console.error("Error searching listings by product ID:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a listing from admin stock without upfront payment (seller workflow)
+   * This adds the product to inventory, creates a listing, and tracks pending deposit
+   * @param sellerId The seller's user ID
+   * @param stockId The admin stock item ID
+   * @param quantity The quantity to list
+   * @param listingPrice The price to list at (with markup)
+   * @returns Promise with success status and listing details
+   */
+  static async createListingFromAdminStock(
+    sellerId: string,
+    stockId: string,
+    quantity: number,
+    listingPrice: number
+  ): Promise<PurchaseResult & { listingId?: string; productId?: string }> {
+    try {
+      console.log(`Creating listing from admin stock - sellerId: ${sellerId}, stockId: ${stockId}, quantity: ${quantity}`);
+      
+      return await this.runSecureTransaction(
+        async (t: Transaction): Promise<PurchaseResult & { listingId?: string; productId?: string }> => {
+          // 1. PREPARE ALL REFERENCES
+          const stockRef = doc(firestore, StockService.COLLECTION, stockId);
+          const inventoryCollectionPath = `${StockService.INVENTORY_COLLECTION}/${sellerId}/products`;
+          const inventoryRef = collection(firestore, inventoryCollectionPath);
+
+          console.log(`Stock reference path: ${StockService.COLLECTION}/${stockId}`);
+
+          // 2. PERFORM ALL READS FIRST
+          const stockDoc = await t.get(stockRef);
+
+          if (!stockDoc.exists()) {
+            console.log(`Stock document not found for ID: ${stockId}`);
+            return {
+              success: false,
+              message: "Stock item not found",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+
+          console.log(`Stock document found, data:`, stockDoc.data());
+
+          const stockData = stockDoc.data() as DocumentData;
+
+          // Validate stock data with detailed error messages
+          if (!stockData.productCode) {
+            return {
+              success: false,
+              message: "Stock item missing product code",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+          
+          if (!stockData.name) {
+            return {
+              success: false,
+              message: "Stock item missing name",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+          
+          if (typeof stockData.price !== "number") {
+            return {
+              success: false,
+              message: "Stock item has invalid price",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+          
+          if (typeof stockData.stock !== "number") {
+            return {
+              success: false,
+              message: "Stock item has invalid stock quantity",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+          
+          if (stockData.stock < quantity) {
+            return {
+              success: false,
+              message: `Insufficient stock. Available: ${stockData.stock}, Requested: ${quantity}`,
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+          
+          if (!stockData.listed) {
+            return {
+              success: false,
+              message: "Stock item is not listed for sale",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+
+          // Check inventory for existing product
+          const productId = stockData.productId || stockId;
+          const productRef = doc(inventoryRef, productId);
+          const productDoc = await t.get(productRef);
+          const productExists = productDoc.exists();
+          const productData = productExists ? productDoc.data() : null;
+
+          // 3. PERFORM ALL WRITES
+          // Update admin stock quantity
+          const newStockQuantity = stockData.stock - quantity;
+          t.update(stockRef, {
+            stock: newStockQuantity,
+            updatedAt: Timestamp.now(),
+          });
+
+          // Add/update inventory item (no balance deduction)
+          if (productExists && productData) {
+            t.update(productRef, {
+              stock: (productData.stock || 0) + quantity,
+              features: stockData.features || productData.features || "",
+              rating: stockData.rating || productData.rating || 0,
+              reviews: stockData.reviews || productData.reviews || [],
+              updatedAt: Timestamp.now(),
+            });
+          } else {
+            t.set(productRef, {
+              productId: stockData.productId || stockId,
+              productCode: stockData.productCode,
+              name: stockData.name,
+              description: stockData.description || "",
+              mainImage:
+                stockData.mainImage ||
+                (stockData.images && stockData.images.length > 0
+                  ? stockData.images[0]
+                  : "/images/placeholders/t-shirt.svg"),
+              images: stockData.images || [],
+              image:
+                stockData.mainImage ||
+                (stockData.images && stockData.images.length > 0
+                  ? stockData.images[0]
+                  : "/images/placeholders/t-shirt.svg"),
+              category: stockData.category || "general",
+              stock: quantity,
+              price: stockData.price, // Original admin price
+              purchasePrice: stockData.price,
+              features: stockData.features || "",
+              rating: stockData.rating || 0,
+              reviews: stockData.reviews || [],
+              listed: false,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+            });
+          }
+
+          // 4. Create the listing
+          const listingData = {
+            sellerId,
+            productId: productId,
+            name: stockData.name,
+            description: stockData.description || "",
+            features: stockData.features || "",
+            image:
+              stockData.mainImage ||
+              stockData.image ||
+              (stockData.images && stockData.images.length > 0
+                ? stockData.images[0]
+                : ""),
+            images:
+              stockData.images ||
+              (stockData.image ? [stockData.image] : []),
+            mainImage:
+              stockData.mainImage ||
+              stockData.image ||
+              (stockData.images && stockData.images.length > 0
+                ? stockData.images[0]
+                : ""),
+            imageUrl: stockData.imageUrl || stockData.imageURL || "",
+            imageURL: stockData.imageURL || stockData.imageUrl || "",
+            category: stockData.category,
+            reviews: Array.isArray(stockData.reviews)
+              ? stockData.reviews
+              : typeof stockData.reviews === "number"
+              ? Array(stockData.reviews).fill({
+                  rating: stockData.rating || 0,
+                  content: "Legacy review",
+                  date: new Date().toISOString(),
+                })
+              : [],
+            rating: stockData.rating || 0,
+            reviewCount: Array.isArray(stockData.reviews)
+              ? stockData.reviews.length
+              : typeof stockData.reviews === "number"
+              ? stockData.reviews
+              : 0,
+            quantity,
+            price: listingPrice, // Marked up price
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          };
+
+          // Check if listing already exists
+          const existingListingQuery = query(
+            collection(firestore, StockService.LISTINGS_COLLECTION),
+            where("sellerId", "==", sellerId),
+            where("productId", "==", productId)
+          );
+          const existingListingSnapshot = await getDocs(existingListingQuery);
+
+          let listingId: string;
+
+          if (!existingListingSnapshot.empty) {
+            // Update existing listing
+            const listingDoc = existingListingSnapshot.docs[0];
+            listingId = listingDoc.id;
+            const existingData = listingDoc.data();
+            t.update(
+              doc(firestore, StockService.LISTINGS_COLLECTION, listingId),
+              {
+                quantity: existingData.quantity + quantity,
+                price: listingPrice, // Update to new price
+                updatedAt: Timestamp.now(),
+              }
+            );
+          } else {
+            // Create new listing
+            const listingRef = doc(
+              collection(firestore, StockService.LISTINGS_COLLECTION)
+            );
+            listingId = listingRef.id;
+            t.set(listingRef, listingData);
+          }
+
+          return {
+            success: true,
+            message: "Listing created from admin stock without payment",
+            quantity,
+            totalCost: stockData.price * quantity, // Original cost for pending deposit
+            listingId,
+            productId,
+          };
+        }
+      );
+    } catch (error) {
+      console.error("Error creating listing from admin stock:", error);
       throw error;
     }
   }

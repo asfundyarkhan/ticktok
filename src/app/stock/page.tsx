@@ -3,15 +3,20 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useUserBalance } from "../components/UserBalanceContext";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-hot-toast";
+import { PendingDepositService } from "../../services/pendingDepositService";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
 import QuantityCounter from "../components/QuantityCounter";
 
 export default function StockPage() {
-  const { balance } = useUserBalance();
+  const [walletSummary, setWalletSummary] = useState({
+    availableBalance: 0,
+    totalPendingDeposits: 0,
+    withdrawableAmount: 0,
+    totalProfit: 0,
+  });
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -106,43 +111,100 @@ export default function StockPage() {
       return;
     }
 
-    const totalPrice = product.price * quantity;
-
-    // Check if user has enough balance but DON'T deduct it yet - let the transaction handle it
-    if (balance < totalPrice) {
-      toast.error("Insufficient balance. Please add funds to your wallet.");
-      return;
-    }
-    
     try {
       if (!user || !user.uid) {
-        toast.error("You must be logged in to purchase stock");
+        toast.error("You must be logged in to list stock");
         return;
       }
       
-      // Use Firebase transaction for stock purchase with user's actual ID
-      // The transaction will handle balance deduction
-      await StockService.processStockPurchase(user.uid, product.id || "", quantity);
+      // Calculate 30% markup for the listing price
+      const markupPercentage = 30;
+      const listingPrice = product.price * (1 + markupPercentage / 100);
+      const originalCost = product.price * quantity;
       
-      // Reset quantity
-      handleQuantityChange(productId, 0);      // Show success notification and redirect to inventory
-      toast.success(
-        `Added ${quantity} units of ${product.name} to your inventory!`
-      );
+      // No balance check - sellers can list without funds
+      // Create listing directly and track pending deposit
+      
+      try {
+        // Validate that we have the required data
+        if (!product.id) {
+          toast.error("Product ID is missing. Please refresh the page and try again.");
+          return;
+        }
 
-      // Use setTimeout to wait for toast to appear before redirecting
-      setTimeout(() => {
-        window.location.href = "/stock/inventory";
-      }, 1500);
+        // Create listing from admin stock without upfront payment
+        const listingResult = await StockService.createListingFromAdminStock(
+          user.uid,
+          product.id, // Use the document ID, not productId
+          quantity,
+          listingPrice
+        );
+
+        if (listingResult.success && listingResult.listingId && listingResult.productId) {
+          console.log(`Listing created successfully. ProductId: ${listingResult.productId}, ListingId: ${listingResult.listingId}`);
+          console.log(`Original product data:`, product);
+          
+          // Create pending deposit entry
+          const depositResult = await PendingDepositService.createPendingDeposit(
+            user.uid,
+            listingResult.productId,
+            product.name,
+            listingResult.listingId,
+            quantity,
+            product.price, // Original cost per unit
+            listingPrice // Listing price with markup
+          );
+
+          if (depositResult.success) {
+            console.log(`Pending deposit created successfully with ID: ${depositResult.depositId}`);
+            toast.success(
+              `Listed ${quantity} units of ${product.name} for sale at $${listingPrice.toFixed(2)} each (${markupPercentage}% markup)! You'll need to deposit $${originalCost.toFixed(2)} when this product sells.`
+            );
+          } else {
+            console.error("Failed to create pending deposit:", depositResult.message);
+            toast.success(
+              `Listed ${quantity} units of ${product.name} for sale at $${listingPrice.toFixed(2)} each, but deposit tracking may not work properly.`
+            );
+          }
+        } else {
+          toast.error(listingResult.message || "Failed to create listing");
+          return;
+        }
+        
+        // Reset quantity and redirect to listings
+        handleQuantityChange(productId, 0);
+        setTimeout(() => {
+          window.location.href = "/stock/listings";
+        }, 2000);
+        
+      } catch (error) {
+        console.error("Error creating listing:", error);
+        toast.error("Failed to create listing. Please try again.");
+      }
+      
     } catch (error) {
-      console.error("Error purchasing stock:", error);
-      // Show more detailed error message to help with debugging
+      console.error("Error in stock listing flow:", error);
       const errorMessage = error instanceof Error 
         ? `Error: ${error.message}`
-        : "Failed to purchase stock. Please try again.";
+        : "An error occurred. Please try again.";
       toast.error(errorMessage);
     }
   };
+
+  useEffect(() => {
+    const loadWalletSummary = async () => {
+      if (user?.uid) {
+        try {
+          const summary = await PendingDepositService.getSellerWalletSummary(user.uid);
+          setWalletSummary(summary);
+        } catch (error) {
+          console.error("Error loading wallet summary:", error);
+        }
+      }
+    };
+
+    loadWalletSummary();
+  }, [user?.uid]);
 
   useEffect(() => {
     // Highlight row if needed
@@ -195,10 +257,10 @@ export default function StockPage() {
             Buy stock
           </Link>
           <Link
-            href="/stock/inventory"
+            href="/stock/listings"
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
-            Inventory
+            My Listings
           </Link>
           <Link
             href="/stock/listings"
@@ -208,23 +270,50 @@ export default function StockPage() {
           </Link>
         </div>
 
-        {/* Current Balance Card */}
+        {/* Enhanced Wallet Summary Card */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500">
-                CURRENT BALANCE
-              </h3>
-              <p className="text-2xl font-bold text-gray-900">
-                ${balance.toFixed(2)}
-              </p>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500">
+                  WALLET SUMMARY
+                </h3>
+                <p className="text-2xl font-bold text-gray-900">
+                  ${walletSummary.availableBalance.toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-600">Available Balance</p>
+              </div>
+              <Link
+                href="/receipts"
+                className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
+              >
+                Add Funds
+              </Link>
             </div>
-            <Link
-              href="/receipts"
-              className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
-            >
-              Add Funds
-            </Link>
+            
+            {/* Additional wallet info */}
+            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-100">
+              <div>
+                <p className="text-xs text-gray-500">Pending Deposits</p>
+                <p className="text-lg font-semibold text-orange-600">
+                  ${walletSummary.totalPendingDeposits.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Withdrawable</p>
+                <p className="text-lg font-semibold text-green-600">
+                  ${walletSummary.withdrawableAmount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            {walletSummary.totalPendingDeposits > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-md p-2">
+                <p className="text-xs text-orange-700">
+                  ⚠️ You have pending deposits required. Funds cannot be withdrawn until deposits are paid.
+                </p>
+              </div>
+            )}
           </div>
         </div>        {/* Search and Filter Section */}
         <div className="mb-6 space-y-4">

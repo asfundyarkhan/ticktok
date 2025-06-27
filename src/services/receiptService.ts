@@ -31,6 +31,10 @@ export interface Receipt {
   approvedAt?: Date;
   notes?: string;
   createdAt: Date;
+  // New fields for pending deposit integration
+  isDepositPayment?: boolean;
+  pendingDepositId?: string;
+  productName?: string;
 }
 
 export interface ReceiptSubmitResult {
@@ -379,11 +383,29 @@ export class ReceiptService {
 
         const userData = userSnap.data();
         const currentBalance = userData.balance || 0;
-        const newBalance = currentBalance + receiptData.amount;        // Update user's balance
+        const newBalance = currentBalance + receiptData.amount;
+
+        // Update user's balance
         transaction.update(userRef, {
           balance: newBalance,
           updatedAt: Timestamp.now(),
         });
+
+        // Check if this is a pending deposit payment
+        if (receiptData.isDepositPayment && receiptData.pendingDepositId) {
+          try {
+            // Import PendingDepositService dynamically to avoid circular dependencies
+            const { PendingDepositService } = await import("./pendingDepositService");
+            
+            await PendingDepositService.markDepositPaid(
+              receiptData.pendingDepositId,
+              receiptData.userId
+            );
+          } catch (depositError) {
+            console.error("Error marking deposit as paid:", depositError);
+            // Continue with receipt approval even if deposit marking fails
+          }
+        }
 
         // Update the receipt status
         transaction.update(receiptRef, {

@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { StockItem } from "@/types/marketplace";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import EnhancedQuickAddButton from "./EnhancedQuickAddButton";
+import LoginModal from "./LoginModal";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import { getBestProductImage } from "../utils/imageHelpers";
 
 interface ProductGridProps {
@@ -18,25 +20,48 @@ export default function ProductGrid({
   onAddToCart,
 }: ProductGridProps) {
   const router = useRouter();
+  const { user } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<StockItem | null>(null);
 
-  const handleProductClick = (productId: string) => {
-    router.push(`/store/${productId}`);
+  const handleProductClick = (product: StockItem) => {
+    if (!user) {
+      setSelectedProduct(product);
+      setShowLoginModal(true);
+      return;
+    }
+    
+    if (product.id) {
+      router.push(`/store/${product.id}`);
+    }
+  };
+
+  const handleAddToCart = (product: StockItem, event: React.MouseEvent) => {
+    if (!user) {
+      event.stopPropagation();
+      setSelectedProduct(product);
+      setShowLoginModal(true);
+      return;
+    }
+    
+    onAddToCart(product, event);
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {products.map((product) => (
-        <motion.div
-          key={product.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-        >
-          <div
-            className="relative aspect-square mb-4 overflow-hidden rounded-md bg-gray-200 cursor-pointer"
-            onClick={() => product.id && handleProductClick(product.id)}
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {products.map((product) => (
+          <motion.div
+            key={product.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow"
           >
+            <div
+              className="relative aspect-square mb-4 overflow-hidden rounded-md bg-gray-200 cursor-pointer"
+              onClick={() => handleProductClick(product)}
+            >
             <Image
               src={getBestProductImage(product)}
               alt={product.name}
@@ -108,7 +133,7 @@ export default function ProductGrid({
                     showIcon={true}
                     variant="round"
                     size="md"
-                    onClick={(e) => onAddToCart(product, e)}
+                    onClick={(e) => handleAddToCart(product, e)}
                   />
                 </div>
               ) : (
@@ -126,6 +151,14 @@ export default function ProductGrid({
           </div>
         </motion.div>
       ))}
-    </div>
+      </div>
+      
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={showLoginModal} 
+        onClose={() => setShowLoginModal(false)}
+        productName={selectedProduct?.name}
+      />
+    </>
   );
 }

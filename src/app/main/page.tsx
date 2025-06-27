@@ -41,6 +41,11 @@ export default function MainPage() {
     }
   };
 
+  const handleBrowseStoreClick = () => {
+    // Allow browsing without authentication
+    router.push("/store");
+  };
+
   return (    <main className="min-h-screen bg-[#121212] text-white relative">
       {/* Hero Section - Added pt-6 for better spacing */}
       <div className={`${styles.heroSection} pt-6`}>
@@ -64,15 +69,30 @@ export default function MainPage() {
           <p className={`text-gray-400 text-xl mb-12 ${styles.textVisible}`}>
             Let your customers discover and buy your products the fun way.
           </p>
-          <button
-            onClick={handleGetStartedClick}
-            className="px-8 py-4 bg-pink-500 text-white rounded-full text-lg font-semibold hover:bg-pink-600 transition-colors"
-          >
-            Get started
-          </button>
+          
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+            <button
+              onClick={handleBrowseStoreClick}
+              className="px-8 py-4 bg-gray-700 text-white rounded-full text-lg font-semibold hover:bg-gray-600 transition-colors border border-gray-600"
+            >
+              Browse Store
+            </button>
+            <button
+              onClick={handleGetStartedClick}
+              className="px-8 py-4 bg-pink-500 text-white rounded-full text-lg font-semibold hover:bg-pink-600 transition-colors"
+            >
+              Get Started
+            </button>
+          </div>
+          
+          {/* Info Text */}
+          <p className={`text-gray-500 text-sm ${styles.textVisible}`}>
+            Browse products without login • Get Started requires account
+          </p>
 
           {/* Stats - Added better visibility with improved contrast and colors */}
-          <div className="grid grid-cols-3 gap-8 mt-24 relative z-10">
+          <div className="grid grid-cols-3 gap-8 mt-16 relative z-10">
             <div className="bg-[#1a1a1a] p-6 rounded-lg shadow-lg">
               <h3
                 className={`text-cyan-400 text-4xl font-bold mb-2 ${styles.textVisible}`}
