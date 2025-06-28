@@ -292,25 +292,33 @@ export default function StockPage() {
             </div>
             
             {/* Additional wallet info */}
-            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-100">
+            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
               <div>
                 <p className="text-xs text-gray-500">Pending Deposits</p>
-                <p className="text-lg font-semibold text-orange-600">
+                <p className="text-sm font-semibold text-orange-600">
                   ${walletSummary.totalPendingDeposits.toFixed(2)}
                 </p>
               </div>
               <div>
+                <p className="text-xs text-gray-500">Pending Profit</p>
+                <p className="text-sm font-semibold text-yellow-600">
+                  ${walletSummary.totalProfit.toFixed(2)}
+                </p>
+              </div>
+              <div>
                 <p className="text-xs text-gray-500">Withdrawable</p>
-                <p className="text-lg font-semibold text-green-600">
+                <p className="text-sm font-semibold text-green-600">
                   ${walletSummary.withdrawableAmount.toFixed(2)}
                 </p>
               </div>
             </div>
 
-            {walletSummary.totalPendingDeposits > 0 && (
+            {(walletSummary.totalPendingDeposits > 0 || walletSummary.totalProfit > 0) && (
               <div className="bg-orange-50 border border-orange-200 rounded-md p-2">
                 <p className="text-xs text-orange-700">
-                  ⚠️ You have pending deposits required. Funds cannot be withdrawn until deposits are paid.
+                  ⚠️ {walletSummary.totalPendingDeposits > 0 && "You have pending deposits required."} 
+                  {walletSummary.totalProfit > 0 && " Profits from sales will be added to your wallet after you pay the required deposits."}
+                  {walletSummary.totalPendingDeposits > 0 && " Funds cannot be withdrawn until deposits are paid."}
                 </p>
               </div>
             )}

@@ -16,7 +16,8 @@ interface ListingWithSeller extends StockListing {
 }
 
 function AdminBuyPageContent() {
-  const { user } = useAuth();  const [listings, setListings] = useState<ListingWithSeller[]>([]);
+  const { user } = useAuth();
+  const [listings, setListings] = useState<ListingWithSeller[]>([]);
   const [filteredListings, setFilteredListings] = useState<ListingWithSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,7 +33,7 @@ function AdminBuyPageContent() {
       async (stockListings) => {
         try {
           const listingsWithSellers: ListingWithSeller[] = [];
-            for (const listing of stockListings) {
+          for (const listing of stockListings) {
             try {
               const sellerProfile = await UserService.getUserProfile(listing.sellerId);
               listingsWithSellers.push({
@@ -328,12 +329,15 @@ function AdminBuyPageContent() {
           </table>
         </div>
 
-        {filteredListings.length === 0 && (
+        {filteredListings.length === 0 && !loading && (
           <div className="text-center py-12">
             <Package className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No listings found</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchQuery ? 'Try adjusting your search criteria.' : 'No sellers have created listings yet.'}
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              Total listings in database: {listings.length}
             </p>
           </div>
         )}
@@ -410,12 +414,15 @@ function AdminBuyPageContent() {
           </div>
         ))}
 
-        {filteredListings.length === 0 && (
+        {filteredListings.length === 0 && !loading && (
           <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
             <Package className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No listings found</h3>
             <p className="mt-1 text-sm text-gray-500">
               {searchQuery ? 'Try adjusting your search criteria.' : 'No sellers have created listings yet.'}
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              Total listings in database: {listings.length}
             </p>
           </div>
         )}

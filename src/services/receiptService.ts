@@ -34,6 +34,7 @@ export interface Receipt {
   // New fields for pending deposit integration
   isDepositPayment?: boolean;
   pendingDepositId?: string;
+  pendingProductId?: string;
   productName?: string;
 }
 
@@ -57,13 +58,20 @@ export class ReceiptService {
    * @param amount Amount of the payment
    * @param receiptFile Receipt image file
    * @param referenceNumber Optional reference number of the payment
+   * @param depositInfo Optional deposit payment information
    * @returns Promise with submission result
    */
   static async submitReceipt(
     userId: string,
     amount: number,
     receiptFile: File,
-    referenceNumber?: string
+    referenceNumber?: string,
+    depositInfo?: {
+      isDepositPayment?: boolean;
+      pendingDepositId?: string;
+      pendingProductId?: string;
+      productName?: string;
+    }
   ): Promise<ReceiptSubmitResult> {
     try {
       // 1. Upload the receipt image to Firebase Storage
@@ -84,7 +92,7 @@ export class ReceiptService {
           success: false,
           message: "User not found. Please try again or contact support.",
         };
-      } // 3. Create the receipt record in Firestore
+      }      // 3. Create the receipt record in Firestore
       const receipt: Receipt = {
         userId,
         userEmail: user.email,
@@ -94,6 +102,13 @@ export class ReceiptService {
         status: "pending",
         createdAt: new Date(),
         ...(referenceNumber && { referenceNumber }),
+        // Add pending deposit information if provided
+        ...(depositInfo?.isDepositPayment && {
+          isDepositPayment: true,
+          pendingDepositId: depositInfo.pendingDepositId,
+          pendingProductId: depositInfo.pendingProductId,
+          productName: depositInfo.productName
+        })
       };
 
       const receiptRef = await addDoc(collection(firestore, this.COLLECTION), {
@@ -401,6 +416,12 @@ export class ReceiptService {
               receiptData.pendingDepositId,
               receiptData.userId
             );
+
+            // Also update the pending product status if it exists
+            if (receiptData.pendingProductId) {
+              const { PendingProductService } = await import("./pendingProductService");
+              await PendingProductService.markDepositApproved(receiptData.pendingProductId);
+            }
           } catch (depositError) {
             console.error("Error marking deposit as paid:", depositError);
             // Continue with receipt approval even if deposit marking fails

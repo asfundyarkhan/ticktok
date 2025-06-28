@@ -22,6 +22,62 @@ function DepositsPageContent() {
   // Get parameters from URL
   const productId = searchParams.get("product");
   const suggestedAmount = searchParams.get("amount");
+  const productName = searchParams.get("productName");
+  const pendingDepositId = searchParams.get("pendingDepositId");
+
+  // State to track if this is a pending deposit receipt
+  const [isPendingDepositReceipt, setIsPendingDepositReceipt] = useState(false);
+  const [pendingDepositInfo, setPendingDepositInfo] = useState<{
+    depositId: string;
+    productName: string;
+    depositAmount: number;
+  } | null>(null);
+
+  // Check if this is for a pending deposit and load the deposit info
+  useEffect(() => {
+    const checkPendingDeposit = async () => {
+      if (productId && suggestedAmount) {
+        // This is likely a pending deposit from the pending products page
+        setIsPendingDepositReceipt(true);
+        
+        try {
+          // Try to find the pending deposit to get the correct ID
+          const { PendingDepositService } = await import("@/services/pendingDepositService");
+          const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
+            user?.uid || "",
+            productId
+          );
+
+          if (found && deposit && deposit.id) {
+            setPendingDepositInfo({
+              depositId: deposit.id,
+              productName: productName || deposit.productName,
+              depositAmount: deposit.totalDepositRequired
+            });
+          } else {
+            // Fallback for cases where we can't find the deposit
+            setPendingDepositInfo({
+              depositId: pendingDepositId || "",
+              productName: productName || "Unknown Product",
+              depositAmount: parseFloat(suggestedAmount)
+            });
+          }
+        } catch (error) {
+          console.error("Error finding pending deposit:", error);
+          // Use fallback info
+          setPendingDepositInfo({
+            depositId: pendingDepositId || "",
+            productName: productName || "Unknown Product", 
+            depositAmount: parseFloat(suggestedAmount)
+          });
+        }
+      }
+    };
+
+    if (user?.uid && productId && suggestedAmount) {
+      checkPendingDeposit();
+    }
+  }, [user?.uid, productId, suggestedAmount, productName, pendingDepositId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -83,15 +139,28 @@ function DepositsPageContent() {
     setIsSubmitting(true);
 
     try {
+      // For pending deposit receipts, include the deposit information
+      const receiptData = isPendingDepositReceipt && pendingDepositInfo ? {
+        isDepositPayment: true,
+        pendingDepositId: pendingDepositInfo.depositId,
+        ...(productId && { pendingProductId: productId }), // Only include if productId exists
+        productName: pendingDepositInfo.productName
+      } : {};
+
       const result = await ReceiptService.submitReceipt(
         user.uid,
         parseFloat(amount),
         receiptFile,
-        referenceNumber || undefined
+        referenceNumber || undefined,
+        receiptData
       );
 
       if (result.success) {
-        toast.success("Deposit receipt submitted successfully!");
+        toast.success(
+          isPendingDepositReceipt 
+            ? "Deposit receipt submitted successfully! Your deposit is pending admin approval."
+            : "Deposit receipt submitted successfully!"
+        );
         
         // If this deposit is for a specific pending product, link them
         if (productId && result.receiptId) {
@@ -102,6 +171,21 @@ function DepositsPageContent() {
             );
           } catch (error) {
             console.error("Error linking receipt to pending product:", error);
+            // Don't show error to user as the receipt was submitted successfully
+          }
+        }
+
+        // If this is a pending deposit receipt, update the pending deposit status
+        if (isPendingDepositReceipt && pendingDepositInfo?.depositId && result.receiptId) {
+          try {
+            const { PendingDepositService } = await import("@/services/pendingDepositService");
+            await PendingDepositService.updateDepositStatus(
+              pendingDepositInfo.depositId,
+              "receipt_submitted",
+              result.receiptId
+            );
+          } catch (error) {
+            console.error("Error updating pending deposit status:", error);
             // Don't show error to user as the receipt was submitted successfully
           }
         }
@@ -142,12 +226,35 @@ function DepositsPageContent() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h1 className="text-xl font-semibold text-gray-900 flex items-center">
               <Upload className="h-6 w-6 mr-2 text-[#FF0059]" />
-              Submit Deposit Receipt
+              {isPendingDepositReceipt ? "Submit Deposit Receipt" : "Submit Payment Receipt"}
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Upload a receipt to confirm your payment deposit
-              {productId ? " for the sold product" : ""}
+              {isPendingDepositReceipt 
+                ? `Upload a receipt to confirm your deposit payment for ${pendingDepositInfo?.productName || "the sold product"}`
+                : "Upload a receipt to confirm your payment deposit"
+              }
             </p>
+            
+            {/* Pending Deposit Info */}
+            {isPendingDepositReceipt && pendingDepositInfo && (
+              <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-start">
+                  <Package className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-medium text-blue-900">Pending Deposit Payment</h3>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Product: <span className="font-medium">{pendingDepositInfo.productName}</span>
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      Required Deposit: <span className="font-medium">${pendingDepositInfo.depositAmount.toFixed(2)}</span>
+                    </p>
+                    <p className="text-xs text-blue-600 mt-1">
+                      Once approved, your profit will be added to your wallet and you can withdraw funds.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bank Details Section */}
@@ -188,7 +295,7 @@ function DepositsPageContent() {
               <div>
                 <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
                   <DollarSign className="h-4 w-4 inline mr-1" />
-                  Deposit Amount ($)
+                  {isPendingDepositReceipt ? "Deposit Amount ($)" : "Payment Amount ($)"}
                 </label>
                 <input
                   type="number"
@@ -199,13 +306,18 @@ function DepositsPageContent() {
                   step="0.01"
                   min="0.01"
                   required
-                  placeholder="Enter the amount you deposited"
+                  placeholder={isPendingDepositReceipt ? "Enter the deposit amount you paid" : "Enter the amount you deposited"}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#FF0059] focus:border-[#FF0059]"
                   disabled={isSubmitting}
                 />
-                {suggestedAmount && (
+                {isPendingDepositReceipt && pendingDepositInfo && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Required deposit amount: ${pendingDepositInfo.depositAmount.toFixed(2)}
+                  </p>
+                )}
+                {!isPendingDepositReceipt && suggestedAmount && (
                   <p className="text-xs text-gray-600 mt-1">
-                    Suggested amount: ${suggestedAmount} (for pending product)
+                    Suggested amount: ${suggestedAmount}
                   </p>
                 )}
               </div>
@@ -289,7 +401,7 @@ function DepositsPageContent() {
                   ) : (
                     <>
                       <Package className="h-4 w-4 mr-2" />
-                      Submit Deposit Receipt
+                      {isPendingDepositReceipt ? "Submit Deposit Receipt" : "Submit Payment Receipt"}
                     </>
                   )}
                 </button>
@@ -304,12 +416,23 @@ function DepositsPageContent() {
           <div className="space-y-4 text-sm text-gray-600">
             <div>
               <h4 className="font-medium text-gray-900">What happens after I submit?</h4>
-              <p>Your deposit receipt will be reviewed by our team. Once approved, the funds will be added to your account balance.</p>
+              <p>
+                {isPendingDepositReceipt 
+                  ? "Your deposit receipt will be reviewed by our team. Once approved, your pending profit will be added to your wallet and you can withdraw funds."
+                  : "Your deposit receipt will be reviewed by our team. Once approved, the funds will be added to your account balance."
+                }
+              </p>
             </div>
             <div>
               <h4 className="font-medium text-gray-900">How long does approval take?</h4>
               <p>Most deposits are approved within 24-48 hours during business days.</p>
             </div>
+            {isPendingDepositReceipt && (
+              <div>
+                <h4 className="font-medium text-gray-900">Why do I need to pay a deposit?</h4>
+                <p>The deposit covers the original cost of the stock. Once paid, you keep the full profit from the sale and can withdraw your earnings.</p>
+              </div>
+            )}
             <div>
               <h4 className="font-medium text-gray-900">What if my deposit is rejected?</h4>
               <p>You will receive a notification with the reason for rejection and can resubmit with the correct information.</p>
