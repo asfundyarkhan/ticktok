@@ -59,6 +59,12 @@ const navigation: NavItem[] = [
     adminOnly: true,
   },
   {
+    name: "Receipts",
+    href: "/dashboard/admin/receipts-v2",
+    icon: CreditCard,
+    superadminOnly: true,
+  },
+  {
     name: "Referral Codes",
     href: "/dashboard/referral-manager",
     icon: Share2,

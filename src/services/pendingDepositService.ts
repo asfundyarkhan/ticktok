@@ -165,22 +165,57 @@ export class PendingDepositService {
     sellerId: string
   ): Promise<{ success: boolean; message: string }> {
     try {
-      return await runTransaction(firestore, async (transaction: Transaction) => {
-        const depositRef = doc(firestore, this.COLLECTION, depositId);
-        const depositDoc = await transaction.get(depositRef);
+      // First, find the corresponding pending product outside the transaction
+      let pendingProductRef = null;
+      
+      const depositRef = doc(firestore, this.COLLECTION, depositId);
+      const depositDoc = await getDoc(depositRef);
+      
+      if (!depositDoc.exists()) {
+        return { success: false, message: "Pending deposit not found" };
+      }
+
+      const depositData = depositDoc.data() as PendingDeposit;
+      
+      if (depositData.sellerId !== sellerId) {
+        return { success: false, message: "Unauthorized access" };
+      }
+
+      // Find pending product by sellerId and productId (outside transaction)
+      try {
+        const pendingProductsQuery = query(
+          collection(firestore, "pendingProducts"),
+          where("sellerId", "==", sellerId),
+          where("productId", "==", depositData.productId)
+        );
         
-        if (!depositDoc.exists()) {
+        const pendingProductsSnapshot = await getDocs(pendingProductsQuery);
+        
+        if (!pendingProductsSnapshot.empty) {
+          pendingProductRef = pendingProductsSnapshot.docs[0].ref;
+          console.log(`Found pending product ${pendingProductsSnapshot.docs[0].id} for product ${depositData.productId}`);
+        } else {
+          console.log(`No pending product found for sellerId: ${sellerId}, productId: ${depositData.productId}`);
+        }
+      } catch (pendingProductError) {
+        console.error("Error finding pending product:", pendingProductError);
+      }
+
+      // Now run the transaction
+      return await runTransaction(firestore, async (transaction: Transaction) => {
+        // Re-read the deposit doc in transaction
+        const depositDocTx = await transaction.get(depositRef);
+        
+        if (!depositDocTx.exists()) {
           return { success: false, message: "Pending deposit not found" };
         }
 
-        const depositData = depositDoc.data() as PendingDeposit;
-        
-        if (depositData.sellerId !== sellerId) {
-          return { success: false, message: "Unauthorized access" };
-        }
+        const depositDataTx = depositDocTx.data() as PendingDeposit;
 
         // Check if there's pending profit to release
-        const pendingProfit = depositData.pendingProfitAmount || 0;
+        const pendingProfit = depositDataTx.pendingProfitAmount || 0;
+
+        console.log(`Processing deposit payment for ${depositId}, pending profit: ${pendingProfit}`);
 
         if (pendingProfit > 0) {
           // Add pending profit to seller's balance
@@ -193,20 +228,39 @@ export class PendingDepositService {
 
           const userData = userDoc.data();
           const currentBalance = userData.balance || 0;
+          const newBalance = currentBalance + pendingProfit;
+
+          console.log(`Updating seller balance from ${currentBalance} to ${newBalance} (adding profit: ${pendingProfit})`);
 
           // Add pending profit to balance
           transaction.update(userRef, {
-            balance: currentBalance + pendingProfit,
+            balance: newBalance,
             updatedAt: Timestamp.now(),
           });
+
+          console.log(`Successfully transferred profit of $${pendingProfit} to seller's wallet`);
+        } else {
+          console.log(`No pending profit to transfer for deposit ${depositId}`);
         }
 
-        // Update deposit status
+        // Update deposit status and clear pending profit amount
         transaction.update(depositRef, {
           status: "deposit_paid",
           depositPaidDate: Timestamp.now(),
+          pendingProfitAmount: 0, // Clear pending profit since it's now added to wallet
           updatedAt: Timestamp.now(),
         });
+
+        console.log(`Updated deposit ${depositId} status to 'deposit_paid' and cleared pending profit amount`);
+
+        // Update the corresponding pending product status if found
+        if (pendingProductRef) {
+          transaction.update(pendingProductRef, {
+            status: "deposit_approved",
+            updatedAt: Timestamp.now(),
+          });
+          console.log(`Updated pending product status to deposit_approved`);
+        }
 
         return {
           success: true,
@@ -231,7 +285,7 @@ export class PendingDepositService {
       const userDoc = await getDoc(userRef);
       const availableBalance = userDoc.exists() ? (userDoc.data()?.balance || 0) : 0;
 
-      // Get pending deposits
+      // Get pending deposits - only include those that still need deposit payment
       const q = query(
         collection(firestore, this.COLLECTION),
         where("sellerId", "==", sellerId),
@@ -245,6 +299,7 @@ export class PendingDepositService {
       querySnapshot.forEach((doc) => {
         const data = doc.data() as PendingDeposit;
         if (data.status === "sold" || data.status === "receipt_submitted") {
+          // Only count deposits that haven't been paid yet
           totalPendingDeposits += data.totalDepositRequired;
           // Add pending profit (profit that will be released when deposit is paid)
           totalPendingProfit += data.pendingProfitAmount || 0;
@@ -252,6 +307,7 @@ export class PendingDepositService {
           // For unsold items, still count as pending deposits
           totalPendingDeposits += data.totalDepositRequired;
         }
+        // Note: deposits with status "deposit_paid" are excluded from this query
       });
 
       // Withdrawable amount is current balance minus any restrictions

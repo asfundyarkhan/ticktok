@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { DollarSign, Clock, CheckCircle } from "lucide-react";
 import { SellerWalletService } from "../../services/sellerWalletService";
+import { NewReceiptService, NewReceipt } from "../../services/newReceiptService";
 import { WalletBalance, PendingProfit } from "../../types/wallet";
 import { toast } from "react-hot-toast";
 
@@ -13,6 +14,7 @@ interface SellerWalletDashboardProps {
 export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboardProps) {
   const [walletBalance, setWalletBalance] = useState<WalletBalance>({ available: 0, pending: 0, total: 0 });
   const [pendingProfits, setPendingProfits] = useState<PendingProfit[]>([]);
+  const [depositReceipts, setDepositReceipts] = useState<NewReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState("");
   const [selectedPendingProfit, setSelectedPendingProfit] = useState<PendingProfit | null>(null);
@@ -25,6 +27,11 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
       setLoading(true);
       const profits = await SellerWalletService.getPendingProfits(sellerId);
       setPendingProfits(profits);
+      
+      // Load deposit receipts for this user
+      const receipts = await NewReceiptService.getUserReceipts(sellerId);
+      const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
+      setDepositReceipts(depositReceiptsOnly);
     } catch (error) {
       console.error("Error loading wallet data:", error);
       toast.error("Failed to load wallet data");
@@ -36,8 +43,24 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
   useEffect(() => {
     const unsubscribe = SellerWalletService.subscribeToWalletBalance(sellerId, setWalletBalance);
     loadData();
-    return unsubscribe;
+    
+    // Subscribe to receipt updates
+    const unsubscribeReceipts = NewReceiptService.subscribeToUserReceipts(sellerId, (receipts) => {
+      const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
+      setDepositReceipts(depositReceiptsOnly);
+    });
+    
+    return () => {
+      unsubscribe();
+      unsubscribeReceipts();
+    };
   }, [sellerId, loadData]);
+
+  // Get receipt status for a pending deposit
+  const getDepositReceiptStatus = (depositId: string) => {
+    const receipt = depositReceipts.find(r => r.pendingDepositId === depositId);
+    return receipt;
+  };
 
   const handleDeposit = async () => {
     if (!selectedPendingProfit || !depositAmount) {
@@ -156,16 +179,14 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
 
         <div className="flex gap-4">
           <button
-            onClick={() => setShowDepositModal(true)}
-            disabled={pendingProfits.filter(p => p.status === 'pending').length === 0}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            onClick={() => window.location.href = '/receipts-v2'}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
             Make Deposit
           </button>
           <button
-            onClick={() => setShowWithdrawalModal(true)}
-            disabled={walletBalance.available <= 0}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            onClick={() => window.location.href = '/receipts-v2'}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
             Request Withdrawal
           </button>
@@ -219,20 +240,69 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
                       </p>
                       
                       {profit.status === 'pending' && (
-                        <div className="mt-3 bg-yellow-100 border border-yellow-300 rounded p-2">
-                          <p className="text-xs text-yellow-800">
-                            <strong>Deposit Required:</strong> ${profit.depositRequired.toFixed(2)} to unlock profit
+                        <div className="mt-3">
+                          {(() => {
+                            const receipt = getDepositReceiptStatus(profit.id);
+                            if (receipt) {
+                              if (receipt.status === 'pending') {
+                                return (
+                                  <div className="bg-blue-100 border border-blue-300 rounded p-2">
+                                    <p className="text-xs text-blue-800 flex items-center">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Deposit receipt submitted - awaiting approval
+                                    </p>
+                                  </div>
+                                );
+                              } else if (receipt.status === 'rejected') {
+                                return (
+                                  <div className="bg-red-100 border border-red-300 rounded p-2">
+                                    <p className="text-xs text-red-800">
+                                      Deposit receipt rejected. Please submit a new receipt.
+                                    </p>
+                                    <button
+                                      onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}`}
+                                      className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
+                                    >
+                                      Resubmit Receipt
+                                    </button>
+                                  </div>
+                                );
+                              }
+                            }
+                            
+                            return (
+                              <div className="bg-yellow-100 border border-yellow-300 rounded p-2">
+                                <p className="text-xs text-yellow-800">
+                                  <strong>Deposit Required:</strong> ${profit.depositRequired.toFixed(2)} to unlock profit
+                                </p>
+                                <button
+                                  onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
+                                  className="mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded"
+                                >
+                                  Submit Deposit Receipt
+                                </button>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {/* Receipt status section */}
+                      {profit.status === 'deposit_made' && (
+                        <div className="mt-3 bg-green-100 border border-green-300 rounded p-2">
+                          <p className="text-xs text-green-800 flex items-center">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Deposit successful! Your profit is now available.
                           </p>
-                          <button
-                            onClick={() => {
-                              setSelectedPendingProfit(profit);
-                              setDepositAmount(profit.depositRequired.toString());
-                              setShowDepositModal(true);
-                            }}
-                            className="mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded"
-                          >
-                            Make Deposit
-                          </button>
+                        </div>
+                      )}
+                      
+                      {profit.status === 'pending' && (
+                        <div className="mt-3 bg-yellow-100 border border-yellow-300 rounded p-2">
+                          <p className="text-xs text-yellow-800 flex items-center">
+                            <Clock className="w-3 h-3 mr-1" />
+                            Deposit pending. Please complete the deposit to unlock your profit.
+                          </p>
                         </div>
                       )}
                     </div>

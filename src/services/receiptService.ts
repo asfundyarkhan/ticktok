@@ -397,35 +397,53 @@ export class ReceiptService {
         }
 
         const userData = userSnap.data();
-        const currentBalance = userData.balance || 0;
-        const newBalance = currentBalance + receiptData.amount;
-
-        // Update user's balance
-        transaction.update(userRef, {
-          balance: newBalance,
-          updatedAt: Timestamp.now(),
-        });
-
+        let newBalance = userData.balance || 0; // Initialize with current balance
+        
         // Check if this is a pending deposit payment
         if (receiptData.isDepositPayment && receiptData.pendingDepositId) {
           try {
+            // For deposit payments, DON'T add the receipt amount to balance here
+            // The profit will be added by the pending deposit service
+            console.log(`🏦 Processing deposit receipt approval for deposit: ${receiptData.pendingDepositId}`);
+            console.log(`🏦 Receipt amount: $${receiptData.amount}, User: ${receiptData.userId}`);
+            
             // Import PendingDepositService dynamically to avoid circular dependencies
             const { PendingDepositService } = await import("./pendingDepositService");
             
-            await PendingDepositService.markDepositPaid(
+            const depositResult = await PendingDepositService.markDepositPaid(
               receiptData.pendingDepositId,
               receiptData.userId
             );
 
-            // Also update the pending product status if it exists
-            if (receiptData.pendingProductId) {
-              const { PendingProductService } = await import("./pendingProductService");
-              await PendingProductService.markDepositApproved(receiptData.pendingProductId);
+            if (depositResult.success) {
+              console.log(`✅ Successfully marked deposit as paid: ${depositResult.message}`);
+              
+              // Also update the pending product status if it exists
+              if (receiptData.pendingProductId) {
+                console.log(`🔄 Updating pending product status: ${receiptData.pendingProductId}`);
+                const { PendingProductService } = await import("./pendingProductService");
+                await PendingProductService.markDepositApproved(receiptData.pendingProductId);
+                console.log(`✅ Pending product status updated to deposit_approved`);
+              }
+            } else {
+              console.error(`❌ Failed to mark deposit as paid: ${depositResult.message}`);
             }
           } catch (depositError) {
             console.error("Error marking deposit as paid:", depositError);
             // Continue with receipt approval even if deposit marking fails
           }
+        } else {
+          // For regular withdrawal receipts, add the full amount to balance
+          const currentBalance = userData.balance || 0;
+          newBalance = currentBalance + receiptData.amount;
+
+          console.log(`Regular receipt approval: adding ${receiptData.amount} to balance (${currentBalance} -> ${newBalance})`);
+
+          // Update user's balance
+          transaction.update(userRef, {
+            balance: newBalance,
+            updatedAt: Timestamp.now(),
+          });
         }
 
         // Update the receipt status

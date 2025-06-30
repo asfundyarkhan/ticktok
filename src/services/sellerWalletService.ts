@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
@@ -64,27 +65,50 @@ export class SellerWalletService {
     sellerId: string,
     callback: (balance: WalletBalance) => void
   ): () => void {
-    const pendingProfitsRef = collection(firestore, "pending_profits");
-    const q = query(pendingProfitsRef, where("sellerId", "==", sellerId));
+    console.log(`🔄 Subscribing to wallet balance for seller: ${sellerId}`);
+    
+    // Use pending_deposits collection instead of pending_profits
+    const pendingDepositsRef = collection(firestore, "pending_deposits");
+    const q = query(pendingDepositsRef, where("sellerId", "==", sellerId));
 
     return onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
+      console.log(`📊 Wallet balance update: ${snapshot.docs.length} pending deposits found`);
+      
       let pending = 0;
       let available = 0;
 
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
-        if (data.status === "pending") {
-          pending += data.profitAmount;
-        } else if (data.status === "deposit_made") {
-          available += data.profitAmount;
+        console.log(`💰 Deposit ${doc.id}: status=${data.status}, pendingProfit=${data.pendingProfitAmount}`);
+        
+        if (data.status === "sold" && data.pendingProfitAmount) {
+          // Profit is pending (waiting for deposit)
+          pending += data.pendingProfitAmount;
+          console.log(`➕ Added ${data.pendingProfitAmount} to pending (total: ${pending})`);
+        } else if (data.status === "deposit_paid" && data.pendingProfitAmount) {
+          // This shouldn't happen as pendingProfitAmount should be 0 after deposit_paid
+          // But including for safety
+          available += data.pendingProfitAmount;
         }
       });
 
-      callback({
+      // Also get the actual wallet balance from user document
+      const userRef = doc(firestore, "users", sellerId);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        available = userData.balance || 0;
+        console.log(`💳 User wallet balance: ${available}`);
+      }
+
+      const walletBalance = {
         available,
         pending,
         total: available + pending,
-      });
+      };
+      
+      console.log(`📈 Final wallet balance:`, walletBalance);
+      callback(walletBalance);
     });
   }
 
@@ -143,8 +167,9 @@ export class SellerWalletService {
   // Get pending profits for a seller
   static async getPendingProfits(sellerId: string): Promise<PendingProfit[]> {
     try {
+      // Read from pending_deposits collection instead of pending_profits
       const q = query(
-        collection(firestore, "pending_profits"),
+        collection(firestore, "pending_deposits"),
         where("sellerId", "==", sellerId),
         orderBy("createdAt", "desc")
       );
@@ -152,11 +177,21 @@ export class SellerWalletService {
       const snapshot = await getDocs(q);
       return snapshot.docs.map((doc) => {
         const data = doc.data();
+        
+        // Map pending_deposits data to PendingProfit interface
         return {
-          ...data,
-          saleDate: data.saleDate.toDate(),
-          createdAt: data.createdAt.toDate(),
-          updatedAt: data.updatedAt.toDate(),
+          id: doc.id,
+          sellerId: data.sellerId,
+          productId: data.productId,
+          productName: data.productName,
+          saleAmount: data.salePrice || data.listingPrice,
+          profitAmount: data.pendingProfitAmount || 0,
+          baseCost: data.originalCostPerUnit,
+          depositRequired: data.totalDepositRequired,
+          status: data.status === "sold" ? "pending" : data.status === "deposit_paid" ? "deposit_made" : data.status,
+          saleDate: data.saleDate?.toDate() || data.createdAt?.toDate() || new Date(),
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
         } as PendingProfit;
       });
     } catch (error) {

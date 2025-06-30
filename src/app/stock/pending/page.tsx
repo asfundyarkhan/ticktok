@@ -6,9 +6,16 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
+import ReceiptSubmission from "../../components/ReceiptSubmission";
 import { PendingProductService, PendingProduct } from "../../../services/pendingProductService";
 import { toast } from "react-hot-toast";
 import { Clock, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
+
+interface PendingProductWithProfit extends PendingProduct {
+  actualProfit?: number;
+  depositRequired?: number;
+  depositId?: string; // Add deposit ID for proper linking
+}
 
 export default function PendingProductsPage() {
   const router = useRouter();
@@ -16,8 +23,10 @@ export default function PendingProductsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pendingProducts, setPendingProducts] = useState<PendingProduct[]>([]);
+  const [pendingProducts, setPendingProducts] = useState<PendingProductWithProfit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProductForDeposit, setSelectedProductForDeposit] = useState<PendingProductWithProfit | null>(null);
+  const [showDepositForm, setShowDepositForm] = useState(false);
 
   // Check authentication and seller role
   useEffect(() => {
@@ -46,8 +55,45 @@ export default function PendingProductsPage() {
 
     const unsubscribe = PendingProductService.subscribeToSellerPendingProducts(
       user.uid,
-      (products) => {
-        setPendingProducts(products);
+      async (products) => {
+        // Fetch corresponding deposit data for each product
+        const productsWithProfit: PendingProductWithProfit[] = [];
+        
+        for (const product of products) {
+          try {
+            const { PendingDepositService } = await import("../../../services/pendingDepositService");
+            const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
+              product.sellerId,
+              product.productId
+            );
+            
+            if (found && deposit) {
+              productsWithProfit.push({
+                ...product,
+                actualProfit: deposit.pendingProfitAmount || deposit.profitPerUnit * product.quantitySold,
+                depositRequired: deposit.totalDepositRequired,
+                depositId: deposit.id // Store the actual deposit ID
+              });
+            } else {
+              // Fallback to estimation if no deposit found
+              productsWithProfit.push({
+                ...product,
+                actualProfit: product.totalAmount * 0.23, // 23% estimate
+                depositRequired: product.totalAmount * 0.77 // 77% estimate
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching deposit data for product:", product.productId, error);
+            // Fallback to estimation
+            productsWithProfit.push({
+              ...product,
+              actualProfit: product.totalAmount * 0.23,
+              depositRequired: product.totalAmount * 0.77
+            });
+          }
+        }
+        
+        setPendingProducts(productsWithProfit);
         setLoading(false);
       },
       (error) => {
@@ -127,7 +173,7 @@ export default function PendingProductsPage() {
     }
   };
 
-  const handleUploadDeposit = async (pendingProduct: PendingProduct) => {
+  const handleUploadDeposit = async (pendingProduct: PendingProductWithProfit) => {
     try {
       // First, try to find the associated pending deposit to get the correct deposit amount
       const { PendingDepositService } = await import("../../../services/pendingDepositService");
@@ -136,23 +182,28 @@ export default function PendingProductsPage() {
         pendingProduct.productId
       );
 
-      let depositAmount = pendingProduct.totalAmount; // fallback to sale amount
-      
       if (found && deposit) {
-        // Use the original deposit amount required, not the sale amount
-        depositAmount = deposit.totalDepositRequired;
-        console.log(`Found pending deposit for product ${pendingProduct.productId}: deposit required = ${depositAmount}`);
+        // Set the selected product with deposit info
+        setSelectedProductForDeposit({
+          ...pendingProduct,
+          depositRequired: deposit.totalDepositRequired,
+          actualProfit: deposit.pendingProfitAmount || deposit.profitPerUnit * pendingProduct.quantitySold,
+          depositId: deposit.id // Store the actual deposit ID
+        });
+        setShowDepositForm(true);
       } else {
-        console.warn(`No pending deposit found for product ${pendingProduct.productId}, using sale amount as fallback`);
+        toast.error("Could not find deposit information for this product");
       }
-
-      // Navigate to deposits page with the correct deposit amount
-      router.push(`/deposits?product=${pendingProduct.id}&amount=${depositAmount}&productName=${encodeURIComponent(pendingProduct.productName)}`);
     } catch (error) {
       console.error("Error fetching deposit information:", error);
-      // Fallback to using sale amount if there's an error
-      router.push(`/deposits?product=${pendingProduct.id}&amount=${pendingProduct.totalAmount}&productName=${encodeURIComponent(pendingProduct.productName)}`);
+      toast.error("Failed to load deposit information");
     }
+  };
+
+  const handleDepositSubmitted = () => {
+    setShowDepositForm(false);
+    setSelectedProductForDeposit(null);
+    toast.success("Deposit receipt submitted successfully!");
   };
 
   if (loading) {
@@ -234,7 +285,7 @@ export default function PendingProductsPage() {
                         Quantity Sold
                       </th>
                       <th className="py-3 text-left px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Amount
+                        Amount & Profit
                       </th>
                       <th className="py-3 text-left px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
@@ -287,11 +338,19 @@ export default function PendingProductsPage() {
                           </div>
                         </td>
                         <td className="py-4 px-6 text-gray-900">
-                          <div className="text-lg font-semibold text-green-600">
-                            ${product.totalAmount.toFixed(2)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            ${product.pricePerUnit.toFixed(2)} per unit
+                          <div className="space-y-1">
+                            <div className="text-lg font-semibold text-green-600">
+                              ${product.totalAmount.toFixed(2)}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Sale: ${product.pricePerUnit.toFixed(2)} × {product.quantitySold}
+                            </div>
+                            <div className="text-sm text-blue-600 font-medium">
+                              Your Profit: ${(product.actualProfit || 0).toFixed(2)}
+                            </div>
+                            <div className="text-sm text-orange-600 font-medium">
+                              Deposit Required: ${(product.depositRequired || 0).toFixed(2)}
+                            </div>
                           </div>
                         </td>
                         <td className="py-4 px-6">
@@ -313,16 +372,22 @@ export default function PendingProductsPage() {
                               onClick={() => handleUploadDeposit(product)}
                               className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
                             >
-                              Pay Deposit
+                              Submit Deposit Receipt
                             </button>
                           )}
                           {product.status === "deposit_submitted" && (
-                            <span className="text-sm text-blue-600">Awaiting Approval</span>
+                            <div className="flex items-center text-sm">
+                              <Clock className="w-4 h-4 text-blue-500 mr-2" />
+                              <span className="text-blue-600">Receipt Submitted - Awaiting Approval</span>
+                            </div>
                           )}
                           {(product.status === "deposit_approved" || product.status === "completed") && (
-                            <span className="text-sm text-green-600">
-                              {product.status === "completed" ? "Completed" : "Approved"}
-                            </span>
+                            <div className="flex items-center text-sm">
+                              <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
+                              <span className="text-green-600">
+                                {product.status === "completed" ? "Completed - Profit Added" : "Approved - Profit Added"}
+                              </span>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -355,9 +420,17 @@ export default function PendingProductsPage() {
                           {product.productName}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">ID: {product.productId}</p>
-                        <p className="text-lg font-semibold text-green-600 mt-1">
-                          ${product.totalAmount.toFixed(2)}
-                        </p>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-lg font-semibold text-green-600">
+                            Total Sale: ${product.totalAmount.toFixed(2)}
+                          </p>
+                          <p className="text-sm text-blue-600 font-medium">
+                            Your Profit: ${(product.actualProfit || 0).toFixed(2)}
+                          </p>
+                          <p className="text-sm text-orange-600 font-medium">
+                            Deposit Required: ${(product.depositRequired || 0).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -399,8 +472,20 @@ export default function PendingProductsPage() {
                           onClick={() => handleUploadDeposit(product)}
                           className="w-full mt-3 px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium hover:bg-[#E0004D] transition-colors"
                         >
-                          Pay Deposit
+                          Submit Deposit Receipt
                         </button>
+                      )}
+                      {product.status === "deposit_submitted" && (
+                        <div className="w-full mt-3 flex items-center justify-center text-sm text-blue-600 bg-blue-50 py-2 rounded-md">
+                          <Clock className="w-4 h-4 mr-2" />
+                          Receipt Submitted - Awaiting Approval
+                        </div>
+                      )}
+                      {(product.status === "deposit_approved" || product.status === "completed") && (
+                        <div className="w-full mt-3 flex items-center justify-center text-sm text-green-600 bg-green-50 py-2 rounded-md">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          {product.status === "completed" ? "Completed - Profit Added" : "Approved - Profit Added"}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -449,6 +534,67 @@ export default function PendingProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Deposit Receipt Submission Modal */}
+      {showDepositForm && selectedProductForDeposit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Submit Deposit Payment</h3>
+                  <p className="text-gray-600 mt-1">
+                    Product: {selectedProductForDeposit.productName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowDepositForm(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Sale Amount:</span>
+                    <span className="font-semibold ml-2">${selectedProductForDeposit.totalAmount.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Your Profit:</span>
+                    <span className="font-semibold ml-2 text-green-600">
+                      ${(selectedProductForDeposit.actualProfit || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Deposit Required:</span>
+                    <span className="font-semibold ml-2 text-blue-600">
+                      ${(selectedProductForDeposit.depositRequired || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Quantity Sold:</span>
+                    <span className="font-semibold ml-2">{selectedProductForDeposit.quantitySold}</span>
+                  </div>
+                </div>
+              </div>
+
+              <ReceiptSubmission
+                isDepositPayment={true}
+                pendingDepositId={selectedProductForDeposit.depositId} // Use actual deposit ID
+                pendingProductId={selectedProductForDeposit.id}
+                productName={selectedProductForDeposit.productName}
+                requiredAmount={selectedProductForDeposit.depositRequired}
+                onSubmitted={handleDepositSubmitted}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

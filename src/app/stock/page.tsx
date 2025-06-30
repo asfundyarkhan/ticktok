@@ -245,10 +245,10 @@ export default function StockPage() {
             General
           </Link>
           <Link
-            href="/receipts"
+            href="/receipts-v2"
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
-            Wallet
+            Receipts
           </Link>
           <Link
             href="/stock"
@@ -284,7 +284,7 @@ export default function StockPage() {
                 <p className="text-xs text-gray-600">Available Balance</p>
               </div>
               <Link
-                href="/receipts"
+                href="/receipts-v2"
                 className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
               >
                 Add Funds

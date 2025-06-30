@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useAuth } from "@/context/AuthContext";
 import ProductGrid from "@/app/components/ProductGrid";
 import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
@@ -50,17 +49,8 @@ export default function StorePage() {
     y: 0,
   });  const cartIconRef = useRef<HTMLDivElement>(null);
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
-  const { userProfile, loading } = useAuth();
 
-  // Only redirect regular sellers, allow everyone else to access the store
-  useEffect(() => {
-    if (!loading && userProfile?.role === "seller") {
-      // The type check shows we can only have one role type, so sellers will be redirected
-      console.log("Seller attempted to access store page, redirecting to profile");
-      window.location.href = "/profile";
-      return;
-    }
-  }, [userProfile, loading]);
+  // Allow all users including sellers to access the store page
 
   useEffect(() => {
     // Update cart icon position for animation

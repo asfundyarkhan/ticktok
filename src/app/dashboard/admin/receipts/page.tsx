@@ -272,11 +272,18 @@ function ReceiptApprovalPageContent() {
                   <div className="border border-gray-100 rounded-lg p-3">
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Receipt Image</p>
                     <div className="bg-gray-50 rounded-md p-2 max-h-64 overflow-y-auto">
-                      <img
-                        src={selectedReceipt.imageUrl}
-                        alt="Receipt"
-                        className="w-full h-auto object-contain rounded"
-                      />
+                      {selectedReceipt.imageUrl && (
+                        <img
+                          src={selectedReceipt.imageUrl}
+                          alt="Receipt"
+                          className="w-full h-auto object-contain rounded"
+                        />
+                      )}
+                      {!selectedReceipt.imageUrl && (
+                        <div className="w-full h-32 bg-gray-200 rounded flex items-center justify-center">
+                          <span className="text-gray-500">No image available</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
