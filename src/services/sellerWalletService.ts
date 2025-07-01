@@ -173,10 +173,11 @@ export class SellerWalletService {
   // Get pending profits for a seller
   static async getPendingProfits(sellerId: string): Promise<PendingProfit[]> {
     try {
-      // Read from pending_deposits collection instead of pending_profits
+      // Read from pending_deposits collection but only show sold items (not pending listings)
       const q = query(
         collection(firestore, "pending_deposits"),
         where("sellerId", "==", sellerId),
+        where("status", "in", ["sold", "receipt_submitted", "deposit_paid"]), // Only show items that have been sold
         orderBy("createdAt", "desc")
       );
 

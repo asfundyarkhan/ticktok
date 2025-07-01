@@ -178,8 +178,11 @@ export class PendingDepositService {
             return { success: false, message: "Unauthorized access" };
           }
 
-          // Calculate profit
-          const profitAmount = depositData.profitPerUnit * actualQuantitySold;
+          // Calculate profit based on actual sale price vs original cost
+          const profitAmount = (salePrice - depositData.originalCostPerUnit) * actualQuantitySold;
+
+          console.log(`Profit calculation: salePrice(${salePrice}) - originalCost(${depositData.originalCostPerUnit}) = ${salePrice - depositData.originalCostPerUnit} per unit`);
+          console.log(`Total profit for ${actualQuantitySold} units: ${profitAmount}`);
 
           // DON'T add profit to balance yet - it stays pending until deposit is paid
           // The profit will be added when the deposit is marked as paid

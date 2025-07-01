@@ -565,6 +565,9 @@ export class StockService {
               features: stockData.features || productData.features || "",
               rating: stockData.rating || productData.rating || 0,
               reviews: stockData.reviews || productData.reviews || [],
+              // Ensure original cost is preserved or set
+              originalCost: productData.originalCost || productData.cost || stockData.price,
+              cost: productData.cost || productData.originalCost || stockData.price,
               updatedAt: Timestamp.now(),
             });
           } else {
@@ -588,6 +591,8 @@ export class StockService {
               stock: quantity,
               price: stockData.price,
               purchasePrice: stockData.price,
+              originalCost: stockData.price, // Track original cost for pending deposit calculation
+              cost: stockData.price, // Alternative field name for original cost
               features: stockData.features || "",
               rating: stockData.rating || 0,
               reviews: stockData.reviews || [],
@@ -808,13 +813,13 @@ export class StockService {
             });
           });
 
-          // Process the sale through the pending deposit system
-          const saleResult = await PendingDepositService.markProductSold(
-            deposit.id!,
-            sellerId,
-            price, // Sale price
-            quantity // Quantity sold
+          // Admin purchase: DO NOT mark as sold yet - just record the admin taking the item
+          // The item should only be marked as sold when a real customer buys it
+          console.log(
+            `Admin took item from product pool - NOT marking as sold (item stays pending until real customer purchase)`
           );
+
+          const saleResult = { success: true, message: "Admin took item from pool" }; // Mock success since we're not marking as sold
 
           if (saleResult.success) {
             console.log(
@@ -839,6 +844,7 @@ export class StockService {
               totalPrice: price * quantity,
               isAdminPurchase: true,
               usesPendingDepositSystem: true,
+              adminTookFromPool: true, // Flag to indicate this was admin taking from pool
               createdAt: Timestamp.now(),
             });
 
@@ -1942,6 +1948,9 @@ export class StockService {
               features: stockData.features || productData.features || "",
               rating: stockData.rating || productData.rating || 0,
               reviews: stockData.reviews || productData.reviews || [],
+              // Ensure original cost is preserved or set
+              originalCost: productData.originalCost || productData.cost || stockData.price,
+              cost: productData.cost || productData.originalCost || stockData.price,
               updatedAt: Timestamp.now(),
             });
           } else {
@@ -1965,6 +1974,8 @@ export class StockService {
               stock: quantity,
               price: stockData.price, // Original admin price
               purchasePrice: stockData.price,
+              originalCost: stockData.price, // Track original cost for pending deposit calculation
+              cost: stockData.price, // Alternative field name for original cost
               features: stockData.features || "",
               rating: stockData.rating || 0,
               reviews: stockData.reviews || [],
