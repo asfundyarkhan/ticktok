@@ -153,16 +153,16 @@ export default function MyListingsPage() {
             General
           </Link>
           <Link href="/receipts-v2" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Wallet
+            Receipts
           </Link>
           <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Buy stock
+            Product Pool
           </Link>
           <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
             My Listings
           </Link>
           <Link href="/stock/pending" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Pending Products
+            Orders
           </Link>        </div>        {/* Mobile-optimized Search Bar */}
         <div className="mb-4 sm:mb-6">
           <div className="relative">
@@ -201,18 +201,27 @@ export default function MyListingsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
-                              <Image
-                                src={getBestProductImage(listing)}
-                                alt={listing.name}
-                                width={40}
-                                height={40}
-                                className="object-cover w-full h-full rounded-lg"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/images/placeholders/product.svg';
-                                }}
-                                unoptimized
-                                priority
-                              />
+                              {(() => {
+                                const imageUrl = getBestProductImage(listing);
+                                return imageUrl ? (
+                                  <Image
+                                    src={imageUrl}
+                                    alt={listing.name}
+                                    width={40}
+                                    height={40}
+                                    className="object-cover w-full h-full rounded-lg"
+                                    onError={(e) => {
+                                      e.currentTarget.src = '/images/placeholders/product.svg';
+                                    }}
+                                    unoptimized
+                                    priority
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gray-200 flex items-center justify-center rounded-lg">
+                                    <span className="text-xs text-gray-400">No image</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
@@ -316,14 +325,26 @@ export default function MyListingsPage() {
                       {/* Product Header */}
                       <div className="flex items-center space-x-4 mb-4">
                         <div className="flex-shrink-0">
-                          <Image
-                            src={getBestProductImage(listing)}
-                            alt={listing.name}
-                            width={60}
-                            height={60}
-                            className="object-cover w-15 h-15 sm:w-16 sm:h-16 rounded-lg"
-                            onError={(e) => {
-                              e.currentTarget.src = '/images/placeholders/product.svg';
+                          {(() => {
+                            const imageUrl = getBestProductImage(listing);
+                            return imageUrl ? (
+                              <Image
+                                src={imageUrl}
+                                alt={listing.name}
+                                width={60}
+                                height={60}
+                                className="object-cover w-15 h-15 sm:w-16 sm:h-16 rounded-lg"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/images/placeholders/product.svg';
+                                }}
+                                priority
+                              />
+                            ) : (
+                              <div className="w-15 h-15 sm:w-16 sm:h-16 bg-gray-200 flex items-center justify-center rounded-lg">
+                                <span className="text-xs text-gray-400">No image</span>
+                              </div>
+                            );
+                          })()}
                             }}
                             unoptimized
                             priority

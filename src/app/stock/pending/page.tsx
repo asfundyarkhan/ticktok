@@ -7,14 +7,41 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../context/AuthContext";
 import PaginationWithCustomRows from "../../components/PaginationWithCustomRows";
 import ReceiptSubmission from "../../components/ReceiptSubmission";
-import { PendingProductService, PendingProduct } from "../../../services/pendingProductService";
+// Previously imported PendingProduct, now using our own interface
 import { toast } from "react-hot-toast";
 import { Clock, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
+import { getBestProductImage, getFirestoreImage } from "../../utils/imageHelpers";
+import { createImageLogger, createPerfLogger } from "../../utils/logger";
 
-interface PendingProductWithProfit extends PendingProduct {
+// Create specialized loggers
+const imgLogger = createImageLogger();
+const perfLogger = createPerfLogger();
+
+// Define our own interface without extending PendingProduct
+interface PendingProductWithProfit {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  sellerEmail: string;
+  productId: string;
+  productName: string;
+  productImage: string | null; // Allow null for image
+  mainImage: string | null; // Allow null for mainImage
+  images?: string[] | undefined; // Images array can be undefined
+  quantitySold: number;
+  pricePerUnit: number;
+  totalAmount: number;
+  buyerId: string;
+  buyerName?: string;
+  buyerEmail?: string;
+  saleDate: Date;
+  status: string;
+  receiptId?: string;
+  createdAt: Date;
+  updatedAt: Date;
   actualProfit?: number;
   depositRequired?: number;
-  depositId?: string; // Add deposit ID for proper linking
+  depositId?: string;
 }
 
 export default function PendingProductsPage() {
@@ -36,7 +63,7 @@ export default function PendingProductsPage() {
     }
 
     if (!authLoading && userProfile && userProfile.role !== "seller") {
-      toast.error("Only sellers can access pending products");
+      toast.error("Only sellers can access orders");
       if (userProfile.role === "admin" || userProfile.role === "superadmin") {
         router.push("/dashboard");
       } else {
@@ -46,65 +73,118 @@ export default function PendingProductsPage() {
     }
   }, [user, userProfile, authLoading, router]);
 
-  // Subscribe to real-time pending products updates
+  // Subscribe to real-time orders updates using the same data source as profile page
   useEffect(() => {
     if (!user?.uid) {
       setLoading(false);
       return;
     }
 
-    const unsubscribe = PendingProductService.subscribeToSellerPendingProducts(
-      user.uid,
-      async (products) => {
-        // Fetch corresponding deposit data for each product
-        const productsWithProfit: PendingProductWithProfit[] = [];
+    let isComponentMounted = true;
+    const endPerfTracking = perfLogger.perf('Loading pending profits');
+    
+    // Use SellerWalletService to get the same data as the profile page
+    const loadPendingProfits = async () => {
+      try {
+        const { SellerWalletService } = await import("../../../services/sellerWalletService");
+        const endFetchTracking = perfLogger.perf('Data fetch');
+        const profits = await SellerWalletService.getPendingProfits(user.uid);
+        endFetchTracking();
         
-        for (const product of products) {
-          try {
-            const { PendingDepositService } = await import("../../../services/pendingDepositService");
-            const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
-              product.sellerId,
-              product.productId
-            );
-            
-            if (found && deposit) {
-              productsWithProfit.push({
-                ...product,
-                actualProfit: deposit.pendingProfitAmount || deposit.profitPerUnit * product.quantitySold,
-                depositRequired: deposit.totalDepositRequired,
-                depositId: deposit.id // Store the actual deposit ID
-              });
+        // Don't update state if component is unmounted
+        if (!isComponentMounted) return;
+        
+        // Convert PendingProfit data to PendingProductWithProfit format (optimize with batched updates)
+        const endMapTracking = perfLogger.perf('Data mapping');
+        const productsWithProfit: PendingProductWithProfit[] = profits.map(profit => {
+          const quantitySold = profit.quantitySold || 1;
+          const pricePerUnit = quantitySold > 0 ? profit.saleAmount / quantitySold : profit.saleAmount;
+          
+          // Process product image for consistent format with other pages
+          let productImage = profit.productImage || null;
+          
+          // Log the image info for debugging
+          imgLogger.debug(`Product ${profit.productName} image:`, productImage);
+          
+          // Make sure Firebase URLs are properly formatted and only use valid URLs
+          if (productImage && productImage.trim() !== "") {
+            if (!productImage.startsWith("http") && !productImage.startsWith("data:")) {
+              if (productImage.startsWith("/")) {
+                // Convert relative paths to absolute Firebase Storage URLs
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(productImage.substring(1))}?alt=media`;
+              } else {
+                // Assume it's a Firebase Storage path
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(productImage)}?alt=media`;
+              }
+              imgLogger.debug(`Formatted Firebase image URL:`, productImage);
             } else {
-              // Fallback to estimation if no deposit found
-              productsWithProfit.push({
-                ...product,
-                actualProfit: product.totalAmount * 0.23, // 23% estimate
-                depositRequired: product.totalAmount * 0.77 // 77% estimate
-              });
+              imgLogger.debug(`Using existing full URL:`, productImage);
             }
-          } catch (error) {
-            console.error("Error fetching deposit data for product:", product.productId, error);
-            // Fallback to estimation
-            productsWithProfit.push({
-              ...product,
-              actualProfit: product.totalAmount * 0.23,
-              depositRequired: product.totalAmount * 0.77
-            });
+          } else {
+            // If no valid image, set to null to avoid Next.js warnings
+            productImage = null;
+            imgLogger.warn(`No valid image found for product ${profit.productName}`);
           }
-        }
+          
+          return {
+            id: profit.id,
+            sellerId: profit.sellerId,
+            sellerName: "", // Not available in pending_deposits
+            sellerEmail: "", // Not available in pending_deposits
+            productId: profit.productId,
+            productName: profit.productName,
+            productImage: productImage, // Include product image from profit data, can be null
+            mainImage: productImage, // Also set as mainImage for compatibility with image helpers
+            images: productImage ? [productImage] : undefined, // Only include images array if we have a valid image
+            quantitySold: quantitySold,
+            pricePerUnit: pricePerUnit,
+            totalAmount: profit.saleAmount,
+            buyerId: "", // Not available in pending_deposits
+            buyerName: "Admin", // Most sales are from admin
+            buyerEmail: "", // Not available in pending_deposits
+            saleDate: profit.saleDate,
+            status: profit.status === "pending" ? "pending_deposit" : 
+                    profit.status === "deposit_made" ? "deposit_approved" : 
+                    profit.status === "withdrawn" ? "completed" :
+                    "pending_deposit", // Default fallback
+            receiptId: undefined, // Not directly available
+            createdAt: profit.createdAt,
+            updatedAt: profit.updatedAt,
+            actualProfit: profit.profitAmount,
+            depositRequired: profit.depositRequired,
+            depositId: profit.id
+          };
+        });
         
+        endMapTracking();
+        
+        // Use a single batch state update
         setPendingProducts(productsWithProfit);
         setLoading(false);
-      },
-      (error) => {
-        console.error("Error loading pending products:", error);
-        toast.error("Failed to load pending products");
+        
+        endPerfTracking();
+      } catch (error) {
+        perfLogger.error("Error loading orders:", error);
+        // Only show toast if this is the initial load, not during polling
+        if (loading) {
+          toast.error("Failed to load orders");
+        }
         setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user?.uid]);
+    // Initial load
+    loadPendingProfits();
+
+    // Set up polling for real-time updates (every 30 seconds instead of 15 for better performance)
+    const interval = setInterval(loadPendingProfits, 30000);
+
+    return () => {
+      clearInterval(interval);
+      isComponentMounted = false;
+      perfLogger.info('Component cleanup executed');
+    };
+  }, [user?.uid, loading]);
 
   // Filter products based on search query
   const filteredProducts = pendingProducts.filter(
@@ -175,28 +255,17 @@ export default function PendingProductsPage() {
 
   const handleUploadDeposit = async (pendingProduct: PendingProductWithProfit) => {
     try {
-      // First, try to find the associated pending deposit to get the correct deposit amount
-      const { PendingDepositService } = await import("../../../services/pendingDepositService");
-      const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
-        pendingProduct.sellerId,
-        pendingProduct.productId
-      );
-
-      if (found && deposit) {
-        // Set the selected product with deposit info
-        setSelectedProductForDeposit({
-          ...pendingProduct,
-          depositRequired: deposit.totalDepositRequired,
-          actualProfit: deposit.pendingProfitAmount || deposit.profitPerUnit * pendingProduct.quantitySold,
-          depositId: deposit.id // Store the actual deposit ID
-        });
-        setShowDepositForm(true);
-      } else {
-        toast.error("Could not find deposit information for this product");
-      }
+      // Since we now have the deposit info directly from the data, just set it
+      setSelectedProductForDeposit({
+        ...pendingProduct,
+        depositRequired: pendingProduct.depositRequired || 0,
+        actualProfit: pendingProduct.actualProfit || 0,
+        depositId: pendingProduct.depositId // We already have the deposit ID
+      });
+      setShowDepositForm(true);
     } catch (error) {
-      console.error("Error fetching deposit information:", error);
-      toast.error("Failed to load deposit information");
+      console.error("Error preparing deposit form:", error);
+      toast.error("Error preparing deposit form");
     }
   };
 
@@ -211,7 +280,7 @@ export default function PendingProductsPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF0059] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading pending products...</p>
+          <p className="text-gray-600">Loading orders...</p>
         </div>
       </div>
     );
@@ -220,14 +289,50 @@ export default function PendingProductsPage() {
   return (
     <div className="min-h-screen bg-white">
       <div className="p-6">
+        <h1 className="text-xl font-medium mb-6 text-gray-900">Account</h1>
+        
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 sm:space-x-8 border-b border-gray-200 mb-6 overflow-x-auto">
+          <Link
+            href="/profile"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            General
+          </Link>
+          <Link
+            href="/receipts-v2"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            Receipts
+          </Link>
+          <Link
+            href="/stock"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            Product Pool
+          </Link>
+          <Link
+            href="/stock/listings"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            Listings
+          </Link>
+          <Link
+            href="/stock/pending"
+            className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold whitespace-nowrap"
+          >
+            Orders
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-medium text-gray-900">
-              Products Pending Payment
+              Orders
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Products sold that require deposit confirmation
+              View your past and current orders, including total cost and deposit details.
             </p>
           </div>
           <Link
@@ -245,14 +350,9 @@ export default function PendingProductsPage() {
                 <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
               </div>
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">How Pending Products Work</h3>
+                <h3 className="text-sm font-medium text-blue-800">Orders Information</h3>
                 <div className="mt-2 text-sm text-blue-700">
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>These products were sold and the profit has been added to your wallet</li>
-                    <li>To complete the transaction, you need to pay the original stock deposit</li>
-                    <li>The deposit amount is the original cost of the stock, not the sale price</li>
-                    <li>Once paid, you&apos;ll receive the full profit and can withdraw funds</li>
-                  </ul>
+                  <p>View your past and current orders, including total cost and deposit details.</p>
                 </div>
               </div>
             </div>
@@ -304,19 +404,28 @@ export default function PendingProductsPage() {
                         <td className="py-4 pl-2 pr-6">
                           <div className="flex items-center">
                             <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden mr-4">
-                              <Image
-                                src={product.productImage || "/images/placeholders/product.svg"}
-                                alt={product.productName}
-                                width={64}
-                                height={64}
-                                className="object-cover w-full h-full"
-                                onError={(e) => {
-                                  console.log("Image failed to load:", e.currentTarget.src);
-                                  e.currentTarget.src = "/images/placeholders/product.svg";
-                                }}
-                                unoptimized={true}
-                                priority
-                              />
+                              {(() => {
+                                const imageConfig = getFirestoreImage(product);
+                                return imageConfig ? (
+                                  <Image
+                                    src={imageConfig.src}
+                                    unoptimized={imageConfig.unoptimized}
+                                    alt={product.productName}
+                                    width={64}
+                                    height={64}
+                                    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                                    className="object-cover"
+                                    onError={(e) => {
+                                      imgLogger.error("Desktop image failed to load:", e.currentTarget.src);
+                                    }}
+                                    priority
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <span className="text-xs text-gray-400">No image</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div>
                               <div className="font-medium text-gray-900">{product.productName}</div>
@@ -402,18 +511,28 @@ export default function PendingProductsPage() {
                   <div key={product.id} className="bg-white border rounded-lg p-4 shadow-sm">
                     <div className="flex items-start space-x-4 mb-4">
                       <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={product.productImage || "/images/placeholders/product.svg"}
-                          alt={product.productName}
-                          width={80}
-                          height={80}
-                          className="object-cover w-full h-full"
-                          onError={(e) => {
-                            e.currentTarget.src = "/images/placeholders/product.svg";
-                          }}
-                          unoptimized
-                          priority
-                        />
+                        {(() => {
+                          const imageConfig = getFirestoreImage(product);
+                          return imageConfig ? (
+                            <Image
+                              src={imageConfig.src}
+                              unoptimized={imageConfig.unoptimized}
+                              alt={product.productName}
+                              width={80}
+                              height={80}
+                              style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                              className="object-cover"
+                              onError={(e) => {
+                                imgLogger.error("Mobile image failed to load:", e.currentTarget.src);
+                              }}
+                              priority
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-xs text-gray-400">No image</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-medium text-gray-900 truncate">
@@ -495,11 +614,11 @@ export default function PendingProductsPage() {
           ) : (
             <div className="p-8 text-center text-gray-500 bg-white border rounded">
               {searchQuery ? (
-                "No pending products found matching your search."
+                "No orders found matching your search."
               ) : (
                 <div>
                   <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Pending Products</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders</h3>
                   <p className="text-gray-600 mb-4">
                     You don&apos;t have any products pending payment.
                   </p>

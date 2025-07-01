@@ -250,6 +250,9 @@ export class StockService {
 
       const querySnapshot = await getDocs(q);
       const items: StockItem[] = [];
+      
+      // Cache for seller data to avoid repeated lookups
+      const sellerCache: Record<string, {name: string, email: string}> = {};
 
       for (const docSnapshot of querySnapshot.docs) {
         const data = docSnapshot.data(); // Validate required fields exist
@@ -264,6 +267,35 @@ export class StockService {
         ) {
           // Ensure stock is always a number (default to 0 for null/undefined)
           const stockValue = typeof data.stock === "number" ? data.stock : 0;
+          
+          // Get seller name if we have a seller ID
+          let sellerName = data.sellerName || "Unknown Seller";
+          
+          if (data.sellerId && !data.sellerName) {
+            // Check cache first to avoid redundant lookups
+            if (sellerCache[data.sellerId]) {
+              sellerName = sellerCache[data.sellerId].name;
+            } else {
+              try {
+                // Fetch seller info from users collection
+                const sellerDoc = await getDoc(doc(firestore, "users", data.sellerId));
+                if (sellerDoc.exists()) {
+                  const sellerData = sellerDoc.data();
+                  sellerName = sellerData.displayName || sellerData.name || 
+                              (sellerData.firstName && sellerData.lastName ? 
+                               `${sellerData.firstName} ${sellerData.lastName}` : "Unknown Seller");
+                  
+                  // Cache the seller data for future use
+                  sellerCache[data.sellerId] = {
+                    name: sellerName,
+                    email: sellerData.email || ""
+                  };
+                }
+              } catch (error) {
+                console.error(`Error fetching seller details for ${data.sellerId}:`, error);
+              }
+            }
+          }
 
           // Ensure all fields are properly formatted
           const item: StockItem = {
@@ -288,7 +320,7 @@ export class StockService {
             salePercentage: data.salePercentage || 0,
             salePrice: data.salePrice,
             sellerId: data.sellerId,
-            sellerName: data.sellerName,
+            sellerName: sellerName, // Use the resolved seller name
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           };
@@ -633,7 +665,7 @@ export class StockService {
       // First, get listing data to check product ID
       const listingRef = doc(firestore, this.LISTINGS_COLLECTION, listingId);
       const listingDoc = await getDoc(listingRef);
-      
+
       if (!listingDoc.exists()) {
         return {
           success: false,
@@ -646,25 +678,115 @@ export class StockService {
       const listingData = listingDoc.data() as DocumentData;
       const productId = listingData.productId || `listing-${listingId}`;
 
-      console.log(`Admin purchase attempt - productId: ${productId}, sellerId: ${sellerId}`);
-
-      // Check if this product has a pending deposit entry (new system)
-      const { PendingDepositService } = await import('./pendingDepositService');
-      const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
-        sellerId,
-        productId
+      console.log(
+        `Admin purchase attempt - productId: ${productId}, sellerId: ${sellerId}`
       );
 
-      console.log(`Pending deposit search result - found: ${found}, deposit:`, deposit);
+      // Check if this product has a pending deposit entry (new system)
+      const { PendingDepositService } = await import("./pendingDepositService");
+      let { deposit, found } =
+        await PendingDepositService.findPendingDepositByProduct(
+          sellerId,
+          productId
+        );
+
+      console.log(
+        `Pending deposit search result - found: ${found}, deposit:`,
+        deposit
+      );
+
+      // If no pending deposit exists, create one now
+      if (!found || !deposit) {
+        console.log(
+          `No pending deposit found for product ${productId}. Creating one now.`
+        );
+
+        // Get listing data to calculate deposit requirements
+        const listingRef = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+        const listingDoc = await getDoc(listingRef);
+
+        if (!listingDoc.exists()) {
+          return {
+            success: false,
+            message: "Listing not found",
+            quantity: 0,
+            totalCost: price * quantity,
+          };
+        }
+
+        const listingData = listingDoc.data();
+
+        // Get original cost from inventory
+        const inventoryRef = doc(
+          firestore,
+          `${this.INVENTORY_COLLECTION}/${sellerId}/products/${productId}`
+        );
+        const inventoryDoc = await getDoc(inventoryRef);
+
+        if (!inventoryDoc.exists()) {
+          return {
+            success: false,
+            message: "Product not found in seller's inventory",
+            quantity: 0,
+            totalCost: price * quantity,
+          };
+        }
+
+        const inventoryData = inventoryDoc.data();
+        const originalCost =
+          inventoryData.originalCost || inventoryData.cost || 0;
+
+        // Create pending deposit
+        const createResult = await PendingDepositService.createPendingDeposit(
+          sellerId,
+          productId,
+          listingData.name || "Unknown Product",
+          listingId,
+          quantity,
+          originalCost,
+          price,
+          listingData.mainImage || listingData.image || (listingData.images && listingData.images[0]) || "", // Product image
+          listingData.images || (listingData.mainImage ? [listingData.mainImage] : []) || (listingData.image ? [listingData.image] : []) // Product images array
+        );
+
+        if (!createResult.success) {
+          return {
+            success: false,
+            message: `Failed to create pending deposit: ${createResult.message}`,
+            quantity: 0,
+            totalCost: price * quantity,
+          };
+        }
+
+        // Refetch the created deposit
+        const refetchResult =
+          await PendingDepositService.findPendingDepositByProduct(
+            sellerId,
+            productId
+          );
+
+        deposit = refetchResult.deposit;
+        found = refetchResult.found;
+
+        console.log(
+          `Created pending deposit with ID: ${createResult.depositId}`
+        );
+      }
 
       if (found && deposit) {
-        console.log(`Using new pending deposit system for admin purchase of product ${productId}`);
-        
+        console.log(
+          `Using pending deposit system for admin purchase of product ${productId}`
+        );
+
         // Use new pending deposit system - process the sale properly
         try {
           // First update the listing quantity in a transaction
           await runTransaction(firestore, async (t: Transaction) => {
-            const listingRefTx = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+            const listingRefTx = doc(
+              firestore,
+              this.LISTINGS_COLLECTION,
+              listingId
+            );
             const listingDocTx = await t.get(listingRefTx);
 
             if (!listingDocTx.exists()) {
@@ -695,10 +817,15 @@ export class StockService {
           );
 
           if (saleResult.success) {
-            console.log(`Successfully processed admin purchase with pending deposit system`);
-            
+            console.log(
+              `Successfully processed admin purchase with pending deposit system`
+            );
+
             // Record the admin purchase for tracking
-            const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
+            const purchaseRef = collection(
+              firestore,
+              StockService.PURCHASES_COLLECTION
+            );
             const newPurchaseDoc = doc(purchaseRef);
             await setDoc(newPurchaseDoc, {
               userId: adminId,
@@ -716,22 +843,30 @@ export class StockService {
             });
 
             // Also create pending product entry for receipt upload workflow
-            const { PendingProductService } = await import('./pendingProductService');
-            const { UserService } = await import('./userService');
-            
+            const { PendingProductService } = await import(
+              "./pendingProductService"
+            );
+            const { UserService } = await import("./userService");
+
             // Fetch seller information
             let sellerName = "Unknown Seller";
             let sellerEmail = "";
             try {
               const sellerProfile = await UserService.getUserProfile(sellerId);
               if (sellerProfile) {
-                sellerName = sellerProfile.displayName || sellerProfile.email?.split('@')[0] || "Unknown Seller";
+                sellerName =
+                  sellerProfile.displayName ||
+                  sellerProfile.email?.split("@")[0] ||
+                  "Unknown Seller";
                 sellerEmail = sellerProfile.email || "";
               }
             } catch (error) {
-              console.warn("Could not fetch seller profile for pending product:", error);
+              console.warn(
+                "Could not fetch seller profile for pending product:",
+                error
+              );
             }
-            
+
             await PendingProductService.createPendingProduct(
               sellerId,
               productId,
@@ -748,12 +883,16 @@ export class StockService {
 
             return {
               success: true,
-              message: "Admin purchase successful (using pending deposit system)",
+              message:
+                "Admin purchase successful (using pending deposit system)",
               quantity,
               totalCost: price * quantity,
             };
           } else {
-            console.error("Failed to process sale through pending deposit system:", saleResult.message);
+            console.error(
+              "Failed to process sale through pending deposit system:",
+              saleResult.message
+            );
             return {
               success: false,
               message: `Sale processing failed: ${saleResult.message}`,
@@ -762,23 +901,35 @@ export class StockService {
             };
           }
         } catch (error) {
-          console.error("Error processing admin purchase with pending deposit system:", error);
+          console.error(
+            "Error processing admin purchase with pending deposit system:",
+            error
+          );
           return {
             success: false,
-            message: error instanceof Error ? error.message : "Failed to process admin purchase",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to process admin purchase",
             quantity: 0,
             totalCost: price * quantity,
           };
         }
       } else {
-        console.log(`Using old system for admin purchase of product ${productId} - no pending deposit found`);
-        
+        console.log(
+          `Failed to create or find pending deposit for product ${productId} - using old system as fallback`
+        );
+
         // Fall back to existing system for products without pending deposits
         return await runTransaction(
           firestore,
           async (t: Transaction): Promise<PurchaseResult> => {
             // Get all references
-            const listingRefTx = doc(firestore, this.LISTINGS_COLLECTION, listingId);
+            const listingRefTx = doc(
+              firestore,
+              this.LISTINGS_COLLECTION,
+              listingId
+            );
             const adminRef = doc(firestore, "users", adminId);
             const sellerRef = doc(firestore, "users", sellerId);
 
@@ -787,7 +938,11 @@ export class StockService {
             const adminDoc = await t.get(adminRef);
             const sellerDoc = await t.get(sellerRef);
 
-            if (!listingDocTx.exists() || !adminDoc.exists() || !sellerDoc.exists()) {
+            if (
+              !listingDocTx.exists() ||
+              !adminDoc.exists() ||
+              !sellerDoc.exists()
+            ) {
               return {
                 success: false,
                 message: "Listing, admin, or seller not found",
@@ -844,7 +999,10 @@ export class StockService {
             });
 
             // Record the admin purchase
-            const purchaseRef = collection(firestore, StockService.PURCHASES_COLLECTION);
+            const purchaseRef = collection(
+              firestore,
+              StockService.PURCHASES_COLLECTION
+            );
             const newPurchaseDoc = doc(purchaseRef);
             t.set(newPurchaseDoc, {
               userId: adminId,
@@ -1671,16 +1829,24 @@ export class StockService {
     listingPrice: number
   ): Promise<PurchaseResult & { listingId?: string; productId?: string }> {
     try {
-      console.log(`Creating listing from admin stock - sellerId: ${sellerId}, stockId: ${stockId}, quantity: ${quantity}`);
-      
+      console.log(
+        `Creating listing from admin stock - sellerId: ${sellerId}, stockId: ${stockId}, quantity: ${quantity}`
+      );
+
       return await this.runSecureTransaction(
-        async (t: Transaction): Promise<PurchaseResult & { listingId?: string; productId?: string }> => {
+        async (
+          t: Transaction
+        ): Promise<
+          PurchaseResult & { listingId?: string; productId?: string }
+        > => {
           // 1. PREPARE ALL REFERENCES
           const stockRef = doc(firestore, StockService.COLLECTION, stockId);
           const inventoryCollectionPath = `${StockService.INVENTORY_COLLECTION}/${sellerId}/products`;
           const inventoryRef = collection(firestore, inventoryCollectionPath);
 
-          console.log(`Stock reference path: ${StockService.COLLECTION}/${stockId}`);
+          console.log(
+            `Stock reference path: ${StockService.COLLECTION}/${stockId}`
+          );
 
           // 2. PERFORM ALL READS FIRST
           const stockDoc = await t.get(stockRef);
@@ -1708,7 +1874,7 @@ export class StockService {
               totalCost: 0,
             };
           }
-          
+
           if (!stockData.name) {
             return {
               success: false,
@@ -1717,7 +1883,7 @@ export class StockService {
               totalCost: 0,
             };
           }
-          
+
           if (typeof stockData.price !== "number") {
             return {
               success: false,
@@ -1726,7 +1892,7 @@ export class StockService {
               totalCost: 0,
             };
           }
-          
+
           if (typeof stockData.stock !== "number") {
             return {
               success: false,
@@ -1735,7 +1901,7 @@ export class StockService {
               totalCost: 0,
             };
           }
-          
+
           if (stockData.stock < quantity) {
             return {
               success: false,
@@ -1744,7 +1910,7 @@ export class StockService {
               totalCost: 0,
             };
           }
-          
+
           if (!stockData.listed) {
             return {
               success: false,
@@ -1822,8 +1988,7 @@ export class StockService {
                 ? stockData.images[0]
                 : ""),
             images:
-              stockData.images ||
-              (stockData.image ? [stockData.image] : []),
+              stockData.images || (stockData.image ? [stockData.image] : []),
             mainImage:
               stockData.mainImage ||
               stockData.image ||
@@ -1899,6 +2064,73 @@ export class StockService {
     } catch (error) {
       console.error("Error creating listing from admin stock:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Fetch real seller names for listings and update them in real-time
+   * 
+   * @param listings The listings to update with real seller names
+   * @param onUpdate Callback when listings are updated with real seller names
+   */
+  static async fetchSellerNamesForListings(
+    listings: StockListing[],
+    onUpdate: (updatedListings: StockListing[]) => void
+  ): Promise<void> {
+    try {
+      // Create a map of seller IDs to track which ones we need to fetch
+      const sellerIds = new Set<string>();
+      
+      // Collect all seller IDs that don't already have names
+      listings.forEach(listing => {
+        if (listing.sellerId && (!listing.sellerName || listing.sellerName === "Unknown Seller" || listing.sellerName === "Loading...")) {
+          sellerIds.add(listing.sellerId);
+        }
+      });
+      
+      // If we don't have any sellers to fetch, just return
+      if (sellerIds.size === 0) {
+        return;
+      }
+      
+      // Create a map to cache seller data as we fetch it
+      const sellerData: Record<string, string> = {};
+      
+      // Fetch all seller information in parallel
+      await Promise.all(
+        Array.from(sellerIds).map(async (sellerId) => {
+          try {
+            const sellerDoc = await getDoc(doc(firestore, "users", sellerId));
+            if (sellerDoc.exists()) {
+              const data = sellerDoc.data();
+              sellerData[sellerId] = data.displayName || 
+                                     data.name || 
+                                    (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : "Unknown Seller");
+            } else {
+              sellerData[sellerId] = "Unknown Seller";
+            }
+          } catch (error) {
+            console.error(`Error fetching seller name for ID ${sellerId}:`, error);
+            sellerData[sellerId] = "Unknown Seller";
+          }
+        })
+      );
+      
+      // Update the listings with real seller names
+      const updatedListings = listings.map(listing => {
+        if (listing.sellerId && sellerData[listing.sellerId]) {
+          return {
+            ...listing,
+            sellerName: sellerData[listing.sellerId]
+          };
+        }
+        return listing;
+      });
+      
+      // Call the update callback with the updated listings
+      onUpdate(updatedListings);
+    } catch (error) {
+      console.error("Error fetching seller names:", error);
     }
   }
 }

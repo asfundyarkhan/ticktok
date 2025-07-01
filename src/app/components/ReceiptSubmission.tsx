@@ -6,6 +6,7 @@ import { NewReceiptService } from "../../services/newReceiptService";
 import { toast } from "react-hot-toast";
 import { Upload, DollarSign, FileText, Camera, Check } from "lucide-react";
 import Image from "next/image";
+import USDTPaymentInfo from "./USDTPaymentInfo";
 
 interface ReceiptSubmissionProps {
   // For deposit payments
@@ -155,6 +156,9 @@ export default function ReceiptSubmission({
           }
         </p>
       </div>
+
+      {/* USDT Payment Information */}
+      <USDTPaymentInfo />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Amount */}

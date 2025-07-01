@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useSearchParams } from "next/navigation";
 import { NewReceiptService, NewReceipt } from "../../services/newReceiptService";
 import ReceiptSubmission from "../components/ReceiptSubmission";
+import Image from "next/image";
 import { 
   Clock, 
   CheckCircle, 
@@ -137,6 +138,37 @@ function ReceiptsV2Content() {
             <Plus className="w-5 h-5" />
             Submit New Receipt
           </button>
+        </div>
+
+        {/* USDT Payment Information */}
+        <div className="bg-white rounded-lg shadow-sm border mb-8">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Payment Information</h2>
+          </div>
+          <div className="p-6">
+            <p className="text-sm font-medium text-gray-800 mb-2">USDT Payment Option:</p>
+            <p className="text-sm text-gray-900">
+              <span className="font-semibold">USDT TRC20 Wallet Address:</span>
+            </p>
+            <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 select-all mb-3 break-all">
+              TSTRhivi8wpe22LR3eHTo3ZEkTZyZmLipd
+            </p>
+            <div className="flex justify-center my-3">
+              <Image 
+                src="/USDT_QR.png" 
+                alt="USDT QR Code" 
+                width={200}
+                height={200}
+                className="object-contain max-w-full w-32 h-32 sm:w-48 sm:h-48"
+              />
+            </div>
+            <div className="mt-3 p-3 bg-blue-100 rounded-md">
+              <p className="text-sm text-blue-800">
+                <strong>Important:</strong> Please ensure you transfer the exact amount and upload
+                the receipt for verification. Include your user ID in the transfer reference if possible.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Submission Form */}

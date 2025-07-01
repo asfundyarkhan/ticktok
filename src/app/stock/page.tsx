@@ -152,7 +152,9 @@ export default function StockPage() {
             listingResult.listingId,
             quantity,
             product.price, // Original cost per unit
-            listingPrice // Listing price with markup
+            listingPrice, // Listing price with markup
+            product.mainImage || (product.images && product.images[0]) || "", // Product image
+            product.images || (product.mainImage ? [product.mainImage] : []) // Product images array
           );
 
           if (depositResult.success) {
@@ -254,7 +256,7 @@ export default function StockPage() {
             href="/stock"
             className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold whitespace-nowrap"
           >
-            Buy stock
+            Product Pool
           </Link>
           <Link
             href="/stock/listings"
@@ -263,10 +265,10 @@ export default function StockPage() {
             My Listings
           </Link>
           <Link
-            href="/stock/listings"
+            href="/stock/pending"
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
-            My Listings
+            Orders
           </Link>
         </div>
 
@@ -515,7 +517,7 @@ export default function StockPage() {
                             : "bg-gray-400"
                         }`}
                       >
-                        <span>Buy Stock</span>
+                        <span>List Product</span>
                       </button>
                     ) : (
                       <button
@@ -588,7 +590,7 @@ export default function StockPage() {
                                 : "bg-gray-400"
                             }`}
                           >
-                            Buy Stock
+                            List Product
                           </button>
                         </div>
                       </div>

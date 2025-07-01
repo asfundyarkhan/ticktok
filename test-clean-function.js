@@ -4,7 +4,7 @@ function cleanObjectForFirestore(obj) {
   for (const [key, value] of Object.entries(obj)) {
     if (value !== undefined && value !== null) {
       // Convert empty strings to null for optional fields, but keep them for required fields
-      if (typeof value === 'string' && value === '' && key !== 'description') {
+      if (typeof value === "string" && value === "" && key !== "description") {
         continue; // Skip empty strings for optional fields
       }
       cleaned[key] = value;
@@ -33,9 +33,11 @@ console.log("Cleaned data:", cleanObjectForFirestore(testData));
 
 // Check if cleaned data has any undefined values
 const cleaned = cleanObjectForFirestore(testData);
-const hasUndefined = Object.values(cleaned).some(value => value === undefined);
+const hasUndefined = Object.values(cleaned).some(
+  (value) => value === undefined
+);
 console.log("Has undefined values:", hasUndefined);
 
 // Check specific fields
-console.log("pendingProductId in cleaned:", 'pendingProductId' in cleaned);
-console.log("productName in cleaned:", 'productName' in cleaned);
+console.log("pendingProductId in cleaned:", "pendingProductId" in cleaned);
+console.log("productName in cleaned:", "productName" in cleaned);

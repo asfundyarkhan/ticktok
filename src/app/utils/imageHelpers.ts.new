@@ -35,10 +35,7 @@ export function getBestProductImage(
   // Then check legacy image field
   if (item.image && item.image.trim() !== "") return item.image;
 
-  // Log the missing image for debugging without breaking the UI
-  console.warn(`No image found for item: ${JSON.stringify(item)}`);
-  
-  // Return null to allow the caller to handle this case
+  // Return null instead of empty string to avoid Next.js Image warnings
   return null;
 }
 
@@ -77,7 +74,7 @@ export function normalizeProductImages(
  * Handles Firestore storage URLs specifically
  *
  * @param item - Product or listing object with image fields
- * @returns The most appropriate image URL configuration or null if no image found
+ * @returns The most appropriate image URL configuration or null if no image is found
  */
 export function getFirestoreImage(
   item:
@@ -90,24 +87,88 @@ export function getFirestoreImage(
     | null
     | undefined
 ): { src: string; unoptimized: boolean } | null {
-  // This may return null if no image is found
   const imageUrl = getBestProductImage(item);
-  
-  // If no image URL was found, return null
+
+  // If no image found, return null to avoid Next.js warnings
   if (!imageUrl) {
     return null;
   }
-  
+
   // Check if it's a Firestore storage URL
   const isFirestoreUrl =
     imageUrl.includes("firebasestorage.googleapis.com") ||
     imageUrl.includes("storage.googleapis.com");
 
-  // Log the image URL for debugging
-  console.debug(`Using image URL: ${imageUrl} (Firebase: ${isFirestoreUrl})`);
-  
   return {
     src: imageUrl,
     unoptimized: isFirestoreUrl, // Only unoptimize Firebase Storage URLs
   };
+}
+
+/**
+ * Creates React elements for product images with proper fallback handling
+ * This helps avoid the "empty src" warnings from Next.js
+ * 
+ * @param item - Product or listing object with image fields
+ * @param width - Width of the image
+ * @param height - Height of the image
+ * @param altText - Alt text for the image
+ * @returns React element for displaying the image with fallback
+ */
+export function ProductImage({
+  item,
+  width,
+  height,
+  altText,
+  className,
+  priority = false,
+  onError,
+  fallbackImage,
+}: {
+  item: {
+    mainImage?: string | null;
+    image?: string | null;
+    images?: string[] | null;
+    productImage?: string | null;
+    name?: string;
+  } | null | undefined;
+  width: number;
+  height: number;
+  altText?: string;
+  className?: string;
+  priority?: boolean;
+  onError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+  fallbackImage?: string;
+}): JSX.Element {
+  // Import Image dynamically since this is a utility file
+  const Image = require('next/image').default;
+  
+  const imageConfig = getFirestoreImage(item);
+  
+  if (imageConfig) {
+    return (
+      <Image
+        src={imageConfig.src}
+        alt={altText || item?.name || 'Product image'}
+        width={width}
+        height={height}
+        className={className || 'object-cover'}
+        unoptimized={imageConfig.unoptimized}
+        priority={priority}
+        onError={(e) => {
+          console.log("Image failed to load:", e.currentTarget.src);
+          if (fallbackImage) {
+            e.currentTarget.src = fallbackImage;
+          }
+          if (onError) onError(e);
+        }}
+      />
+    );
+  } else {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-xs text-gray-400">No image</span>
+      </div>
+    );
+  }
 }

@@ -1,14 +1,17 @@
 # FIRESTORE UNDEFINED FIELD FIX - COMPLETE
 
 ## Issue
+
 FirebaseError: Function addDoc() called with invalid data. Unsupported field value: undefined (found in field pendingProductId in document receipts_v2/f5r6JIZrP791RyHixKcN)
 
 ## Root Cause
+
 Firestore does not allow undefined values to be stored in documents. The issue was occurring when creating receipt documents where optional fields like `pendingProductId` and `productName` could have undefined values.
 
 ## Solution Implemented
 
 ### 1. Explicit Field Addition Strategy
+
 Instead of using a cleaning function approach, implemented explicit field addition that only adds fields with actual values:
 
 ```typescript
@@ -40,6 +43,7 @@ if (depositInfo?.productName) {
 ```
 
 ### 2. Frontend Validation Improvements
+
 Enhanced the ReceiptSubmission component to properly handle undefined values in depositInfo:
 
 ```typescript
@@ -49,12 +53,13 @@ if (isDepositPayment && pendingDepositId) {
   depositInfo = {
     pendingDepositId,
     ...(pendingProductId && { pendingProductId }),
-    ...(productName && { productName })
+    ...(productName && { productName }),
   };
 }
 ```
 
 ### 3. Updated Receipt Processing
+
 Applied the same cleaning approach to receipt update operations (approval/rejection):
 
 ```typescript
@@ -70,6 +75,7 @@ transaction.update(receiptRef, updateData);
 ```
 
 ### 4. Enhanced cleanObjectForFirestore Function
+
 Improved the utility function to handle null values and empty strings properly:
 
 ```typescript

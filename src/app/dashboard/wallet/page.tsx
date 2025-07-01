@@ -103,7 +103,7 @@ export default function WalletPage() {
             href="/dashboard/stock"
             className="px-1 py-2 text-gray-700 hover:text-gray-900 font-medium"
           >
-            Buy stock
+            Product Pool
           </Link>
           <Link
             href="/dashboard/stock/inventory"

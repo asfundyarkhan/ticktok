@@ -66,25 +66,31 @@ export class SellerWalletService {
     callback: (balance: WalletBalance) => void
   ): () => void {
     console.log(`🔄 Subscribing to wallet balance for seller: ${sellerId}`);
-    
+
     // Use pending_deposits collection instead of pending_profits
     const pendingDepositsRef = collection(firestore, "pending_deposits");
     const q = query(pendingDepositsRef, where("sellerId", "==", sellerId));
 
     return onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
-      console.log(`📊 Wallet balance update: ${snapshot.docs.length} pending deposits found`);
-      
+      console.log(
+        `📊 Wallet balance update: ${snapshot.docs.length} pending deposits found`
+      );
+
       let pending = 0;
       let available = 0;
 
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
-        console.log(`💰 Deposit ${doc.id}: status=${data.status}, pendingProfit=${data.pendingProfitAmount}`);
-        
+        console.log(
+          `💰 Deposit ${doc.id}: status=${data.status}, pendingProfit=${data.pendingProfitAmount}`
+        );
+
         if (data.status === "sold" && data.pendingProfitAmount) {
           // Profit is pending (waiting for deposit)
           pending += data.pendingProfitAmount;
-          console.log(`➕ Added ${data.pendingProfitAmount} to pending (total: ${pending})`);
+          console.log(
+            `➕ Added ${data.pendingProfitAmount} to pending (total: ${pending})`
+          );
         } else if (data.status === "deposit_paid" && data.pendingProfitAmount) {
           // This shouldn't happen as pendingProfitAmount should be 0 after deposit_paid
           // But including for safety
@@ -106,7 +112,7 @@ export class SellerWalletService {
         pending,
         total: available + pending,
       };
-      
+
       console.log(`📈 Final wallet balance:`, walletBalance);
       callback(walletBalance);
     });
@@ -175,25 +181,98 @@ export class SellerWalletService {
       );
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => {
-        const data = doc.data();
-        
-        // Map pending_deposits data to PendingProfit interface
-        return {
-          id: doc.id,
-          sellerId: data.sellerId,
-          productId: data.productId,
-          productName: data.productName,
-          saleAmount: data.salePrice || data.listingPrice,
-          profitAmount: data.pendingProfitAmount || 0,
-          baseCost: data.originalCostPerUnit,
-          depositRequired: data.totalDepositRequired,
-          status: data.status === "sold" ? "pending" : data.status === "deposit_paid" ? "deposit_made" : data.status,
-          saleDate: data.saleDate?.toDate() || data.createdAt?.toDate() || new Date(),
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-        } as PendingProfit;
-      });
+      const pendingProfits = await Promise.all(
+        snapshot.docs.map(async (docSnapshot) => {
+          const data = docSnapshot.data();
+          let productImage = "";
+
+          // First, try to get image from the pending_deposits data itself
+          if (data.productImage && typeof data.productImage === 'string') {
+            productImage = data.productImage;
+            console.log(`Using productImage from pending_deposits: ${productImage}`);
+          } else if (data.mainImage && typeof data.mainImage === 'string') {
+            productImage = data.mainImage;
+            console.log(`Using mainImage from pending_deposits: ${productImage}`);
+          } else if (data.productImages && Array.isArray(data.productImages) && data.productImages.length > 0) {
+            productImage = data.productImages[0];
+            console.log(`Using first image from productImages array: ${productImage}`);
+          }
+
+          // If no image in pending_deposits, fallback to fetching from products collection
+          if (!productImage && data.productId) {
+            console.log(`No image in pending_deposits for ${data.productId}, fetching from products collection...`);
+            try {
+              const productRef = doc(firestore, "products", data.productId);
+              const productDoc = await getDoc(productRef);
+              if (productDoc.exists()) {
+                const productData = productDoc.data();
+                
+                // Try various image field names
+                if (productData.image && typeof productData.image === 'string') {
+                  productImage = productData.image;
+                  console.log(`Found image field for ${data.productId}: ${productImage}`);
+                } else if (productData.mainImage && typeof productData.mainImage === 'string') {
+                  productImage = productData.mainImage;
+                  console.log(`Found mainImage field for ${data.productId}: ${productImage}`);
+                } else if (productData.images && Array.isArray(productData.images) && productData.images.length > 0) {
+                  productImage = productData.images[0];
+                  console.log(`Found image in images array for ${data.productId}: ${productImage}`);
+                }
+              }
+            } catch (err) {
+              console.error(`Error fetching product image for ${data.productId}:`, err);
+            }
+          }
+
+          // Format Firebase Storage URLs if needed
+          if (productImage && !productImage.startsWith('http') && !productImage.startsWith('data:')) {
+            try {
+              if (!productImage.includes('/')) {
+                // It's likely just a filename - construct a path in the products folder
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/products%2F${encodeURIComponent(productImage)}?alt=media`;
+              } else if (productImage.startsWith('/')) {
+                // Remove the leading slash before encoding
+                const path = productImage.substring(1);
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(path)}?alt=media`;
+              } else {
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(productImage)}?alt=media`;
+              }
+              console.log(`Formatted image URL for ${data.productId}: ${productImage}`);
+            } catch (err) {
+              console.error(`Error formatting image URL for ${data.productId}:`, err);
+              productImage = "";
+            }
+          }
+
+          console.log(`Final image URL for ${data.productName}: ${productImage || 'NO IMAGE'}`);
+
+          // Map pending_deposits data to PendingProfit interface
+          return {
+            id: docSnapshot.id,
+            sellerId: data.sellerId,
+            productId: data.productId,
+            productName: data.productName,
+            productImage: productImage, // Include product image
+            saleAmount: data.salePrice || data.listingPrice,
+            profitAmount: data.pendingProfitAmount || 0,
+            baseCost: data.originalCostPerUnit,
+            depositRequired: data.totalDepositRequired,
+            quantitySold: data.actualQuantitySold || data.quantityListed || 1, // Get actual quantity
+            status:
+              data.status === "sold"
+                ? "pending"
+                : data.status === "deposit_paid"
+                ? "deposit_made"
+                : data.status,
+            saleDate:
+              data.saleDate?.toDate() || data.createdAt?.toDate() || new Date(),
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          } as PendingProfit;
+        })
+      );
+
+      return pendingProfits;
     } catch (error) {
       console.error("Error getting pending profits:", error);
       return [];

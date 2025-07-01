@@ -31,7 +31,7 @@ export interface NewReceipt {
   processedBy?: string; // Superadmin ID
   processedByName?: string;
   notes?: string;
-  
+
   // Deposit payment integration
   isDepositPayment?: boolean;
   pendingDepositId?: string;
@@ -59,12 +59,18 @@ export class NewReceiptService {
    * Remove undefined values from an object for Firestore compatibility
    * Also handles null values and empty strings properly
    */
-  private static cleanObjectForFirestore<T>(obj: Record<string, T | undefined | null>): Record<string, T> {
+  private static cleanObjectForFirestore<T>(
+    obj: Record<string, T | undefined | null>
+  ): Record<string, T> {
     const cleaned: Record<string, T> = {};
     for (const [key, value] of Object.entries(obj)) {
       if (value !== undefined && value !== null) {
         // Convert empty strings to null for optional fields, but keep them for required fields
-        if (typeof value === 'string' && value === '' && key !== 'description') {
+        if (
+          typeof value === "string" &&
+          value === "" &&
+          key !== "description"
+        ) {
           continue; // Skip empty strings for optional fields
         }
         cleaned[key] = value as T;
@@ -90,7 +96,9 @@ export class NewReceiptService {
     }
   ): Promise<ReceiptSubmissionResult> {
     try {
-      console.log(`📋 Submitting receipt for user ${userEmail}, amount: $${amount}`);
+      console.log(
+        `📋 Submitting receipt for user ${userEmail}, amount: $${amount}`
+      );
 
       // Upload receipt image
       const imageUrl = await this.uploadReceiptImage(receiptFile, userId);
@@ -118,24 +126,28 @@ export class NewReceiptService {
       if (depositInfo?.pendingDepositId) {
         receiptData.pendingDepositId = depositInfo.pendingDepositId;
       }
-      
+
       if (depositInfo?.pendingProductId) {
         receiptData.pendingProductId = depositInfo.pendingProductId;
       }
-      
+
       if (depositInfo?.productName) {
         receiptData.productName = depositInfo.productName;
       }
 
       console.log("📋 Receipt data before submission:", receiptData);
 
-      const docRef = await addDoc(collection(firestore, this.COLLECTION), receiptData);
+      const docRef = await addDoc(
+        collection(firestore, this.COLLECTION),
+        receiptData
+      );
 
       console.log(`✅ Receipt submitted successfully with ID: ${docRef.id}`);
 
       return {
         success: true,
-        message: "Receipt submitted successfully! It will be reviewed by our admin team.",
+        message:
+          "Receipt submitted successfully! It will be reviewed by our admin team.",
         receiptId: docRef.id,
       };
     } catch (error) {
@@ -150,10 +162,15 @@ export class NewReceiptService {
   /**
    * Upload receipt image to Firebase Storage
    */
-  private static async uploadReceiptImage(file: File, userId: string): Promise<string> {
+  private static async uploadReceiptImage(
+    file: File,
+    userId: string
+  ): Promise<string> {
     try {
       const timestamp = Date.now();
-      const fileName = `receipt_${userId}_${timestamp}.${file.name.split('.').pop()}`;
+      const fileName = `receipt_${userId}_${timestamp}.${file.name
+        .split(".")
+        .pop()}`;
       const storageRef = ref(storage, `${this.STORAGE_PATH}/${fileName}`);
 
       const uploadTask = uploadBytesResumable(storageRef, file, {
@@ -167,7 +184,8 @@ export class NewReceiptService {
         uploadTask.on(
           "state_changed",
           (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            const progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             console.log(`Receipt upload progress: ${progress}%`);
           },
           (error) => {
@@ -260,112 +278,140 @@ export class NewReceiptService {
     notes?: string
   ): Promise<ReceiptProcessResult> {
     try {
-      console.log(`🟢 Processing receipt approval: ${receiptId} by ${superadminName}`);
+      console.log(
+        `🟢 Processing receipt approval: ${receiptId} by ${superadminName}`
+      );
 
-      return await runTransaction(firestore, async (transaction: Transaction) => {
-        // Get receipt data
-        const receiptRef = doc(firestore, this.COLLECTION, receiptId);
-        const receiptDoc = await transaction.get(receiptRef);
+      return await runTransaction(
+        firestore,
+        async (transaction: Transaction) => {
+          // Get receipt data
+          const receiptRef = doc(firestore, this.COLLECTION, receiptId);
+          const receiptDoc = await transaction.get(receiptRef);
 
-        if (!receiptDoc.exists()) {
-          return { success: false, message: "Receipt not found" };
-        }
+          if (!receiptDoc.exists()) {
+            return { success: false, message: "Receipt not found" };
+          }
 
-        const receiptData = receiptDoc.data() as NewReceipt;
+          const receiptData = receiptDoc.data() as NewReceipt;
 
-        if (receiptData.status !== "pending") {
-          return { success: false, message: "Receipt has already been processed" };
-        }
+          if (receiptData.status !== "pending") {
+            return {
+              success: false,
+              message: "Receipt has already been processed",
+            };
+          }
 
-        // Get user data
-        const userRef = doc(firestore, "users", receiptData.userId);
-        const userDoc = await transaction.get(userRef);
+          // Get user data
+          const userRef = doc(firestore, "users", receiptData.userId);
+          const userDoc = await transaction.get(userRef);
 
-        if (!userDoc.exists()) {
-          return { success: false, message: "User not found" };
-        }
+          if (!userDoc.exists()) {
+            return { success: false, message: "User not found" };
+          }
 
-        const userData = userDoc.data();
-        let newBalance = userData.balance || 0;
+          const userData = userDoc.data();
+          let newBalance = userData.balance || 0;
 
-        // Handle different types of receipts
-        if (receiptData.isDepositPayment && receiptData.pendingDepositId) {
-          // Deposit payment - process through pending deposit service
-          console.log(`🏦 Processing deposit payment for: ${receiptData.pendingDepositId}`);
-          
-          try {
-            const { PendingDepositService } = await import("./pendingDepositService");
-            const depositResult = await PendingDepositService.markDepositPaid(
-              receiptData.pendingDepositId,
-              receiptData.userId
+          // Handle different types of receipts
+          if (receiptData.isDepositPayment && receiptData.pendingDepositId) {
+            // Deposit payment - process through pending deposit service
+            console.log(
+              `🏦 Processing deposit payment for: ${receiptData.pendingDepositId}`
             );
 
-            if (!depositResult.success) {
-              return { success: false, message: `Failed to process deposit: ${depositResult.message}` };
-            }
+            try {
+              const { PendingDepositService } = await import(
+                "./pendingDepositService"
+              );
+              const depositResult = await PendingDepositService.markDepositPaid(
+                receiptData.pendingDepositId,
+                receiptData.userId
+              );
 
-            // Update pending product if exists
-            if (receiptData.pendingProductId) {
-              const { PendingProductService } = await import("./pendingProductService");
-              await PendingProductService.markDepositApproved(receiptData.pendingProductId);
-              console.log(`✅ Pending product ${receiptData.pendingProductId} marked as deposit approved`);
-            }
+              if (!depositResult.success) {
+                return {
+                  success: false,
+                  message: `Failed to process deposit: ${depositResult.message}`,
+                };
+              }
 
-            console.log(`✅ Deposit payment processed successfully`);
-          } catch (error) {
-            console.error("Error processing deposit payment:", error);
-            return { success: false, message: "Failed to process deposit payment" };
+              // Update pending product if exists
+              if (receiptData.pendingProductId) {
+                const { PendingProductService } = await import(
+                  "./pendingProductService"
+                );
+                await PendingProductService.markDepositApproved(
+                  receiptData.pendingProductId
+                );
+                console.log(
+                  `✅ Pending product ${receiptData.pendingProductId} marked as deposit approved`
+                );
+              }
+
+              console.log(`✅ Deposit payment processed successfully`);
+            } catch (error) {
+              console.error("Error processing deposit payment:", error);
+              return {
+                success: false,
+                message: "Failed to process deposit payment",
+              };
+            }
+          } else {
+            // Regular withdrawal receipt - add to balance
+            newBalance = (userData.balance || 0) + receiptData.amount;
+
+            console.log(
+              `💰 Adding ${receiptData.amount} to user balance (${
+                userData.balance || 0
+              } -> ${newBalance})`
+            );
+
+            transaction.update(userRef, {
+              balance: newBalance,
+              updatedAt: Timestamp.now(),
+            });
           }
-        } else {
-          // Regular withdrawal receipt - add to balance
-          newBalance = (userData.balance || 0) + receiptData.amount;
-          
-          console.log(`💰 Adding ${receiptData.amount} to user balance (${userData.balance || 0} -> ${newBalance})`);
-          
-          transaction.update(userRef, {
-            balance: newBalance,
-            updatedAt: Timestamp.now(),
+
+          // Update receipt status
+          const updateData = this.cleanObjectForFirestore({
+            status: "approved",
+            processedAt: Timestamp.now(),
+            processedBy: superadminId,
+            processedByName: superadminName,
+            notes: notes || "Receipt approved",
           });
-        }
 
-        // Update receipt status
-        const updateData = this.cleanObjectForFirestore({
-          status: "approved",
-          processedAt: Timestamp.now(),
-          processedBy: superadminId,
-          processedByName: superadminName,
-          notes: notes || "Receipt approved",
-        });
-        
-        transaction.update(receiptRef, updateData);
+          transaction.update(receiptRef, updateData);
 
-        // Record commission if user has referrer
-        if (userData.referredBy) {
-          try {
-            const { CommissionService } = await import("./commissionService");
-            await CommissionService.recordReceiptApprovalCommission(
-              userData.referredBy,
-              receiptData.userId,
-              receiptData.amount,
-              receiptId,
-              `Receipt approval commission for ${receiptData.userEmail}`
-            );
-          } catch (commissionError) {
-            console.error("Error recording commission:", commissionError);
-            // Don't fail the transaction for commission error
+          // Record commission if user has referrer
+          if (userData.referredBy) {
+            try {
+              const { CommissionService } = await import("./commissionService");
+              await CommissionService.recordReceiptApprovalCommission(
+                userData.referredBy,
+                receiptData.userId,
+                receiptData.amount,
+                receiptId,
+                `Receipt approval commission for ${receiptData.userEmail}`
+              );
+            } catch (commissionError) {
+              console.error("Error recording commission:", commissionError);
+              // Don't fail the transaction for commission error
+            }
           }
+
+          console.log(`✅ Receipt ${receiptId} approved successfully`);
+
+          return {
+            success: true,
+            message: receiptData.isDepositPayment
+              ? `Deposit receipt approved! Profit has been added to ${receiptData.userName}'s wallet.`
+              : `Withdrawal receipt approved! $${receiptData.amount} has been added to ${receiptData.userName}'s balance.`,
+            newBalance,
+          };
         }
-
-        console.log(`✅ Receipt ${receiptId} approved successfully`);
-
-        return {
-          success: true,
-          message: receiptData.isDepositPayment 
-            ? `Deposit receipt approved! Profit has been added to ${receiptData.userName}'s wallet.`
-            : `Withdrawal receipt approved! $${receiptData.amount} has been added to ${receiptData.userName}'s balance.`,
-          newBalance,
-        };
-      });
+      );
     } catch (error) {
       console.error("❌ Error approving receipt:", error);
       return {
@@ -397,7 +443,10 @@ export class NewReceiptService {
       const receiptData = receiptDoc.data() as NewReceipt;
 
       if (receiptData.status !== "pending") {
-        return { success: false, message: "Receipt has already been processed" };
+        return {
+          success: false,
+          message: "Receipt has already been processed",
+        };
       }
 
       const updateData = this.cleanObjectForFirestore({

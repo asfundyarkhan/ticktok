@@ -174,14 +174,14 @@ export default function InventoryPage() {
 
   // Restock product
   const handleRestock = (productCode: string) => {
-    // Save the product code in localStorage to highlight it on the Buy Stock page
+    // Save the product code in localStorage to highlight it on the Product Pool page
     try {
       localStorage.setItem("productToRestock", productCode);
     } catch (error) {
       console.error("Error setting productToRestock to localStorage:", error);
     }
 
-    // Redirect to the buy stock page
+    // Redirect to the product pool page
     router.push("/stock");
   };
 
@@ -206,16 +206,16 @@ export default function InventoryPage() {
             General
           </Link>
           <Link
-            href="/wallet"
+            href="/receipts-v2"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
-            Wallet
+            Receipts
           </Link>
           <Link
             href="/stock"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
-            Buy stock
+            Product Pool
           </Link>
           <Link
             href="/stock/inventory"
@@ -228,6 +228,12 @@ export default function InventoryPage() {
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             My Listings
+          </Link>
+          <Link
+            href="/stock/pending"
+            className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            Orders
           </Link>
         </div>{/* Current Balance Card */}
         <div className="bg-white p-4 rounded-lg mb-6 border-l-4 border-[#FF0059]">
@@ -308,19 +314,28 @@ export default function InventoryPage() {
                       >
                         <td className="py-4 pl-2 pr-6">
                           <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden">
-                            <Image
-                              src={getBestProductImage(product)}
-                              alt={product.name}
-                              width={64}
-                              height={64}
-                              className="object-cover w-full h-full"
-                              onError={(e) => {
-                                console.log("Image failed to load:", e.currentTarget.src);
-                                e.currentTarget.src = '/images/placeholders/product.svg';
-                              }}
-                              unoptimized={true}
-                              priority
-                            />
+                            {(() => {
+                              const imageUrl = getBestProductImage(product);
+                              return imageUrl ? (
+                                <Image
+                                  src={imageUrl}
+                                  alt={product.name}
+                                  width={64}
+                                  height={64}
+                                  className="object-cover w-full h-full"
+                                  onError={(e) => {
+                                    console.log("Image failed to load:", e.currentTarget.src);
+                                    e.currentTarget.src = '/images/placeholders/product.svg';
+                                  }}
+                                  unoptimized={true}
+                                  priority
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <span className="text-xs text-gray-400">No image</span>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="py-4 px-6 font-medium text-gray-900">
@@ -382,16 +397,27 @@ export default function InventoryPage() {
                   >
                     <div className="flex items-start space-x-4 mb-4">
                       <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={getBestProductImage(product)}
-                          alt={product.name}
-                          width={80}
-                          height={80}
-                          className="object-cover w-full h-full"
-                          onError={(e) => {
-                            console.log("Image failed to load:", e.currentTarget.src);
-                            e.currentTarget.src = '/images/placeholders/product.svg';
-                          }}
+                        {(() => {
+                          const imageUrl = getBestProductImage(product);
+                          return imageUrl ? (
+                            <Image
+                              src={imageUrl}
+                              alt={product.name}
+                              width={80}
+                              height={80}
+                              className="object-cover w-full h-full"
+                              onError={(e) => {
+                                console.log("Image failed to load:", e.currentTarget.src);
+                                e.currentTarget.src = '/images/placeholders/product.svg';
+                              }}
+                              priority
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-xs text-gray-400">No image</span>
+                            </div>
+                          );
+                        })()}
                           unoptimized={true}
                           priority
                         />

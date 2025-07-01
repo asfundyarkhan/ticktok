@@ -8,7 +8,7 @@ export default function WalletPage() {
   const router = useRouter();
   
   useEffect(() => {
-    router.push("/receipts");
+    router.push("/receipts-v2");
   }, [router]);
   
   // This content will be shown while the redirect is happening
@@ -19,7 +19,7 @@ export default function WalletPage() {
         <h2 className="text-xl font-medium text-gray-800 mb-2">Redirecting to Receipts</h2>
         <p className="text-gray-600 mb-4">Please wait...</p>
         <Link 
-          href="/receipts"
+          href="/receipts-v2"
           className="text-[#FF0059] underline"
         >
           Click here if you&apos;re not redirected automatically

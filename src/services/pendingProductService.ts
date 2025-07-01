@@ -28,7 +28,11 @@ export interface PendingProduct {
   buyerName?: string;
   buyerEmail?: string;
   saleDate: Date;
-  status: "pending_deposit" | "deposit_submitted" | "deposit_approved" | "completed";
+  status:
+    | "pending_deposit"
+    | "deposit_submitted"
+    | "deposit_approved"
+    | "completed";
   receiptId?: string; // Reference to the deposit receipt
   createdAt: Date;
   updatedAt: Date;
@@ -84,7 +88,10 @@ export class PendingProductService {
         ...(buyerEmail && { buyerEmail }),
       };
 
-      const docRef = await addDoc(collection(firestore, this.COLLECTION), pendingProduct);
+      const docRef = await addDoc(
+        collection(firestore, this.COLLECTION),
+        pendingProduct
+      );
 
       return {
         success: true,
@@ -103,7 +110,9 @@ export class PendingProductService {
   /**
    * Get pending products for a specific seller
    */
-  static async getSellerPendingProducts(sellerId: string): Promise<PendingProduct[]> {
+  static async getSellerPendingProducts(
+    sellerId: string
+  ): Promise<PendingProduct[]> {
     try {
       const q = query(
         collection(firestore, this.COLLECTION),
@@ -200,7 +209,9 @@ export class PendingProductService {
   /**
    * Update pending product status when deposit is approved
    */
-  static async markDepositApproved(pendingProductId: string): Promise<PendingProductResult> {
+  static async markDepositApproved(
+    pendingProductId: string
+  ): Promise<PendingProductResult> {
     try {
       const docRef = doc(firestore, this.COLLECTION, pendingProductId);
       await updateDoc(docRef, {
@@ -224,7 +235,9 @@ export class PendingProductService {
   /**
    * Complete pending product (when funds are actually transferred)
    */
-  static async completePendingProduct(pendingProductId: string): Promise<PendingProductResult> {
+  static async completePendingProduct(
+    pendingProductId: string
+  ): Promise<PendingProductResult> {
     try {
       const docRef = doc(firestore, this.COLLECTION, pendingProductId);
       await updateDoc(docRef, {
@@ -248,7 +261,9 @@ export class PendingProductService {
   /**
    * Delete a pending product
    */
-  static async deletePendingProduct(pendingProductId: string): Promise<PendingProductResult> {
+  static async deletePendingProduct(
+    pendingProductId: string
+  ): Promise<PendingProductResult> {
     try {
       const docRef = doc(firestore, this.COLLECTION, pendingProductId);
       await deleteDoc(docRef);

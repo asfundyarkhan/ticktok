@@ -9,6 +9,7 @@ export interface PendingProfit {
   sellerId: string;
   productId: string;
   productName: string;
+  productImage?: string; // Add product image field
   saleAmount: number;
   profitAmount: number;
   baseCost: number;
@@ -17,6 +18,7 @@ export interface PendingProfit {
   saleDate: Date;
   createdAt: Date;
   updatedAt: Date;
+  quantitySold?: number; // Add quantity information
 }
 
 export interface SellerDeposit {
