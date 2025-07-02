@@ -7,12 +7,11 @@ import {
   where,
   orderBy,
   Timestamp,
-  runTransaction,
   onSnapshot,
-  QuerySnapshot,
-  DocumentData,
+  Transaction,
 } from "firebase/firestore";
 import { firestore } from "../lib/firebase/firebase";
+import { TransactionHelperService } from "./transactionHelperService";
 import {
   WalletBalance,
   PendingProfit,
@@ -25,28 +24,23 @@ export class SellerWalletService {
   // Get seller's wallet balance
   static async getWalletBalance(sellerId: string): Promise<WalletBalance> {
     try {
-      const pendingProfitsRef = collection(firestore, "pending_profits");
+      // Get actual balance from user document
+      const userRef = doc(firestore, "users", sellerId);
+      const userDoc = await getDoc(userRef);
+      const available = userDoc.exists() ? (userDoc.data()?.balance || 0) : 0;
+
+      // Get pending amounts from pending deposits
+      const pendingDepositsRef = collection(firestore, "pending_deposits");
       const q = query(
-        pendingProfitsRef,
+        pendingDepositsRef,
         where("sellerId", "==", sellerId),
-        where("status", "==", "pending")
+        where("status", "==", "sold")
       );
 
       const snapshot = await getDocs(q);
       const pending = snapshot.docs.reduce((total, doc) => {
-        return total + doc.data().profitAmount;
-      }, 0);
-
-      // Get available balance (deposits made but not yet withdrawn)
-      const availableQuery = query(
-        pendingProfitsRef,
-        where("sellerId", "==", sellerId),
-        where("status", "==", "deposit_made")
-      );
-
-      const availableSnapshot = await getDocs(availableQuery);
-      const available = availableSnapshot.docs.reduce((total, doc) => {
-        return total + doc.data().profitAmount;
+        const data = doc.data();
+        return total + (data.pendingProfitAmount || 0);
       }, 0);
 
       return {
@@ -67,55 +61,62 @@ export class SellerWalletService {
   ): () => void {
     console.log(`🔄 Subscribing to wallet balance for seller: ${sellerId}`);
 
-    // Use pending_deposits collection instead of pending_profits
+    let latestAvailable = 0;
+    let latestPending = 0;
+    let userUnsubscribe: (() => void) | null = null;
+    let depositsUnsubscribe: (() => void) | null = null;
+
+    const updateBalance = () => {
+      const walletBalance = {
+        available: latestAvailable,
+        pending: latestPending,
+        total: latestAvailable + latestPending,
+      };
+      console.log(`📈 Final wallet balance:`, walletBalance);
+      callback(walletBalance);
+    };
+
+    // Subscribe to user document for actual balance
+    const userRef = doc(firestore, "users", sellerId);
+    userUnsubscribe = onSnapshot(userRef, (userDoc) => {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        latestAvailable = userData.balance || 0;
+        console.log(`💳 User wallet balance updated: ${latestAvailable}`);
+      } else {
+        latestAvailable = 0;
+        console.log(`💳 User document not found, balance: 0`);
+      }
+      updateBalance();
+    });
+
+    // Subscribe to pending deposits for pending amounts
     const pendingDepositsRef = collection(firestore, "pending_deposits");
     const q = query(pendingDepositsRef, where("sellerId", "==", sellerId));
-
-    return onSnapshot(q, async (snapshot: QuerySnapshot<DocumentData>) => {
-      console.log(
-        `📊 Wallet balance update: ${snapshot.docs.length} pending deposits found`
-      );
-
-      let pending = 0;
-      let available = 0;
-
+    
+    depositsUnsubscribe = onSnapshot(q, (snapshot) => {
+      console.log(`📊 Pending deposits update: ${snapshot.docs.length} deposits found`);
+      
+      latestPending = 0;
       snapshot.docs.forEach((doc) => {
         const data = doc.data();
-        console.log(
-          `💰 Deposit ${doc.id}: status=${data.status}, pendingProfit=${data.pendingProfitAmount}`
-        );
+        console.log(`💰 Deposit ${doc.id}: status=${data.status}, pendingProfit=${data.pendingProfitAmount}`);
 
         if (data.status === "sold" && data.pendingProfitAmount) {
           // Profit is pending (waiting for deposit)
-          pending += data.pendingProfitAmount;
-          console.log(
-            `➕ Added ${data.pendingProfitAmount} to pending (total: ${pending})`
-          );
-        } else if (data.status === "deposit_paid" && data.pendingProfitAmount) {
-          // This shouldn't happen as pendingProfitAmount should be 0 after deposit_paid
-          // But including for safety
-          available += data.pendingProfitAmount;
+          latestPending += data.pendingProfitAmount;
+          console.log(`➕ Added ${data.pendingProfitAmount} to pending (total: ${latestPending})`);
         }
       });
-
-      // Also get the actual wallet balance from user document
-      const userRef = doc(firestore, "users", sellerId);
-      const userDoc = await getDoc(userRef);
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        available = userData.balance || 0;
-        console.log(`💳 User wallet balance: ${available}`);
-      }
-
-      const walletBalance = {
-        available,
-        pending,
-        total: available + pending,
-      };
-
-      console.log(`📈 Final wallet balance:`, walletBalance);
-      callback(walletBalance);
+      
+      updateBalance();
     });
+
+    // Return cleanup function
+    return () => {
+      if (userUnsubscribe) userUnsubscribe();
+      if (depositsUnsubscribe) depositsUnsubscribe();
+    };
   }
 
   // Record a sale and create pending profit
@@ -123,68 +124,104 @@ export class SellerWalletService {
     sale: Omit<Sale, "id" | "createdAt" | "updatedAt">
   ): Promise<string> {
     try {
-      return await runTransaction(firestore, async (transaction) => {
-        // Create sale record
-        const saleRef = doc(collection(firestore, "sales"));
-        const saleData: Sale = {
-          ...sale,
-          id: saleRef.id,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        transaction.set(saleRef, {
-          ...saleData,
-          createdAt: Timestamp.fromDate(saleData.createdAt),
-          updatedAt: Timestamp.fromDate(saleData.updatedAt),
-        });
+      const result = await TransactionHelperService.executeWithRetry(
+        firestore,
+        async (transaction: Transaction) => {
+          // Create sale record
+          const saleRef = doc(collection(firestore, "sales"));
+          const saleData: Sale = {
+            ...sale,
+            id: saleRef.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          transaction.set(saleRef, {
+            ...saleData,
+            createdAt: Timestamp.fromDate(saleData.createdAt),
+            updatedAt: Timestamp.fromDate(saleData.updatedAt),
+          });
 
-        // Create pending profit
-        const pendingProfitRef = doc(collection(firestore, "pending_profits"));
-        const pendingProfit: PendingProfit = {
-          id: pendingProfitRef.id,
-          sellerId: sale.sellerId,
-          productId: sale.productId,
-          productName: sale.productName,
-          saleAmount: sale.totalAmount,
-          profitAmount: sale.profitAmount,
-          baseCost: sale.baseCost,
-          depositRequired: sale.baseCost, // Seller must deposit the base cost
-          status: "pending",
-          saleDate: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+          // Create pending profit
+          const pendingProfitRef = doc(collection(firestore, "pending_profits"));
+          const pendingProfit: PendingProfit = {
+            id: pendingProfitRef.id,
+            sellerId: sale.sellerId,
+            productId: sale.productId,
+            productName: sale.productName,
+            saleAmount: sale.totalAmount,
+            profitAmount: sale.profitAmount,
+            baseCost: sale.baseCost,
+            depositRequired: sale.baseCost, // Seller must deposit the base cost
+            status: "pending",
+            saleDate: new Date(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
-        transaction.set(pendingProfitRef, {
-          ...pendingProfit,
-          saleDate: Timestamp.fromDate(pendingProfit.saleDate),
-          createdAt: Timestamp.fromDate(pendingProfit.createdAt),
-          updatedAt: Timestamp.fromDate(pendingProfit.updatedAt),
-        });
+          transaction.set(pendingProfitRef, {
+            ...pendingProfit,
+            saleDate: Timestamp.fromDate(pendingProfit.saleDate),
+            createdAt: Timestamp.fromDate(pendingProfit.createdAt),
+            updatedAt: Timestamp.fromDate(pendingProfit.updatedAt),
+          });
 
-        return saleRef.id;
-      });
+          return saleRef.id;
+        },
+        { maxRetries: 3, baseDelayMs: 100 }
+      );
+
+      if (result.success && result.result) {
+        return result.result;
+      } else {
+        throw new Error(result.error || "Failed to record sale");
+      }
     } catch (error) {
       console.error("Error recording sale:", error);
       throw error;
     }
   }
 
-  // Get pending profits for a seller
+  // Get pending profits for a seller (includes items purchased by admin)
   static async getPendingProfits(sellerId: string): Promise<PendingProfit[]> {
     try {
-      // Read from pending_deposits collection but only show sold items (not pending listings)
-      const q = query(
+      // Get all deposits for this seller (including pending ones that have been purchased by admin)
+      const depositsQuery = query(
         collection(firestore, "pending_deposits"),
         where("sellerId", "==", sellerId),
-        where("status", "in", ["sold", "receipt_submitted", "deposit_paid"]), // Only show items that have been sold
         orderBy("createdAt", "desc")
       );
 
-      const snapshot = await getDocs(q);
+      const depositsSnapshot = await getDocs(depositsQuery);
+      
+      // Get all purchases to identify admin purchases
+      const purchasesQuery = query(
+        collection(firestore, "purchases"),
+        where("sellerId", "==", sellerId),
+        where("isAdminPurchase", "==", true)
+      );
+      
+      const purchasesSnapshot = await getDocs(purchasesQuery);
+      const adminPurchasesByProduct = new Map();
+      
+      purchasesSnapshot.forEach(doc => {
+        const purchase = doc.data();
+        adminPurchasesByProduct.set(purchase.productId, purchase);
+      });
+
       const pendingProfits = await Promise.all(
-        snapshot.docs.map(async (docSnapshot) => {
+        depositsSnapshot.docs.map(async (docSnapshot) => {
           const data = docSnapshot.data();
+          
+          // Include deposits that are either:
+          // 1. Already sold (traditional flow)
+          // 2. Have been purchased by admin (even if status is still "pending")
+          const hasAdminPurchase = adminPurchasesByProduct.has(data.productId);
+          const isSold = ["sold", "receipt_submitted", "deposit_paid"].includes(data.status);
+          
+          if (!isSold && !hasAdminPurchase) {
+            return null; // Skip items that haven't been purchased by admin and aren't sold
+          }
+
           let productImage = "";
 
           // First, try to get image from the pending_deposits data itself
@@ -247,6 +284,22 @@ export class SellerWalletService {
 
           console.log(`Final image URL for ${data.productName}: ${productImage || 'NO IMAGE'}`);
 
+          // Calculate profit amount based on status and admin purchase
+          let profitAmount = data.pendingProfitAmount || 0;
+          let saleAmount = data.salePrice || data.listingPrice;
+          let quantitySold = data.actualQuantitySold || data.quantityListed || 1;
+          
+          // If item was purchased by admin but not yet sold, calculate potential profit
+          if (hasAdminPurchase && data.status === "pending") {
+            const adminPurchase = adminPurchasesByProduct.get(data.productId);
+            if (adminPurchase) {
+              saleAmount = adminPurchase.pricePerUnit;
+              quantitySold = adminPurchase.quantity;
+              profitAmount = (saleAmount - data.originalCostPerUnit) * quantitySold;
+              console.log(`Admin purchase profit calculation: ${saleAmount} - ${data.originalCostPerUnit} = ${profitAmount} (potential profit)`);
+            }
+          }
+
           // Map pending_deposits data to PendingProfit interface
           return {
             id: docSnapshot.id,
@@ -254,14 +307,16 @@ export class SellerWalletService {
             productId: data.productId,
             productName: data.productName,
             productImage: productImage, // Include product image
-            saleAmount: data.salePrice || data.listingPrice,
-            profitAmount: data.pendingProfitAmount || 0,
+            saleAmount: saleAmount,
+            profitAmount: profitAmount,
             baseCost: data.originalCostPerUnit,
             depositRequired: data.totalDepositRequired,
-            quantitySold: data.actualQuantitySold || data.quantityListed || 1, // Get actual quantity
+            quantitySold: quantitySold, // Get actual quantity
             status:
               data.status === "sold"
                 ? "pending"
+                : hasAdminPurchase && data.status === "pending"
+                ? "pending" // Admin purchased but not sold to customer yet
                 : data.status === "deposit_paid"
                 ? "deposit_made"
                 : data.status,
@@ -273,7 +328,7 @@ export class SellerWalletService {
         })
       );
 
-      return pendingProfits;
+      return pendingProfits.filter(profit => profit !== null) as PendingProfit[];
     } catch (error) {
       console.error("Error getting pending profits:", error);
       return [];
@@ -287,60 +342,70 @@ export class SellerWalletService {
     amount: number
   ): Promise<string> {
     try {
-      return await runTransaction(firestore, async (transaction) => {
-        // Verify the pending profit exists and belongs to the seller
-        const pendingProfitRef = doc(
-          firestore,
-          "pending_profits",
-          pendingProfitId
-        );
-        const pendingProfitDoc = await transaction.get(pendingProfitRef);
-
-        if (!pendingProfitDoc.exists()) {
-          throw new Error("Pending profit not found");
-        }
-
-        const pendingProfitData = pendingProfitDoc.data();
-        if (pendingProfitData.sellerId !== sellerId) {
-          throw new Error("Unauthorized access to pending profit");
-        }
-
-        if (pendingProfitData.status !== "pending") {
-          throw new Error("Pending profit is not in pending status");
-        }
-
-        if (amount < pendingProfitData.depositRequired) {
-          throw new Error(
-            `Insufficient deposit amount. Required: $${pendingProfitData.depositRequired}`
+      const result = await TransactionHelperService.executeWithRetry(
+        firestore,
+        async (transaction: Transaction) => {
+          // Verify the pending profit exists and belongs to the seller
+          const pendingProfitRef = doc(
+            firestore,
+            "pending_profits",
+            pendingProfitId
           );
-        }
+          const pendingProfitDoc = await transaction.get(pendingProfitRef);
 
-        // Create deposit record
-        const depositRef = doc(collection(firestore, "seller_deposits"));
-        const deposit: SellerDeposit = {
-          id: depositRef.id,
-          sellerId,
-          pendingProfitId,
-          amount,
-          status: "confirmed", // In a real app, this would start as 'pending'
-          createdAt: new Date(),
-          confirmedAt: new Date(),
-        };
+          if (!pendingProfitDoc.exists()) {
+            throw new Error("Pending profit not found");
+          }
 
-        transaction.set(depositRef, {
-          ...deposit,
-          createdAt: Timestamp.fromDate(deposit.createdAt),
-          confirmedAt: Timestamp.fromDate(deposit.confirmedAt!),
-        });
+          const pendingProfitData = pendingProfitDoc.data();
+          if (pendingProfitData.sellerId !== sellerId) {
+            throw new Error("Unauthorized access to pending profit");
+          }
 
-        // Update pending profit status
-        transaction.update(pendingProfitRef, {
-          status: "deposit_made",
-          updatedAt: Timestamp.fromDate(new Date()),
-        });
+          if (pendingProfitData.status !== "pending") {
+            throw new Error("Pending profit is not in pending status");
+          }
 
-        return depositRef.id;
-      });
+          if (amount < pendingProfitData.depositRequired) {
+            throw new Error(
+              `Insufficient deposit amount. Required: $${pendingProfitData.depositRequired}`
+            );
+          }
+
+          // Create deposit record
+          const depositRef = doc(collection(firestore, "seller_deposits"));
+          const deposit: SellerDeposit = {
+            id: depositRef.id,
+            sellerId,
+            pendingProfitId,
+            amount,
+            status: "confirmed", // In a real app, this would start as 'pending'
+            createdAt: new Date(),
+            confirmedAt: new Date(),
+          };
+
+          transaction.set(depositRef, {
+            ...deposit,
+            createdAt: Timestamp.fromDate(deposit.createdAt),
+            confirmedAt: Timestamp.fromDate(deposit.confirmedAt!),
+          });
+
+          // Update pending profit status
+          transaction.update(pendingProfitRef, {
+            status: "deposit_made",
+            updatedAt: Timestamp.fromDate(new Date()),
+          });
+
+          return depositRef.id;
+        },
+        { maxRetries: 3, baseDelayMs: 100 }
+      );
+
+      if (result.success && result.result) {
+        return result.result;
+      } else {
+        throw new Error(result.error || "Failed to submit deposit");
+      }
     } catch (error) {
       console.error("Error submitting deposit:", error);
       throw error;
@@ -353,68 +418,78 @@ export class SellerWalletService {
     amount: number
   ): Promise<string> {
     try {
-      return await runTransaction(firestore, async (transaction) => {
-        // Get available profits that can be withdrawn
-        const availableProfitsQuery = query(
-          collection(firestore, "pending_profits"),
-          where("sellerId", "==", sellerId),
-          where("status", "==", "deposit_made")
-        );
-
-        const availableSnapshot = await getDocs(availableProfitsQuery);
-        const availableProfits = availableSnapshot.docs.map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as PendingProfit & { id: string })
-        );
-
-        const totalAvailable = availableProfits.reduce(
-          (total, profit) => total + profit.profitAmount,
-          0
-        );
-
-        if (amount > totalAvailable) {
-          throw new Error(
-            `Insufficient available balance. Available: $${totalAvailable}`
+      const result = await TransactionHelperService.executeWithRetry(
+        firestore,
+        async (transaction: Transaction) => {
+          // Get available profits that can be withdrawn
+          const availableProfitsQuery = query(
+            collection(firestore, "pending_profits"),
+            where("sellerId", "==", sellerId),
+            where("status", "==", "deposit_made")
           );
-        }
 
-        // Create withdrawal request
-        const withdrawalRef = doc(collection(firestore, "withdrawal_requests"));
-        const withdrawal: WithdrawalRequest = {
-          id: withdrawalRef.id,
-          sellerId,
-          amount,
-          pendingProfitIds: availableProfits.map((p) => p.id),
-          status: "approved", // In a real app, this would need admin approval
-          createdAt: new Date(),
-          processedAt: new Date(),
-        };
+          const availableSnapshot = await getDocs(availableProfitsQuery);
+          const availableProfits = availableSnapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...doc.data(),
+              } as PendingProfit & { id: string })
+          );
 
-        transaction.set(withdrawalRef, {
-          ...withdrawal,
-          createdAt: Timestamp.fromDate(withdrawal.createdAt),
-          processedAt: Timestamp.fromDate(withdrawal.processedAt!),
-        });
+          const totalAvailable = availableProfits.reduce(
+            (total, profit) => total + profit.profitAmount,
+            0
+          );
 
-        // Update pending profits to withdrawn status
-        let remainingAmount = amount;
-        for (const profit of availableProfits) {
-          if (remainingAmount <= 0) break;
+          if (amount > totalAvailable) {
+            throw new Error(
+              `Insufficient available balance. Available: $${totalAvailable}`
+            );
+          }
 
-          const profitRef = doc(firestore, "pending_profits", profit.id);
-          transaction.update(profitRef, {
-            status: "withdrawn",
-            updatedAt: Timestamp.fromDate(new Date()),
+          // Create withdrawal request
+          const withdrawalRef = doc(collection(firestore, "withdrawal_requests"));
+          const withdrawal: WithdrawalRequest = {
+            id: withdrawalRef.id,
+            sellerId,
+            amount,
+            pendingProfitIds: availableProfits.map((p) => p.id),
+            status: "approved", // In a real app, this would need admin approval
+            createdAt: new Date(),
+            processedAt: new Date(),
+          };
+
+          transaction.set(withdrawalRef, {
+            ...withdrawal,
+            createdAt: Timestamp.fromDate(withdrawal.createdAt),
+            processedAt: Timestamp.fromDate(withdrawal.processedAt!),
           });
 
-          remainingAmount -= profit.profitAmount;
-        }
+          // Update pending profits to withdrawn status
+          let remainingAmount = amount;
+          for (const profit of availableProfits) {
+            if (remainingAmount <= 0) break;
 
-        return withdrawalRef.id;
-      });
+            const profitRef = doc(firestore, "pending_profits", profit.id);
+            transaction.update(profitRef, {
+              status: "withdrawn",
+              updatedAt: Timestamp.fromDate(new Date()),
+            });
+
+            remainingAmount -= profit.profitAmount;
+          }
+
+          return withdrawalRef.id;
+        },
+        { maxRetries: 3, baseDelayMs: 100 }
+      );
+
+      if (result.success && result.result) {
+        return result.result;
+      } else {
+        throw new Error(result.error || "Failed to request withdrawal");
+      }
     } catch (error) {
       console.error("Error requesting withdrawal:", error);
       throw error;

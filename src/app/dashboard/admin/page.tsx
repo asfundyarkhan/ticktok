@@ -7,6 +7,8 @@ import { SuperAdminRoute } from "../../components/SuperAdminRoute";
 import { UserService } from "../../../services/userService";
 import { LoadingSpinner } from "../../components/Loading";
 import toast from "react-hot-toast";
+import { WithdrawalRequestService } from "../../../services/withdrawalRequestService";
+import WithdrawalNotification from "../../components/WithdrawalNotification";
 
 // Modified User interface to match our Firebase structure
 interface User {
@@ -47,6 +49,11 @@ function AdminPageContent() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  // Withdrawal requests state
+  const [pendingWithdrawalsCount, setPendingWithdrawalsCount] = useState(0);
+  const [showWithdrawalNotification, setShowWithdrawalNotification] = useState(false);
+  const [previousPendingCount, setPreviousPendingCount] = useState(0);
 
   // Fetch seller accounts from Firebase
   useEffect(() => {
@@ -75,6 +82,33 @@ function AdminPageContent() {
 
     fetchSellers();
   }, []);
+
+  // Fetch pending withdrawals count
+  useEffect(() => {
+    const fetchPendingWithdrawals = async () => {
+      try {
+        const unsubscribe = WithdrawalRequestService.subscribeToWithdrawalRequests(
+          (requests) => {
+            const pendingCount = requests.filter(r => r.status === 'pending').length;
+            
+            // Show notification if there are new pending requests
+            if (previousPendingCount > 0 && pendingCount > previousPendingCount) {
+              setShowWithdrawalNotification(true);
+            }
+            
+            setPendingWithdrawalsCount(pendingCount);
+            setPreviousPendingCount(pendingCount);
+          }
+        );
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error("Error setting up withdrawal requests subscription:", error);
+      }
+    };
+
+    fetchPendingWithdrawals();
+  }, [previousPendingCount]);
 
   const filteredUsers = users.filter(
     (user) =>
@@ -249,6 +283,14 @@ function AdminPageContent() {
     window.location.href = "/dashboard/admin/receipts";
   };
 
+  const navigateToWithdrawals = () => {
+    window.location.href = "/dashboard/admin/withdrawals";
+  };
+
+  const handleDismissWithdrawalNotification = () => {
+    setShowWithdrawalNotification(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -274,6 +316,13 @@ function AdminPageContent() {
   }
   return (
     <div className="p-4 sm:p-6">
+      {/* Withdrawal Notification */}
+      <WithdrawalNotification
+        newRequestsCount={showWithdrawalNotification ? pendingWithdrawalsCount : 0}
+        onDismiss={handleDismissWithdrawalNotification}
+        onViewRequests={navigateToWithdrawals}
+      />
+      
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 space-y-4 sm:space-y-0">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Seller Management</h1>
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
@@ -282,6 +331,17 @@ function AdminPageContent() {
             className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700"
           >
             Manage Payment Receipts
+          </button>
+          <button
+            onClick={navigateToWithdrawals}
+            className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-md text-sm font-medium hover:bg-purple-700 relative"
+          >
+            Withdrawal Requests
+            {pendingWithdrawalsCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                {pendingWithdrawalsCount}
+              </span>
+            )}
           </button>
         </div>
       </div>

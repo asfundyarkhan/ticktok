@@ -5,6 +5,7 @@ import { DollarSign, Clock, CheckCircle } from "lucide-react";
 import { SellerWalletService } from "../../services/sellerWalletService";
 import { NewReceiptService, NewReceipt } from "../../services/newReceiptService";
 import { WalletBalance, PendingProfit } from "../../types/wallet";
+import WithdrawalModal from "./WithdrawalModal";
 import { toast } from "react-hot-toast";
 
 interface SellerWalletDashboardProps {
@@ -18,9 +19,10 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState("");
   const [selectedPendingProfit, setSelectedPendingProfit] = useState<PendingProfit | null>(null);
-  const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [sellerName, setSellerName] = useState("");
+  const [sellerEmail, setSellerEmail] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -32,6 +34,18 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
       const receipts = await NewReceiptService.getUserReceipts(sellerId);
       const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
       setDepositReceipts(depositReceiptsOnly);
+
+      // Load user profile for withdrawal modal
+      try {
+        const { UserService } = await import("../../services/userService");
+        const profile = await UserService.getUserProfile(sellerId);
+        if (profile) {
+          setSellerName(profile.displayName || profile.email?.split("@")[0] || "Unknown Seller");
+          setSellerEmail(profile.email || "");
+        }
+      } catch (error) {
+        console.warn("Could not load user profile:", error);
+      }
     } catch (error) {
       console.error("Error loading wallet data:", error);
       toast.error("Failed to load wallet data");
@@ -84,30 +98,6 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
     } catch (error) {
       console.error("Error submitting deposit:", error);
       toast.error("Failed to submit deposit");
-    }
-  };
-
-  const handleWithdrawal = async () => {
-    const amount = parseFloat(withdrawalAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid withdrawal amount");
-      return;
-    }
-
-    if (amount > walletBalance.available) {
-      toast.error(`Insufficient available balance. Available: $${walletBalance.available.toFixed(2)}`);
-      return;
-    }
-
-    try {
-      await SellerWalletService.requestWithdrawal(sellerId, amount);
-      toast.success("Withdrawal request submitted successfully!");
-      setShowWithdrawalModal(false);
-      setWithdrawalAmount("");
-      loadData();
-    } catch (error) {
-      console.error("Error requesting withdrawal:", error);
-      toast.error("Failed to submit withdrawal request");
     }
   };
 
@@ -185,7 +175,7 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
             Make Deposit
           </button>
           <button
-            onClick={() => window.location.href = '/receipts-v2'}
+            onClick={() => setShowWithdrawalModal(true)}
             className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
           >
             Request Withdrawal
@@ -443,67 +433,14 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
         </div>
       )}
 
-      {/* Withdrawal Modal */}
-      {showWithdrawalModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Withdrawal</h3>
-              
-              <div className="bg-green-50 p-4 rounded-lg mb-4 border border-green-200">
-                <p className="text-sm text-green-800">
-                  You can withdraw your available profit after making the required deposits.
-                  Your available balance is: <span className="font-bold">${walletBalance.available.toFixed(2)}</span>
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Withdrawal Amount
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      value={withdrawalAmount}
-                      onChange={(e) => setWithdrawalAmount(e.target.value)}
-                      max={walletBalance.available}
-                      min={0.01}
-                      step="0.01"
-                      className="w-full pl-7 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    />
-                  </div>
-                  <p className="mt-1 text-sm text-gray-500">
-                    You can withdraw up to ${walletBalance.available.toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      setShowWithdrawalModal(false);
-                      setWithdrawalAmount("");
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleWithdrawal}
-                    disabled={!withdrawalAmount || parseFloat(withdrawalAmount) <= 0 || parseFloat(withdrawalAmount) > walletBalance.available}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400"
-                  >
-                    Request Withdrawal
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* New Withdrawal Modal */}
+      <WithdrawalModal
+        isOpen={showWithdrawalModal}
+        onClose={() => setShowWithdrawalModal(false)}
+        availableBalance={walletBalance.available}
+        sellerName={sellerName}
+        sellerEmail={sellerEmail}
+      />
     </div>
   );
 }

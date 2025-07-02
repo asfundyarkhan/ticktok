@@ -25,14 +25,19 @@ export default function ProductGrid({
   const [selectedProduct, setSelectedProduct] = useState<StockItem | null>(null);
 
   const handleProductClick = (product: StockItem) => {
-    if (!user) {
-      setSelectedProduct(product);
-      setShowLoginModal(true);
-      return;
-    }
+    // Allow all users (including sellers) to view product details
+    console.log("ProductGrid: Clicking product", {
+      productId: product.id,
+      productCode: product.productCode,
+      name: product.name,
+      userEmail: user?.email || 'guest'
+    });
     
     if (product.id) {
+      console.log("ProductGrid: Navigating to", `/store/${product.id}`);
       router.push(`/store/${product.id}`);
+    } else {
+      console.error("ProductGrid: Product has no ID", product);
     }
   };
 
@@ -63,7 +68,7 @@ export default function ProductGrid({
               onClick={() => handleProductClick(product)}
             >
             <Image
-              src={getBestProductImage(product)}
+              src={getBestProductImage(product) || '/images/placeholders/product.svg'}
               alt={product.name}
               fill
               className="object-cover transform hover:scale-105 transition-transform"
@@ -121,7 +126,8 @@ export default function ProductGrid({
                       name: product.name,
                       price: product.price,
                       salePrice: product.salePrice,
-                      category: product.category,                      image: getBestProductImage(product),
+                      category: product.category,
+                      image: getBestProductImage(product) || '/images/placeholders/product.svg',
                       description: product.description,
                       quantity: product.stock,
                       sellerId: product.sellerId || "",

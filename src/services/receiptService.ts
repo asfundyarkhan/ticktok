@@ -426,20 +426,32 @@ export class ReceiptService {
                 `✅ Successfully marked deposit as paid: ${depositResult.message}`
               );
 
-              // Also update the pending product status if it exists
+              // Also update status across all systems if pending product exists
               if (receiptData.pendingProductId) {
-                console.log(
-                  `🔄 Updating pending product status: ${receiptData.pendingProductId}`
-                );
-                const { PendingProductService } = await import(
-                  "./pendingProductService"
-                );
-                await PendingProductService.markDepositApproved(
-                  receiptData.pendingProductId
-                );
-                console.log(
-                  `✅ Pending product status updated to deposit_approved`
-                );
+                try {
+                  console.log(
+                    `🔄 Updating status across all systems for pending product: ${receiptData.pendingProductId}`
+                  );
+                  const { PendingProductService } = await import(
+                    "./pendingProductService"
+                  );
+                  
+                  // Get the pending product to find the productId
+                  const pendingProducts = await PendingProductService.getSellerPendingProducts(receiptData.userId);
+                  const targetProduct = pendingProducts.find(p => p.id === receiptData.pendingProductId);
+                  
+                  if (targetProduct) {
+                    // Only log - the deposit processing should handle status update automatically
+                    console.log(
+                      `✅ Deposit processed for product ${targetProduct.productId}, status will be updated by deposit service`
+                    );
+                  } else {
+                    console.warn(`Pending product ${receiptData.pendingProductId} not found`);
+                  }
+                } catch (error) {
+                  console.error("Error updating status across systems:", error);
+                  // Don't fail the whole process if this fails
+                }
               }
             } else {
               console.error(

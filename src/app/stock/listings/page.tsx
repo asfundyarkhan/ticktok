@@ -337,6 +337,7 @@ export default function MyListingsPage() {
                                 onError={(e) => {
                                   e.currentTarget.src = '/images/placeholders/product.svg';
                                 }}
+                                unoptimized
                                 priority
                               />
                             ) : (
@@ -345,10 +346,6 @@ export default function MyListingsPage() {
                               </div>
                             );
                           })()}
-                            }}
-                            unoptimized
-                            priority
-                          />
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="text-base sm:text-lg font-medium text-gray-900 truncate">

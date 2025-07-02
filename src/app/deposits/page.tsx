@@ -162,30 +162,17 @@ function DepositsPageContent() {
             : "Deposit receipt submitted successfully!"
         );
         
-        // If this deposit is for a specific pending product, link them
+        // If this deposit is for a specific pending product, update status across all systems
         if (productId && result.receiptId) {
           try {
-            await PendingProductService.linkReceiptToPendingProduct(
+            await PendingProductService.updateStatusAcrossSystems(
+              user.uid,
               productId,
+              "deposit_submitted",
               result.receiptId
             );
           } catch (error) {
-            console.error("Error linking receipt to pending product:", error);
-            // Don't show error to user as the receipt was submitted successfully
-          }
-        }
-
-        // If this is a pending deposit receipt, update the pending deposit status
-        if (isPendingDepositReceipt && pendingDepositInfo?.depositId && result.receiptId) {
-          try {
-            const { PendingDepositService } = await import("@/services/pendingDepositService");
-            await PendingDepositService.updateDepositStatus(
-              pendingDepositInfo.depositId,
-              "receipt_submitted",
-              result.receiptId
-            );
-          } catch (error) {
-            console.error("Error updating pending deposit status:", error);
+            console.error("Error updating status across systems:", error);
             // Don't show error to user as the receipt was submitted successfully
           }
         }

@@ -813,13 +813,22 @@ export class StockService {
             });
           });
 
-          // Admin purchase: DO NOT mark as sold yet - just record the admin taking the item
-          // The item should only be marked as sold when a real customer buys it
+          // Admin purchase: Mark as sold immediately - admin purchases should act exactly like customer purchases
           console.log(
-            `Admin took item from product pool - NOT marking as sold (item stays pending until real customer purchase)`
+            `Admin purchased item - marking as sold immediately (admin purchases act like customer purchases)`
           );
 
-          const saleResult = { success: true, message: "Admin took item from pool" }; // Mock success since we're not marking as sold
+          // Mark the pending deposit as sold
+          if (!deposit.id) {
+            throw new Error("Pending deposit ID is missing");
+          }
+          
+          const saleResult = await PendingDepositService.markProductSold(
+            deposit.id,
+            sellerId,
+            price,
+            quantity
+          );
 
           if (saleResult.success) {
             console.log(
@@ -844,7 +853,7 @@ export class StockService {
               totalPrice: price * quantity,
               isAdminPurchase: true,
               usesPendingDepositSystem: true,
-              adminTookFromPool: true, // Flag to indicate this was admin taking from pool
+              soldImmediately: true, // Flag to indicate this was marked as sold immediately (like customer purchase)
               createdAt: Timestamp.now(),
             });
 

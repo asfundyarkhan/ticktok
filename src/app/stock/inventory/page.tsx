@@ -410,6 +410,7 @@ export default function InventoryPage() {
                                 console.log("Image failed to load:", e.currentTarget.src);
                                 e.currentTarget.src = '/images/placeholders/product.svg';
                               }}
+                              unoptimized={true}
                               priority
                             />
                           ) : (
@@ -418,9 +419,6 @@ export default function InventoryPage() {
                             </div>
                           );
                         })()}
-                          unoptimized={true}
-                          priority
-                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">

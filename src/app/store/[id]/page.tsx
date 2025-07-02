@@ -76,6 +76,8 @@ export default function ProductDetailPage() {
     const loadProduct = async () => {
       if (!productId) return;
       
+      console.log("ProductDetailPage: Loading product with ID:", productId);
+      
       setLoading(true);
       try {
         // Try multiple approaches to find the product
@@ -84,7 +86,11 @@ export default function ProductDetailPage() {
         
         // 1. Try to get stock item by ID directly
         try {
+          console.log("ProductDetailPage: Trying to find by ID:", productId);
           productData = await StockService.getStockItem(productId, false);
+          if (productData) {
+            console.log("ProductDetailPage: Found by ID:", productData);
+          }
         } catch (error) {
           errorMessage = "Product not found by ID";
           console.log(errorMessage, error);
@@ -93,7 +99,11 @@ export default function ProductDetailPage() {
         // 2. If not found, try by product code
         if (!productData) {
           try {
+            console.log("ProductDetailPage: Trying to find by product code:", productId);
             productData = await StockService.getStockItem(productId, true);
+            if (productData) {
+              console.log("ProductDetailPage: Found by product code:", productData);
+            }
           } catch (error) {
             errorMessage += ", Product not found by code";
             console.log("Product not found by code:", error);
@@ -103,8 +113,10 @@ export default function ProductDetailPage() {
         // 3. Try looking for it in listings as a last resort
         if (!productData) {
           try {
+            console.log("ProductDetailPage: Trying to find in listings:", productId);
             const listingResults = await StockService.searchListingsByProductId(productId);
             if (listingResults && listingResults.length > 0) {
+              console.log("ProductDetailPage: Found in listings:", listingResults[0]);
               // Convert the first listing to a StockItem format
               const listing = listingResults[0];
               const reviews = Array.isArray(listing.reviews) ? listing.reviews :
@@ -141,6 +153,7 @@ export default function ProductDetailPage() {
         }
         
         if (productData) {
+          console.log("ProductDetailPage: Successfully loaded product:", productData);
           setProduct(productData);
           
           // Load related products from the same category
@@ -154,7 +167,8 @@ export default function ProductDetailPage() {
             console.log("Error loading related products:", error);
           }
         } else {
-          console.error("Product not found after all attempts:", errorMessage);
+          console.error("ProductDetailPage: Product not found after all attempts:", errorMessage);
+          console.error("ProductDetailPage: Searched for product ID:", productId);
         }
       } catch (error) {
         console.error("Error loading product:", error);
@@ -343,7 +357,7 @@ export default function ProductDetailPage() {
         <FlyToCartAnimation
           startPosition={animationStartPosition}
           endPosition={animationEndPosition}
-          productImage={getBestProductImage(product)}
+          productImage={getBestProductImage(product) || undefined}
           onAnimationComplete={() => setShowAnimation(false)}
         />
       )}

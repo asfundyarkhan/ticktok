@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import { useCart } from "../components/CartContext";
+import { useCart } from "../components/NewCartContext";
 import CheckoutButton from "../components/CheckoutButton";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-hot-toast";
 
 export default function CheckoutPage() {
   return (
@@ -17,7 +19,9 @@ export default function CheckoutPage() {
 }
 
 function CheckoutContent() {
-  const { cartItems, cartTotal } = useCart();
+  const { cartItems, getCartTotal, clearCart } = useCart();
+  const { userProfile } = useAuth();
+  const cartTotal = getCartTotal();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -29,6 +33,16 @@ function CheckoutContent() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFormValid, setIsFormValid] = useState(false);
+
+  // Check if user is a seller and prevent checkout
+  useEffect(() => {
+    if (userProfile?.role === "seller" && cartItems.length > 0) {
+      toast.error("Sellers cannot purchase items. Your cart has been cleared.");
+      clearCart();
+      window.location.href = "/store";
+      return;
+    }
+  }, [userProfile, cartItems.length, clearCart]);
 
   // Form validation
   useEffect(() => {

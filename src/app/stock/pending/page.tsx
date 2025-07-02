@@ -10,7 +10,7 @@ import ReceiptSubmission from "../../components/ReceiptSubmission";
 // Previously imported PendingProduct, now using our own interface
 import { toast } from "react-hot-toast";
 import { Clock, CreditCard, CheckCircle, AlertCircle } from "lucide-react";
-import { getBestProductImage, getFirestoreImage } from "../../utils/imageHelpers";
+import { getFirestoreImage } from "../../utils/imageHelpers";
 import { createImageLogger, createPerfLogger } from "../../utils/logger";
 
 // Create specialized loggers
@@ -83,28 +83,28 @@ export default function PendingProductsPage() {
     let isComponentMounted = true;
     const endPerfTracking = perfLogger.perf('Loading pending profits');
     
-    // Use SellerWalletService to get the same data as the profile page
+    // Use PendingProductService to get actual orders with complete financial data
     const loadPendingProfits = async () => {
       try {
-        const { SellerWalletService } = await import("../../../services/sellerWalletService");
+        const { PendingProductService } = await import("../../../services/pendingProductService");
         const endFetchTracking = perfLogger.perf('Data fetch');
-        const profits = await SellerWalletService.getPendingProfits(user.uid);
+        const pendingProducts = await PendingProductService.getSellerPendingProductsWithValidatedDeposits(user.uid);
         endFetchTracking();
         
         // Don't update state if component is unmounted
         if (!isComponentMounted) return;
         
-        // Convert PendingProfit data to PendingProductWithProfit format (optimize with batched updates)
+        // Convert PendingProduct data to PendingProductWithProfit format
         const endMapTracking = perfLogger.perf('Data mapping');
-        const productsWithProfit: PendingProductWithProfit[] = profits.map(profit => {
-          const quantitySold = profit.quantitySold || 1;
-          const pricePerUnit = quantitySold > 0 ? profit.saleAmount / quantitySold : profit.saleAmount;
+        const productsWithProfit: PendingProductWithProfit[] = pendingProducts.map(product => {
+          const quantitySold = product.quantitySold || 1;
+          const pricePerUnit = product.pricePerUnit || 0;
           
           // Process product image for consistent format with other pages
-          let productImage = profit.productImage || null;
+          let productImage = product.productImage || null;
           
           // Log the image info for debugging
-          imgLogger.debug(`Product ${profit.productName} image:`, productImage);
+          imgLogger.debug(`Product ${product.productName} image:`, productImage);
           
           // Make sure Firebase URLs are properly formatted and only use valid URLs
           if (productImage && productImage.trim() !== "") {
@@ -123,36 +123,33 @@ export default function PendingProductsPage() {
           } else {
             // If no valid image, set to null to avoid Next.js warnings
             productImage = null;
-            imgLogger.warn(`No valid image found for product ${profit.productName}`);
+            imgLogger.warn(`No valid image found for product ${product.productName}`);
           }
           
           return {
-            id: profit.id,
-            sellerId: profit.sellerId,
-            sellerName: "", // Not available in pending_deposits
-            sellerEmail: "", // Not available in pending_deposits
-            productId: profit.productId,
-            productName: profit.productName,
-            productImage: productImage, // Include product image from profit data, can be null
+            id: product.id || '',
+            sellerId: product.sellerId,
+            sellerName: product.sellerName || "", 
+            sellerEmail: product.sellerEmail || "", 
+            productId: product.productId,
+            productName: product.productName,
+            productImage: productImage, // Include product image from product data, can be null
             mainImage: productImage, // Also set as mainImage for compatibility with image helpers
             images: productImage ? [productImage] : undefined, // Only include images array if we have a valid image
             quantitySold: quantitySold,
             pricePerUnit: pricePerUnit,
-            totalAmount: profit.saleAmount,
-            buyerId: "", // Not available in pending_deposits
-            buyerName: "Admin", // Most sales are from admin
-            buyerEmail: "", // Not available in pending_deposits
-            saleDate: profit.saleDate,
-            status: profit.status === "pending" ? "pending_deposit" : 
-                    profit.status === "deposit_made" ? "deposit_approved" : 
-                    profit.status === "withdrawn" ? "completed" :
-                    "pending_deposit", // Default fallback
-            receiptId: undefined, // Not directly available
-            createdAt: profit.createdAt,
-            updatedAt: profit.updatedAt,
-            actualProfit: profit.profitAmount,
-            depositRequired: profit.depositRequired,
-            depositId: profit.id
+            totalAmount: product.totalAmount,
+            buyerId: product.buyerId || "", 
+            buyerName: product.buyerName || "Admin", 
+            buyerEmail: product.buyerEmail || "", 
+            saleDate: product.saleDate,
+            status: product.status, // Use the status directly from PendingProduct
+            receiptId: product.receiptId,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            actualProfit: product.actualProfit || 0, // Now available from enhanced data
+            depositRequired: product.depositRequired || 0, // Now available from enhanced data
+            depositId: product.depositId // Now available from enhanced data
           };
         });
         
@@ -269,10 +266,68 @@ export default function PendingProductsPage() {
     }
   };
 
-  const handleDepositSubmitted = () => {
+  const handleDepositSubmitted = async () => {
     setShowDepositForm(false);
     setSelectedProductForDeposit(null);
     toast.success("Deposit receipt submitted successfully!");
+    
+    // Trigger a data refresh to show the updated status
+    if (user?.uid) {
+      try {
+        const { PendingProductService } = await import("../../../services/pendingProductService");
+        const pendingProducts = await PendingProductService.getSellerPendingProductsWithValidatedDeposits(user.uid);
+        
+        // Convert data as before
+        const productsWithProfit: PendingProductWithProfit[] = pendingProducts.map(product => {
+          const quantitySold = product.quantitySold || 1;
+          const pricePerUnit = product.pricePerUnit || 0;
+          
+          let productImage = product.productImage || null;
+          
+          if (productImage && productImage.trim() !== "") {
+            if (!productImage.startsWith("http") && !productImage.startsWith("data:")) {
+              if (productImage.startsWith("/")) {
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(productImage.substring(1))}?alt=media`;
+              } else {
+                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(productImage)}?alt=media`;
+              }
+            }
+          } else {
+            productImage = null;
+          }
+          
+          return {
+            id: product.id || '',
+            sellerId: product.sellerId,
+            sellerName: product.sellerName || "", 
+            sellerEmail: product.sellerEmail || "", 
+            productId: product.productId,
+            productName: product.productName,
+            productImage: productImage,
+            mainImage: productImage,
+            images: productImage ? [productImage] : undefined,
+            quantitySold: quantitySold,
+            pricePerUnit: pricePerUnit,
+            totalAmount: product.totalAmount,
+            buyerId: product.buyerId || "", 
+            buyerName: product.buyerName || "Admin", 
+            buyerEmail: product.buyerEmail || "", 
+            saleDate: product.saleDate,
+            status: product.status,
+            receiptId: product.receiptId,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt,
+            actualProfit: product.actualProfit || 0,
+            depositRequired: product.depositRequired || 0,
+            depositId: product.depositId
+          };
+        });
+        
+        setPendingProducts(productsWithProfit);
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+      }
+    }
   };
 
   if (loading) {

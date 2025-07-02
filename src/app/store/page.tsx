@@ -6,14 +6,18 @@ import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
 import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
-import LoginModal from "@/app/components/LoginModal";
+import WithdrawalModal from "@/app/components/WithdrawalModal";
+import FilterModal from "@/app/components/FilterModal";
 import { useCart } from "@/app/components/NewCartContext";
+import { useAuth } from "@/context/AuthContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
 import { StockService } from "@/services/stockService";
+import { SellerWalletService } from "@/services/sellerWalletService";
 import type { StockItem, StockListing } from "@/types/marketplace";
+import type { WalletBalance } from "@/types/wallet";
 import "rc-pagination/assets/index.css";
 import { toast } from "react-hot-toast";
-import { getBestProductImage, normalizeProductImages } from "../utils/imageHelpers";
+import { getBestProductImage } from "../utils/imageHelpers";
 import { generateUniqueId } from "@/utils/idGenerator";
 
 // Keep the same categories
@@ -33,6 +37,7 @@ const animationSettings = {
 };
 
 export default function StorePage() {
+  const { user, userProfile } = useAuth();
   const [products, setProducts] = useState<StockItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +55,17 @@ export default function StorePage() {
     x: 0,
     y: 0,
   });
+  
+  // Withdrawal functionality state
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<WalletBalance>({
+    available: 0,
+    pending: 0,
+    total: 0,
+  });
+  const [sellerName, setSellerName] = useState("");
+  const [sellerEmail, setSellerEmail] = useState("");
+  const [showFilterModal, setShowFilterModal] = useState(false);
   
   const cartIconRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +121,35 @@ export default function StorePage() {
     window.addEventListener("resize", updateCartPosition);
     return () => window.removeEventListener("resize", updateCartPosition);
   }, []);
+
+  // Load wallet balance and seller profile for withdrawal functionality
+  useEffect(() => {
+    if (user?.uid) {
+      // Subscribe to wallet balance
+      const unsubscribe = SellerWalletService.subscribeToWalletBalance(
+        user.uid,
+        setWalletBalance
+      );
+
+      // Load seller profile
+      const loadSellerProfile = async () => {
+        try {
+          const { UserService } = await import("@/services/userService");
+          const profile = await UserService.getUserProfile(user.uid);
+          if (profile) {
+            setSellerName(profile.displayName || profile.email?.split("@")[0] || "Unknown Seller");
+            setSellerEmail(profile.email || "");
+          }
+        } catch (error) {
+          console.warn("Could not load seller profile:", error);
+        }
+      };
+
+      loadSellerProfile();
+
+      return unsubscribe;
+    }
+  }, [user?.uid]);
   
   useEffect(() => {
     const loadProducts = async () => {
@@ -179,7 +224,9 @@ export default function StorePage() {
 
     const loadProductsStatic = async () => {
       try {
+        console.log('Store: Loading stock items...');
         const stockItems = await StockService.getAllStockItems();
+        console.log('Store: Loaded stock items:', stockItems.length, stockItems);
         setProducts(stockItems);
         
         // Also fetch real seller names for static loads
@@ -255,6 +302,12 @@ export default function StorePage() {
     product: StockItem,
     event?: React.MouseEvent
   ) => {
+    // Prevent sellers from adding items to cart
+    if (userProfile?.role === "seller") {
+      toast.error("Sellers cannot purchase items. Please browse as a regular user.");
+      return;
+    }
+
     // Validate stock before adding to cart
     if (product.stock <= 0) {
       toast.error("This item is out of stock");
@@ -315,7 +368,15 @@ export default function StorePage() {
     <div className="min-h-screen bg-gray-50 pt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">Shop</h1>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              Shop {userProfile?.role === "seller" && <span className="text-xs sm:text-sm font-normal text-orange-600">(Seller View)</span>}
+            </h1>
+            {/* Debug info */}
+            <p className="text-xs text-gray-500 mt-1">
+              Products: {products.length} | Filtered: {filteredProducts.length}
+            </p>
+          </div>
           
           {/* Live Search Bar */}
           <div className="relative flex-grow max-w-xl w-full">
@@ -432,8 +493,38 @@ export default function StorePage() {
             )}
           </div>
           
-          <div className="relative" ref={cartIconRef}>
-            <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
+          <div className="flex items-center gap-4">
+            {/* Wallet Balance Display - only show for logged-in users */}
+            {user && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">Wallet: </span>
+                <span className="text-green-600 font-semibold">
+                  ${walletBalance.available.toFixed(2)}
+                </span>
+                {walletBalance.pending > 0 && (
+                  <span className="text-orange-600 ml-1">
+                    (+${walletBalance.pending.toFixed(2)} pending)
+                  </span>
+                )}
+              </div>
+            )}
+            
+            {/* Withdrawal Button - only show for logged-in users with available balance */}
+            {user && walletBalance.available >= 5 && (
+              <button
+                onClick={() => setShowWithdrawalModal(true)}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+                Withdraw
+              </button>
+            )}
+            
+            <div className="relative" ref={cartIconRef}>
+              <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
+            </div>
           </div>
         </div>
 
@@ -454,9 +545,22 @@ export default function StorePage() {
           onSelect={setSelectedCategory}
         />
 
-        <div className="mt-8 grid grid-cols-12 gap-8">
-          {/* Filters */}
-          <div className="col-span-3">
+        <div className="mt-8 flex flex-col lg:grid lg:grid-cols-12 lg:gap-8">
+          {/* Mobile Filter Button */}
+          <div className="lg:hidden mb-4">
+            <button
+              onClick={() => setShowFilterModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
+              </svg>
+              Filters
+            </button>
+          </div>
+
+          {/* Desktop Filters */}
+          <div className="hidden lg:block lg:col-span-3">
             <FilterSidebar
               priceRange={priceRange}
               setPriceRange={setPriceRange}
@@ -466,7 +570,7 @@ export default function StorePage() {
           </div>
 
           {/* Product Grid */}
-          <div className="col-span-9">
+          <div className="lg:col-span-9">
             <div className="mb-6">
               <p className="text-sm text-gray-500">
                 Showing {totalItems} products
@@ -479,8 +583,32 @@ export default function StorePage() {
             />
           </div>
         </div>
-      </div>      {/* Cart Drawer */}
+      </div>
+      
+      {/* Withdrawal Modal */}
+      <WithdrawalModal
+        isOpen={showWithdrawalModal}
+        onClose={() => setShowWithdrawalModal(false)}
+        availableBalance={walletBalance.available}
+        sellerName={sellerName}
+        sellerEmail={sellerEmail}
+      />
+      
+      {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      
+      {/* Mobile Filter Modal */}
+      <FilterModal
+        isOpen={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
+        selectedSizes={selectedSizes}
+        setSelectedSizes={setSelectedSizes}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+      />
     </div>
   );
 }

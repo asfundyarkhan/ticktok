@@ -9,6 +9,9 @@ import { PendingDepositService } from "../../services/pendingDepositService";
 import { StockService } from "../../services/stockService";
 import { StockItem } from "../../types/marketplace";
 import QuantityCounter from "../components/QuantityCounter";
+import { SellerWalletService } from "../../services/sellerWalletService";
+import { PendingProfit } from "../../types/wallet";
+// import PendingProfitsSection from "../components/PendingProfitsSection";
 
 export default function StockPage() {
   const [walletSummary, setWalletSummary] = useState({
@@ -21,7 +24,9 @@ export default function StockPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [adminProducts, setAdminProducts] = useState<StockItem[]>([]);
+  const [pendingProfits, setPendingProfits] = useState<PendingProfit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingProfits, setLoadingProfits] = useState(true);
   const [selectedQuantities, setSelectedQuantities] = useState<
     Record<string, number>
   >({});
@@ -205,7 +210,22 @@ export default function StockPage() {
       }
     };
 
+    const loadPendingProfits = async () => {
+      if (user?.uid) {
+        try {
+          setLoadingProfits(true);
+          const profits = await SellerWalletService.getPendingProfits(user.uid);
+          setPendingProfits(profits);
+        } catch (error) {
+          console.error("Error loading pending profits:", error);
+        } finally {
+          setLoadingProfits(false);
+        }
+      }
+    };
+
     loadWalletSummary();
+    loadPendingProfits();
   }, [user?.uid]);
 
   useEffect(() => {
@@ -325,7 +345,105 @@ export default function StockPage() {
               </div>
             )}
           </div>
-        </div>        {/* Search and Filter Section */}
+        </div>        {/* Pending Profits Section */}
+        {!loadingProfits && pendingProfits.length > 0 && (
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Pending Profits</h3>
+              <div className="text-sm text-gray-600">
+                Total: <span className="font-semibold text-green-600">
+                  ${pendingProfits.reduce((sum, profit) => sum + profit.profitAmount, 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {pendingProfits.slice(0, 3).map((profit) => (
+                <div 
+                  key={profit.id} 
+                  className={`border rounded-lg p-3 ${
+                    profit.status === 'pending' 
+                      ? 'border-yellow-200 bg-yellow-50' 
+                      : profit.status === 'deposit_made'
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 text-sm">{profit.productName}</h4>
+                      
+                      <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <span className="text-gray-500">Profit:</span>
+                          <div className="font-semibold text-green-600">${profit.profitAmount.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Base Cost:</span>
+                          <div className="font-semibold text-blue-600">${profit.baseCost.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Quantity:</span>
+                          <div className="font-semibold">{profit.quantitySold}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Status:</span>
+                          <div className={`font-semibold capitalize ${
+                            profit.status === 'pending' ? 'text-yellow-600' :
+                            profit.status === 'deposit_made' ? 'text-green-600' :
+                            'text-gray-600'
+                          }`}>
+                            {profit.status === 'pending' && 'Needs Deposit'}
+                            {profit.status === 'deposit_made' && 'Ready'}
+                            {profit.status !== 'pending' && profit.status !== 'deposit_made' && profit.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      {profit.status === 'pending' && (
+                        <div className="mt-3 bg-yellow-100 border border-yellow-300 rounded p-2">
+                          <p className="text-xs text-yellow-800">
+                            💰 Deposit Required: ${profit.depositRequired.toFixed(2)} to unlock this profit
+                          </p>
+                          <button
+                            onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
+                            className="mt-2 text-xs bg-blue-600 hover:bg-blue-700 text-white py-1 px-2 rounded"
+                          >
+                            Submit Deposit Receipt
+                          </button>
+                        </div>
+                      )}
+
+                      {profit.status === 'deposit_made' && (
+                        <div className="mt-3 bg-green-100 border border-green-300 rounded p-2">
+                          <p className="text-xs text-green-800">
+                            ✅ Profit approved and available in your wallet!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {pendingProfits.length > 3 && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">
+                    Showing 3 of {pendingProfits.length} pending profits
+                  </span>
+                  <button
+                    onClick={() => window.location.href = '/profile#wallet'}
+                    className="text-[#FF0059] hover:text-[#FF0059]/80 font-medium"
+                  >
+                    View All →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}        {/* Search and Filter Section */}
         <div className="mb-6 space-y-4">
           {/* Search Bar */}
           <div className="relative">

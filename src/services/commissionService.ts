@@ -10,9 +10,10 @@ import {
   Timestamp,
   onSnapshot,
   limit,
-  runTransaction,
+  Transaction,
 } from "firebase/firestore";
 import { firestore } from "../lib/firebase/firebase";
+import { TransactionHelperService } from "./transactionHelperService";
 import { CommissionBalance, CommissionTransaction, CommissionSummary } from "../types/commission";
 import { UserService } from "./userService";
 
@@ -32,7 +33,11 @@ export class CommissionService {
     depositedBy: string,    description: string = "Superadmin deposit commission"
   ): Promise<{ success: boolean; message: string; commissionAmount?: number }> {
     try {
-      const commissionAmount = depositAmount * this.COMMISSION_RATE;      return await runTransaction(firestore, async (transaction) => {
+      const commissionAmount = depositAmount * this.COMMISSION_RATE;
+      
+      const result = await TransactionHelperService.executeWithRetry(
+        firestore,
+        async (transaction: Transaction) => {
         // ALL READS FIRST - Firestore requirement
         const adminRef = doc(firestore, "users", adminId);
         const sellerRef = doc(firestore, "users", sellerId);
@@ -95,7 +100,18 @@ export class CommissionService {
           message: `Commission of $${commissionAmount.toFixed(2)} recorded for admin`,
           commissionAmount,
         };
-      });
+        },
+        { maxRetries: 3, baseDelayMs: 100 }
+      );
+
+      if (result.success && result.result) {
+        return result.result;
+      } else {
+        return {
+          success: false,
+          message: result.error || "Failed to record commission",
+        };
+      }
     } catch (error) {
       console.error("Error recording superadmin deposit commission:", error);
       return {
@@ -116,7 +132,11 @@ export class CommissionService {
     receiptId: string,    description: string = "Receipt approval commission"
   ): Promise<{ success: boolean; message: string; commissionAmount?: number }> {
     try {
-      const commissionAmount = receiptAmount * this.COMMISSION_RATE;      return await runTransaction(firestore, async (transaction) => {
+      const commissionAmount = receiptAmount * this.COMMISSION_RATE;
+      
+      const result = await TransactionHelperService.executeWithRetry(
+        firestore,
+        async (transaction: Transaction) => {
         // ALL READS FIRST - Firestore requirement
         const adminRef = doc(firestore, "users", adminId);
         const sellerRef = doc(firestore, "users", sellerId);
@@ -179,7 +199,18 @@ export class CommissionService {
           message: `Commission of $${commissionAmount.toFixed(2)} recorded for admin`,
           commissionAmount,
         };
-      });
+        },
+        { maxRetries: 3, baseDelayMs: 100 }
+      );
+
+      if (result.success && result.result) {
+        return result.result;
+      } else {
+        return {
+          success: false,
+          message: result.error || "Failed to record commission",
+        };
+      }
     } catch (error) {
       console.error("Error recording receipt approval commission:", error);
       return {
