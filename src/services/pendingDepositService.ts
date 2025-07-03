@@ -38,6 +38,8 @@ export interface PendingDeposit {
   salePrice?: number;
   saleDate?: Date;
   pendingProfitAmount?: number; // Profit waiting for deposit payment
+  profitTransferredAmount?: number; // Profit that has been transferred to wallet (for record keeping)
+  profitTransferredDate?: Timestamp; // When profit was transferred
   actualQuantitySold?: number; // Actual quantity sold
   depositPaidDate?: Date;
   receiptId?: string; // Associated receipt ID when deposit receipt is submitted
@@ -81,28 +83,34 @@ export class PendingDepositService {
       // Fetch product images if not provided
       let finalProductImage = productImage;
       let finalProductImages = productImages;
-      
+
       if (!finalProductImage || !finalProductImages) {
         try {
           const productRef = doc(firestore, "products", productId);
           const productDoc = await getDoc(productRef);
           if (productDoc.exists()) {
             const productData = productDoc.data();
-            
+
             // Get the best available image
             if (!finalProductImage) {
-              finalProductImage = productData.image || productData.mainImage || 
-                                 (productData.images && productData.images[0]) || "";
+              finalProductImage =
+                productData.image ||
+                productData.mainImage ||
+                (productData.images && productData.images[0]) ||
+                "";
             }
-            
+
             // Get all images
             if (!finalProductImages) {
-              finalProductImages = productData.images || 
-                                 (productData.image ? [productData.image] : []) ||
-                                 (productData.mainImage ? [productData.mainImage] : []);
+              finalProductImages =
+                productData.images ||
+                (productData.image ? [productData.image] : []) ||
+                (productData.mainImage ? [productData.mainImage] : []);
             }
-            
-            console.log(`Fetched product images - main: ${finalProductImage}, all: ${finalProductImages}`);
+
+            console.log(
+              `Fetched product images - main: ${finalProductImage}, all: ${finalProductImages}`
+            );
           }
         } catch (error) {
           console.error("Error fetching product images:", error);
@@ -179,10 +187,17 @@ export class PendingDepositService {
           }
 
           // Calculate profit based on actual sale price vs original cost
-          const profitAmount = (salePrice - depositData.originalCostPerUnit) * actualQuantitySold;
+          const profitAmount =
+            (salePrice - depositData.originalCostPerUnit) * actualQuantitySold;
 
-          console.log(`Profit calculation: salePrice(${salePrice}) - originalCost(${depositData.originalCostPerUnit}) = ${salePrice - depositData.originalCostPerUnit} per unit`);
-          console.log(`Total profit for ${actualQuantitySold} units: ${profitAmount}`);
+          console.log(
+            `Profit calculation: salePrice(${salePrice}) - originalCost(${
+              depositData.originalCostPerUnit
+            }) = ${salePrice - depositData.originalCostPerUnit} per unit`
+          );
+          console.log(
+            `Total profit for ${actualQuantitySold} units: ${profitAmount}`
+          );
 
           // DON'T add profit to balance yet - it stays pending until deposit is paid
           // The profit will be added when the deposit is marked as paid
@@ -289,9 +304,7 @@ export class PendingDepositService {
           const depositAmount = depositDataTx.totalDepositRequired || 0;
           const totalAmountToAdd = pendingProfit + depositAmount;
 
-          console.log(
-            `Processing deposit payment for ${depositId}:`
-          );
+          console.log(`Processing deposit payment for ${depositId}:`);
           console.log(`  - Deposit amount (refund): $${depositAmount}`);
           console.log(`  - Pending profit: $${pendingProfit}`);
           console.log(`  - Total to add to wallet: $${totalAmountToAdd}`);
@@ -322,22 +335,26 @@ export class PendingDepositService {
             console.log(
               `Successfully transferred $${totalAmountToAdd} to seller's wallet (deposit refund: $${depositAmount}, profit: $${pendingProfit})`
             );
-            
+
             // Log the transaction for audit trail
-            const transactionRef = doc(collection(firestore, "wallet_transactions"));
+            const transactionRef = doc(
+              collection(firestore, "wallet_transactions")
+            );
             transaction.set(transactionRef, {
               userId: sellerId,
               type: "deposit_refund_and_profit",
               amount: totalAmountToAdd,
               depositRefund: depositAmount,
               profit: pendingProfit,
-              description: `Deposit refund ($${depositAmount}) + profit ($${pendingProfit}) from ${depositDataTx.productName || 'product'} - receipt approved`,
+              description: `Deposit refund ($${depositAmount}) + profit ($${pendingProfit}) from ${
+                depositDataTx.productName || "product"
+              } - receipt approved`,
               depositId: depositId,
               productId: depositDataTx.productId,
               productName: depositDataTx.productName,
               timestamp: Timestamp.now(),
               balanceBefore: currentBalance,
-              balanceAfter: newBalance
+              balanceAfter: newBalance,
             });
           } else {
             console.log(
@@ -345,12 +362,14 @@ export class PendingDepositService {
             );
           }
 
-          // Update deposit status and clear pending profit amount
+          // Update deposit status and record profit transfer (but keep for historical record)
           transaction.update(depositRef, {
             status: "deposit_paid",
             depositPaidDate: Timestamp.now(),
-            pendingProfitAmount: 0, // Clear pending profit since it's now added to wallet
+            profitTransferredAmount: pendingProfit, // Record the transferred profit amount
+            profitTransferredDate: Timestamp.now(), // Record when profit was transferred
             updatedAt: Timestamp.now(),
+            // Note: Keep pendingProfitAmount for historical record, don't clear it
           });
 
           console.log(
@@ -375,7 +394,13 @@ export class PendingDepositService {
             success: true,
             message:
               finalTotalAmount > 0
-                ? `Deposit approved! $${finalDepositAmount.toFixed(2)} deposit refund + $${finalPendingProfit.toFixed(2)} profit = $${finalTotalAmount.toFixed(2)} total added to your wallet.`
+                ? `Deposit approved! $${finalDepositAmount.toFixed(
+                    2
+                  )} deposit refund + $${finalPendingProfit.toFixed(
+                    2
+                  )} profit = $${finalTotalAmount.toFixed(
+                    2
+                  )} total added to your wallet.`
                 : "Deposit confirmed!",
           };
         },
@@ -429,32 +454,39 @@ export class PendingDepositService {
       );
       const purchasesSnapshot = await getDocs(purchasesQuery);
       const adminPurchasesByProduct = new Map();
-      
+
       purchasesSnapshot.forEach((doc) => {
         const purchase = doc.data();
         adminPurchasesByProduct.set(purchase.productId, {
           quantity: purchase.quantity,
-          pricePerUnit: purchase.pricePerUnit
+          pricePerUnit: purchase.pricePerUnit,
         });
       });
 
       querySnapshot.forEach((doc) => {
         const data = doc.data() as PendingDeposit;
-        
+
         if (data.status === "sold" || data.status === "receipt_submitted") {
           // Only count deposits that haven't been paid yet
           totalPendingDeposits += data.totalDepositRequired;
-          // Add pending profit (profit that will be released when deposit is paid)
-          totalPendingProfit += data.pendingProfitAmount || 0;
+          // Add pending profit only if it hasn't been transferred yet
+          const pendingProfit = data.pendingProfitAmount || 0;
+          const transferredProfit = data.profitTransferredAmount || 0;
+          const remainingPendingProfit = pendingProfit - transferredProfit;
+          if (remainingPendingProfit > 0) {
+            totalPendingProfit += remainingPendingProfit;
+          }
         } else if (data.status === "pending") {
           // For unsold items, still count as pending deposits
           totalPendingDeposits += data.totalDepositRequired;
-          
+
           // Check if this item has been purchased by admin
           const adminPurchase = adminPurchasesByProduct.get(data.productId);
           if (adminPurchase) {
             // Calculate potential profit from admin purchase
-            const potentialProfit = (adminPurchase.pricePerUnit - data.originalCostPerUnit) * adminPurchase.quantity;
+            const potentialProfit =
+              (adminPurchase.pricePerUnit - data.originalCostPerUnit) *
+              adminPurchase.quantity;
             totalPendingProfit += potentialProfit;
           }
         }
@@ -729,15 +761,17 @@ export class PendingDepositService {
   /**
    * Get deposit by ID
    */
-  static async getDepositById(depositId: string): Promise<PendingDeposit | null> {
+  static async getDepositById(
+    depositId: string
+  ): Promise<PendingDeposit | null> {
     try {
       const depositRef = doc(firestore, this.COLLECTION, depositId);
       const depositDoc = await getDoc(depositRef);
-      
+
       if (!depositDoc.exists()) {
         return null;
       }
-      
+
       const data = depositDoc.data();
       return {
         id: depositDoc.id,

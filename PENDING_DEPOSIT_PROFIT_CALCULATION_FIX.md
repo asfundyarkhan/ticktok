@@ -3,15 +3,18 @@
 ## 🎯 ISSUE RESOLVED
 
 ### Problem
+
 When sellers took items from the product pool (admin stock), the items went directly to orders with 0 profit instead of following the proper pending deposit logic.
 
 ### Root Cause Analysis
 
 **Issue 1: Missing Original Cost Tracking**
+
 - When sellers purchased from admin stock via `processStockPurchase`, the inventory items were created without proper `originalCost` tracking
 - When sellers created listings from inventory via `createListing`, the pending deposit calculation couldn't find the original cost
 
 **Issue 2: Incorrect Profit Calculation**
+
 - The `markProductSold` method was using pre-calculated `profitPerUnit` from listing creation
 - This didn't account for actual sale price differences during admin purchases
 - Should calculate profit as: `(salePrice - originalCost) * quantity`
@@ -23,6 +26,7 @@ When sellers took items from the product pool (admin stock), the items went dire
 **File:** `src/services/stockService.ts`
 
 #### In `processStockPurchase` method:
+
 ```typescript
 // For new inventory items
 t.set(productRef, {
@@ -31,7 +35,7 @@ t.set(productRef, {
   cost: stockData.price, // Alternative field name for original cost
 });
 
-// For existing inventory items  
+// For existing inventory items
 t.update(productRef, {
   // ...existing fields...
   originalCost: productData.originalCost || productData.cost || stockData.price,
@@ -40,6 +44,7 @@ t.update(productRef, {
 ```
 
 #### In `createListingFromAdminStock` method:
+
 ```typescript
 // For new inventory items
 t.set(productRef, {
@@ -61,14 +66,20 @@ t.update(productRef, {
 **File:** `src/services/pendingDepositService.ts`
 
 #### In `markProductSold` method:
+
 ```typescript
 // OLD (incorrect):
 const profitAmount = depositData.profitPerUnit * actualQuantitySold;
 
 // NEW (correct):
-const profitAmount = (salePrice - depositData.originalCostPerUnit) * actualQuantitySold;
+const profitAmount =
+  (salePrice - depositData.originalCostPerUnit) * actualQuantitySold;
 
-console.log(`Profit calculation: salePrice(${salePrice}) - originalCost(${depositData.originalCostPerUnit}) = ${salePrice - depositData.originalCostPerUnit} per unit`);
+console.log(
+  `Profit calculation: salePrice(${salePrice}) - originalCost(${
+    depositData.originalCostPerUnit
+  }) = ${salePrice - depositData.originalCostPerUnit} per unit`
+);
 console.log(`Total profit for ${actualQuantitySold} units: ${profitAmount}`);
 ```
 
@@ -77,6 +88,7 @@ console.log(`Total profit for ${actualQuantitySold} units: ${profitAmount}`);
 ### Seller Takes Item from Product Pool:
 
 1. **Via Stock Purchase (processStockPurchase):**
+
    - Seller pays admin price → item added to inventory
    - ✅ `originalCost` and `cost` properly tracked
    - Seller creates listing from inventory → pending deposit created with correct original cost
@@ -98,25 +110,29 @@ console.log(`Total profit for ${actualQuantitySold} units: ${profitAmount}`);
 ## 🧪 TESTING SCENARIOS
 
 ### Test Case 1: Stock Purchase Flow
-1. Seller buys item from admin stock for $10
-2. Seller lists item for $15 
-3. Admin buys listing for $15
-4. **Expected**: Profit = ($15 - $10) * 1 = $5 ✅
 
-### Test Case 2: Direct Listing Flow  
+1. Seller buys item from admin stock for $10
+2. Seller lists item for $15
+3. Admin buys listing for $15
+4. **Expected**: Profit = ($15 - $10) \* 1 = $5 ✅
+
+### Test Case 2: Direct Listing Flow
+
 1. Seller takes item from admin stock (original cost $10)
 2. Lists with 30% markup = $13
 3. Admin buys for $13
-4. **Expected**: Profit = ($13 - $10) * 1 = $3 ✅
+4. **Expected**: Profit = ($13 - $10) \* 1 = $3 ✅
 
 ### Test Case 3: Price Variations
+
 1. Seller lists item for $15 (original cost $10)
 2. Admin negotiates and buys for $12
-3. **Expected**: Profit = ($12 - $10) * 1 = $2 ✅
+3. **Expected**: Profit = ($12 - $10) \* 1 = $2 ✅
 
 ## 📊 FILES MODIFIED
 
 1. `src/services/stockService.ts`:
+
    - `processStockPurchase()` - Added originalCost tracking
    - `createListingFromAdminStock()` - Added originalCost tracking
 

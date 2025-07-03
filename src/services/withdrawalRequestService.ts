@@ -56,8 +56,8 @@ export class WithdrawalRequestService {
       }
 
       // Check seller's available balance
-      const userDoc = await import("firebase/firestore").then(({ doc, getDoc }) =>
-        getDoc(doc(firestore, "users", sellerId))
+      const userDoc = await import("firebase/firestore").then(
+        ({ doc, getDoc }) => getDoc(doc(firestore, "users", sellerId))
       );
 
       if (!userDoc.exists()) {
@@ -73,7 +73,9 @@ export class WithdrawalRequestService {
       if (amount > availableBalance) {
         return {
           success: false,
-          message: `Insufficient balance. Available: $${availableBalance.toFixed(2)}`,
+          message: `Insufficient balance. Available: $${availableBalance.toFixed(
+            2
+          )}`,
         };
       }
 
@@ -104,15 +106,12 @@ export class WithdrawalRequestService {
         updatedAt: new Date(),
       };
 
-      const docRef = await addDoc(
-        collection(firestore, this.COLLECTION),
-        {
-          ...withdrawalRequest,
-          requestDate: Timestamp.now(),
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        }
-      );
+      const docRef = await addDoc(collection(firestore, this.COLLECTION), {
+        ...withdrawalRequest,
+        requestDate: Timestamp.now(),
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
 
       return {
         success: true,
@@ -323,7 +322,7 @@ export class WithdrawalRequestService {
   }> {
     try {
       const snapshot = await getDocs(collection(firestore, this.COLLECTION));
-      
+
       let totalPending = 0;
       let totalApproved = 0;
       let totalRejected = 0;

@@ -3,14 +3,14 @@
  * Helps with debugging and tracing issues in production
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 // Configure log levels that should be visible
-const VISIBLE_LOG_LEVELS: LogLevel[] = ['info', 'warn', 'error'];
+const VISIBLE_LOG_LEVELS: LogLevel[] = ["info", "warn", "error"];
 
 // Enable debug logs in development
-if (process.env.NODE_ENV === 'development') {
-  VISIBLE_LOG_LEVELS.push('debug');
+if (process.env.NODE_ENV === "development") {
+  VISIBLE_LOG_LEVELS.push("debug");
 }
 
 /**
@@ -20,15 +20,15 @@ if (process.env.NODE_ENV === 'development') {
 export class Logger {
   private prefix: string;
 
-  constructor(prefix: string = '') {
-    this.prefix = prefix ? `[${prefix}] ` : '';
+  constructor(prefix: string = "") {
+    this.prefix = prefix ? `[${prefix}] ` : "";
   }
 
   /**
    * Log at debug level - only shown in development
    */
   debug(message: string, ...data: unknown[]): void {
-    if (VISIBLE_LOG_LEVELS.includes('debug')) {
+    if (VISIBLE_LOG_LEVELS.includes("debug")) {
       console.log(`${this.prefix}${message}`, ...data);
     }
   }
@@ -37,7 +37,7 @@ export class Logger {
    * Log at info level
    */
   info(message: string, ...data: unknown[]): void {
-    if (VISIBLE_LOG_LEVELS.includes('info')) {
+    if (VISIBLE_LOG_LEVELS.includes("info")) {
       console.log(`${this.prefix}${message}`, ...data);
     }
   }
@@ -46,7 +46,7 @@ export class Logger {
    * Log at warning level
    */
   warn(message: string, ...data: unknown[]): void {
-    if (VISIBLE_LOG_LEVELS.includes('warn')) {
+    if (VISIBLE_LOG_LEVELS.includes("warn")) {
       console.warn(`${this.prefix}${message}`, ...data);
     }
   }
@@ -55,7 +55,7 @@ export class Logger {
    * Log at error level
    */
   error(message: string, ...data: unknown[]): void {
-    if (VISIBLE_LOG_LEVELS.includes('error')) {
+    if (VISIBLE_LOG_LEVELS.includes("error")) {
       console.error(`${this.prefix}${message}`, ...data);
     }
   }
@@ -67,7 +67,9 @@ export class Logger {
     const startTime = performance.now();
     return () => {
       const endTime = performance.now();
-      this.info(`${operation} completed in ${(endTime - startTime).toFixed(2)}ms`);
+      this.info(
+        `${operation} completed in ${(endTime - startTime).toFixed(2)}ms`
+      );
     };
   }
 }
@@ -76,14 +78,14 @@ export class Logger {
  * Create a specialized image logger for debugging image loading
  */
 export function createImageLogger() {
-  return new Logger('IMAGE');
+  return new Logger("IMAGE");
 }
 
 /**
  * Create a specialized performance logger for monitoring execution time
  */
 export function createPerfLogger() {
-  return new Logger('PERF');
+  return new Logger("PERF");
 }
 
 /**

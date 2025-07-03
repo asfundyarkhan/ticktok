@@ -14,11 +14,12 @@ export interface PendingProfit {
   profitAmount: number;
   baseCost: number;
   depositRequired: number;
-  status: "pending" | "deposit_made" | "withdrawn";
+  status: "pending" | "deposit_made" | "withdrawn" | "transferred";
   saleDate: Date;
   createdAt: Date;
   updatedAt: Date;
   quantitySold?: number; // Add quantity information
+  transferredAt?: Date; // When profit was transferred to wallet
 }
 
 export interface SellerDeposit {

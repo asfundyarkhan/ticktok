@@ -88,7 +88,15 @@ export default function CommissionBalanceCard() {
                 ${commissionSummary.totalCommissionBalance.toFixed(2)}
               </p>
               <p className="text-xs text-gray-400 mt-1">
-                From deposits only, not product sales
+                From referred seller activities
+              </p>
+            </div>
+
+            {/* Transaction Count */}
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs text-gray-500">Total Transactions</p>
+              <p className="text-lg font-semibold text-gray-700">
+                {commissionSummary.transactionCount}
               </p>
             </div>
 
@@ -106,16 +114,6 @@ export default function CommissionBalanceCard() {
                   ${commissionSummary.totalFromReceiptApprovals.toFixed(2)}
                 </p>
               </div>
-            </div>
-
-            {/* Additional Info */}
-            <div className="flex items-center justify-between text-sm text-gray-500 pt-2 border-t border-gray-100">
-              <span>Total Transactions: {commissionSummary.transactionCount}</span>
-              {commissionSummary.lastTransaction && (
-                <span>
-                  Last: {commissionSummary.lastTransaction.toLocaleDateString()}
-                </span>
-              )}
             </div>
           </div>
         </div>

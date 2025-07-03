@@ -10,6 +10,7 @@ During receipt approval, the system was processing the same deposit multiple tim
 4. **Poor User Experience**: Multiple rapid balance updates and potential data inconsistency
 
 **Example from Logs:**
+
 ```
 Processing deposit payment for WbwkkiHJA6wp54ppDDQ0:
 - Deposit amount (refund): $165
@@ -19,7 +20,7 @@ Processing deposit payment for WbwkkiHJA6wp54ppDDQ0:
 [Transaction retry]
 
 Processing deposit payment for WbwkkiHJA6wp54ppDDQ0:
-- Deposit amount (refund): $165  
+- Deposit amount (refund): $165
 - Pending profit: $0
 - Total to add to wallet: $165
 
@@ -39,22 +40,24 @@ The issue was in the `approveReceipt()` method where:
 ### 1. **Separated Side Effects from Main Transaction**
 
 **Before** (Problematic):
+
 ```typescript
 const result = await TransactionHelperService.executeWithRetry(
   firestore,
   async (transaction: Transaction) => {
     // ... main receipt logic ...
-    
+
     // PROBLEM: Side effects inside retryable transaction
     await PendingDepositService.markDepositPaid(depositId, userId);
     await CommissionService.recordCommission(...);
-    
+
     // ... update receipt status ...
   }
 );
 ```
 
 **After** (Fixed):
+
 ```typescript
 // 1. Handle deposit processing OUTSIDE transaction with idempotency check
 let depositProcessed = false;
@@ -91,9 +94,9 @@ Added `getDepositById()` method to check deposit status before processing:
 static async getDepositById(depositId: string): Promise<PendingDeposit | null> {
   const depositRef = doc(firestore, this.COLLECTION, depositId);
   const depositDoc = await getDoc(depositRef);
-  
+
   if (!depositDoc.exists()) return null;
-  
+
   return {
     id: depositDoc.id,
     ...depositDoc.data(),
@@ -125,21 +128,25 @@ const result = await TransactionHelperService.executeWithRetry(
 ## Key Improvements
 
 ### ✅ **Idempotency**
+
 - Deposits are checked before processing to prevent duplicates
 - Safe to retry the entire receipt approval flow
 - Consistent wallet balances regardless of retry count
 
 ### ✅ **Separation of Concerns**
+
 - Deposit processing: Independent operation with own transaction
-- Receipt approval: Simple status update transaction  
+- Receipt approval: Simple status update transaction
 - Commission recording: Post-success operation with separate retry logic
 
 ### ✅ **Better Error Handling**
+
 - Deposit processing failures don't affect receipt status
 - Commission failures don't rollback the entire approval
 - Clear logging for each operation stage
 
 ### ✅ **Performance Optimization**
+
 - Reduced retry complexity (fewer operations per transaction)
 - Lower transaction contention
 - Faster approval processing
@@ -163,11 +170,13 @@ Receipt Approval Request
 ## Testing Results
 
 **Before Fix:**
+
 - Multiple deposit processing during retries
 - Wallet balance: $214.5 → $379.5 → $544.5 (triple processing)
 - Commission service conflicts causing 400 errors
 
 **After Fix:**
+
 - ✅ Single deposit processing regardless of retries
 - ✅ Correct wallet balance: $214.5 (one-time processing)
 - ✅ Commission service with retry logic - no conflicts
@@ -182,6 +191,7 @@ Receipt Approval Request
 ## Monitoring
 
 The system now logs each operation stage:
+
 ```
 🟢 Processing receipt approval: [receiptId] by [admin]
 🏦 Processing deposit payment for: [depositId]

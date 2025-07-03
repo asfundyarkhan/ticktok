@@ -30,7 +30,8 @@ Error: Image is missing required "src" property: {}
 
 #### 2. Fixed Image Rendering in Component Files
 
-- **Orders Page (Pending)**: 
+- **Orders Page (Pending)**:
+
   - Used a pattern with self-invoking functions to store image config in variables before rendering
   - Added proper null checks to prevent rendering `Image` component with empty strings
   - Implemented consistent fallback UI for missing images
@@ -52,23 +53,25 @@ Error: Image is missing required "src" property: {}
 We refactored image rendering to use this pattern:
 
 ```tsx
-{(() => {
-  const imageConfig = getFirestoreImage(product);
-  return imageConfig ? (
-    <Image
-      src={imageConfig.src}
-      unoptimized={imageConfig.unoptimized}
-      alt={product.productName}
-      width={64}
-      height={64}
-      // other props...
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center">
-      <span className="text-xs text-gray-400">No image</span>
-    </div>
-  );
-})()}
+{
+  (() => {
+    const imageConfig = getFirestoreImage(product);
+    return imageConfig ? (
+      <Image
+        src={imageConfig.src}
+        unoptimized={imageConfig.unoptimized}
+        alt={product.productName}
+        width={64}
+        height={64}
+        // other props...
+      />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-xs text-gray-400">No image</span>
+      </div>
+    );
+  })();
+}
 ```
 
 ### Benefits

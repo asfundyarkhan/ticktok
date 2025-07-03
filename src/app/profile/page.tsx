@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
 import SellerWalletDashboard from "../components/SellerWalletDashboard";
-import { Save, Shield, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Shield, CheckCircle, AlertCircle, Camera, Upload } from "lucide-react";
+import { StorageService } from "@/services/storageService";
+import { toast } from "react-hot-toast";
 
 export default function ProfilePage() {
   return (
@@ -21,6 +23,8 @@ function UserProfileContent() {
   const { user, userProfile, loading, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState({
     displayName: "",
     email: "",
@@ -109,11 +113,46 @@ function UserProfileContent() {
       });
 
       setIsEditing(false);
+      toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Failed to update profile. Please try again.");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      setIsUploadingPhoto(true);
+      
+      // Upload image to Firebase Storage
+      const photoURL = await StorageService.uploadProfilePicture(user.uid, file);
+      
+      // Update user profile with new photo URL
+      await updateUserProfile({
+        photoURL: photoURL,
+        updatedAt: new Date(),
+      });
+
+      toast.success("Profile picture updated successfully!");
+    } catch (error) {
+      console.error("Error uploading profile picture:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to upload profile picture");
+    } finally {
+      setIsUploadingPhoto(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   if (loading || !userProfile) {
@@ -126,43 +165,68 @@ function UserProfileContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {/* Profile header */}
-          <div className="relative h-48 bg-gradient-to-r from-pink-500 to-purple-600">
-            <div className="absolute bottom-0 left-0 transform translate-y-1/2 ml-6">
-              <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white">
-                {userProfile.photoURL ? (
-                  <Image
-                    src={userProfile.photoURL}
-                    alt={userProfile.displayName || "User"}
-                    width={128}
-                    height={128}
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                    <span className="text-4xl font-bold text-gray-500">
-                      {userProfile.displayName?.[0]?.toUpperCase() || "U"}
-                    </span>
-                  </div>
-                )}
+          <div className="relative h-32 sm:h-48 bg-gradient-to-r from-pink-500 to-purple-600">
+            <div className="absolute bottom-0 left-4 sm:left-6 transform translate-y-1/2">
+              <div className="relative">
+                <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-full border-4 border-white overflow-hidden bg-white">
+                  {userProfile.photoURL ? (
+                    <Image
+                      src={userProfile.photoURL}
+                      alt={userProfile.displayName || "User"}
+                      width={128}
+                      height={128}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-2xl sm:text-4xl font-bold text-gray-500">
+                        {userProfile.displayName?.[0]?.toUpperCase() || "U"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Camera icon for photo upload */}
+                <button
+                  onClick={triggerFileInput}
+                  disabled={isUploadingPhoto}
+                  className="absolute bottom-0 right-0 w-6 h-6 sm:w-8 sm:h-8 bg-pink-600 hover:bg-pink-700 text-white rounded-full flex items-center justify-center shadow-lg transition-colors disabled:bg-gray-400"
+                  title="Change profile picture"
+                >
+                  {isUploadingPhoto ? (
+                    <LoadingSpinner size="sm" />
+                  ) : (
+                    <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
+                  )}
+                </button>
+                
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureUpload}
+                  className="hidden"
+                />
               </div>
             </div>
           </div>
 
           {/* Profile content */}
-          <div className="pt-20 pb-6 px-6">
+          <div className="pt-12 sm:pt-20 pb-6 px-4 sm:px-6">
             {/* User info */}
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 space-y-4 sm:space-y-0">
+              <div className="flex-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {userProfile.displayName || "User Profile"}
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mt-1">
                   Member since {userProfile.createdAt.toLocaleDateString()}
                 </p>
-                <div className="mt-1 flex items-center">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       userProfile.role === "admin"
@@ -177,30 +241,33 @@ function UserProfileContent() {
                   </span>
 
                   {user?.emailVerified ? (
-                    <span className="ml-2 inline-flex items-center text-xs text-green-600">
+                    <span className="inline-flex items-center text-xs text-green-600">
                       <CheckCircle className="h-3 w-3 mr-1" /> Verified
                     </span>
                   ) : (
-                    <span className="ml-2 inline-flex items-center text-xs text-amber-600">
-                      <AlertCircle className="h-3 w-3 mr-1" />{" "}
+                    <span className="inline-flex items-center text-xs text-amber-600">
+                      <AlertCircle className="h-3 w-3 mr-1" />
                       <Link href="/verify-email" className="hover:underline">
                         Verify email
                       </Link>
                     </span>
                   )}
                 </div>
-              </div>              <div className="flex space-x-2">
+              </div>
+              
+              {/* Action buttons - Mobile responsive */}
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 w-full sm:w-auto">
                 {userProfile.role === "seller" && (
                   <>
                     <Link
                       href="/stock/listings"
-                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                      className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none text-center"
                     >
                       My Listings
                     </Link>
                     <Link
                       href="/stock/pending"
-                      className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                      className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none text-center"
                     >
                       Orders
                     </Link>
@@ -209,7 +276,7 @@ function UserProfileContent() {
                 
                 <button
                   onClick={() => setIsEditing(!isEditing)}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
+                  className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
                 >
                   {isEditing ? "Cancel" : "Edit Profile"}
                 </button>
@@ -218,17 +285,17 @@ function UserProfileContent() {
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none disabled:bg-pink-300"
+                    className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none disabled:bg-pink-300"
                   >
                     {isSaving ? (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-center">
                         <span className="mr-2">
                           <LoadingSpinner size="sm" />
                         </span>
                         Saving...
                       </span>
                     ) : (
-                      <span className="flex items-center">
+                      <span className="flex items-center justify-center">
                         <Save className="h-4 w-4 mr-1" /> Save
                       </span>
                     )}

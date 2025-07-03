@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Receipt, ReceiptService } from '../../../../services/receiptService';
 import { useAuth } from '../../../../context/AuthContext';
 import { format } from 'date-fns';
@@ -218,17 +219,17 @@ function ReceiptApprovalPageContent() {
       )}      {/* Mobile-Friendly Receipt Details Modal */}
       {showModal && selectedReceipt && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+          <div className="flex min-h-screen items-center justify-center p-4">
             <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={closeModal}></div>
             
-            {/* Mobile-first modal sizing */}
-            <div className="inline-block w-full max-w-md transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:max-w-lg sm:align-middle">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="flex items-start justify-between mb-4">
+            {/* Responsive modal sizing */}
+            <div className="relative w-full max-w-md mx-auto transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:max-w-lg">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
+                <div className="flex items-start justify-between mb-4 sticky top-0 bg-white pb-2 border-b border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900">Review Receipt</h3>
                   <button
                     onClick={closeModal}
-                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1"
+                    className="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1 ml-2 flex-shrink-0"
                   >
                     ×
                   </button>
@@ -273,10 +274,13 @@ function ReceiptApprovalPageContent() {
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Receipt Image</p>
                     <div className="bg-gray-50 rounded-md p-2 max-h-64 overflow-y-auto">
                       {selectedReceipt.imageUrl && (
-                        <img
+                        <Image
                           src={selectedReceipt.imageUrl}
                           alt="Receipt"
+                          width={400}
+                          height={300}
                           className="w-full h-auto object-contain rounded"
+                          unoptimized
                         />
                       )}
                       {!selectedReceipt.imageUrl && (

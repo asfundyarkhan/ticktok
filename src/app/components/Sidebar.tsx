@@ -39,8 +39,8 @@ const navigation: NavItem[] = [
     icon: Share2,
     adminOnly: true,
   },  {
-    name: "Commission",
-    href: "/dashboard/commission",
+    name: "Transactions",
+    href: "/dashboard/transactions",
     icon: DollarSign,
     adminOnly: true,
     excludeSuperadmin: true,

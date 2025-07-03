@@ -300,9 +300,8 @@ export class PendingProductService {
 
       // Get pending deposits to combine financial data
       const { PendingDepositService } = await import("./pendingDepositService");
-      const pendingDeposits = await PendingDepositService.getSellerPendingDeposits(
-        sellerId
-      );
+      const pendingDeposits =
+        await PendingDepositService.getSellerPendingDeposits(sellerId);
 
       // Create a map of deposits by productId for quick lookup
       const depositsByProduct = new Map();
@@ -354,46 +353,79 @@ export class PendingProductService {
   ): Promise<PendingProduct[]> {
     try {
       // Get the basic products with deposits
-      const productsWithDeposits = await this.getSellerPendingProductsWithDeposits(sellerId);
-      
+      const productsWithDeposits =
+        await this.getSellerPendingProductsWithDeposits(sellerId);
+
       // For any products showing "deposit_approved", validate against actual receipts
       const { NewReceiptService } = await import("./newReceiptService");
-      
+
       const validatedProducts = await Promise.all(
         productsWithDeposits.map(async (product) => {
-          // If status is deposit_approved, validate it has an approved receipt
-          if (product.status === "deposit_approved" && product.depositId) {
+          if (product.depositId) {
             try {
-              // Check if there's an approved receipt for this deposit
-              const receipts = await NewReceiptService.getUserReceipts(sellerId);
-              const relatedReceipt = receipts.find(
-                receipt => receipt.pendingDepositId === product.depositId && receipt.status === "approved"
+              // Get all receipts for this seller
+              const receipts = await NewReceiptService.getUserReceipts(
+                sellerId
               );
-              
-              if (!relatedReceipt) {
-                // No approved receipt found - the status might be premature
-                console.warn(`⚠️ Product ${product.productId} shows deposit_approved but no approved receipt found. Correcting status.`);
-                
-                // Check if there's a pending receipt
-                const pendingReceipt = receipts.find(
-                  receipt => receipt.pendingDepositId === product.depositId && receipt.status === "pending"
-                );
-                
-                return {
-                  ...product,
-                  status: (pendingReceipt ? "deposit_submitted" : "pending_deposit") as "pending_deposit" | "deposit_submitted" | "deposit_approved" | "completed"
-                };
+              const relatedReceipt = receipts.find(
+                (receipt) => receipt.pendingDepositId === product.depositId
+              );
+
+              if (relatedReceipt) {
+                // There is a receipt for this deposit
+                if (relatedReceipt.status === "approved") {
+                  // Receipt is approved - status should be deposit_approved
+                  return {
+                    ...product,
+                    status: "deposit_approved" as
+                      | "pending_deposit"
+                      | "deposit_submitted"
+                      | "deposit_approved"
+                      | "completed",
+                  };
+                } else if (relatedReceipt.status === "pending") {
+                  // Receipt is pending - status should be deposit_submitted
+                  return {
+                    ...product,
+                    status: "deposit_submitted" as
+                      | "pending_deposit"
+                      | "deposit_submitted"
+                      | "deposit_approved"
+                      | "completed",
+                  };
+                }
+              } else {
+                // No receipt found - status should be pending_deposit
+                if (
+                  product.status === "deposit_approved" ||
+                  product.status === "deposit_submitted"
+                ) {
+                  console.warn(
+                    `⚠️ Product ${product.productId} shows ${product.status} but no receipt found. Correcting status.`
+                  );
+                  return {
+                    ...product,
+                    status: "pending_deposit" as
+                      | "pending_deposit"
+                      | "deposit_submitted"
+                      | "deposit_approved"
+                      | "completed",
+                  };
+                }
               }
             } catch (error) {
-              console.error(`Error validating receipt for product ${product.productId}:`, error);
+              console.error(
+                `Error validating receipt for product ${product.productId}:`,
+                error
+              );
               // Return the original status if validation fails
             }
           }
-          
+
           return product;
         })
       );
-      
+
       return validatedProducts;
     } catch (error) {
       console.error("Error getting validated pending products:", error);
@@ -409,7 +441,11 @@ export class PendingProductService {
   private static getSyncedStatus(
     productStatus: string,
     depositStatus: string
-  ): "pending_deposit" | "deposit_submitted" | "deposit_approved" | "completed" {
+  ):
+    | "pending_deposit"
+    | "deposit_submitted"
+    | "deposit_approved"
+    | "completed" {
     // Priority logic: deposit status takes precedence for financial workflow
     switch (depositStatus) {
       case "pending":
@@ -421,13 +457,19 @@ export class PendingProductService {
       case "receipt_submitted":
         return "deposit_submitted";
       case "deposit_paid":
-        // Only return "deposit_approved" if the deposit is truly paid
-        // This should only happen after admin approval of receipt
-        return "deposit_approved";
+        // IMPORTANT: Don't automatically show "deposit_approved" just because deposit_paid
+        // The deposit_paid status only means the profit was transferred to wallet
+        // We should still show "deposit_submitted" until admin actually approves the receipt
+        // The actual approval logic is handled by getSellerPendingProductsWithValidatedDeposits
+        return "deposit_submitted";
       case "completed":
         return "completed";
       default:
-        return productStatus as "pending_deposit" | "deposit_submitted" | "deposit_approved" | "completed";
+        return productStatus as
+          | "pending_deposit"
+          | "deposit_submitted"
+          | "deposit_approved"
+          | "completed";
     }
   }
 
@@ -438,7 +480,11 @@ export class PendingProductService {
   static async updateStatusAcrossSystems(
     sellerId: string,
     productId: string,
-    newStatus: "pending_deposit" | "deposit_submitted" | "deposit_approved" | "completed",
+    newStatus:
+      | "pending_deposit"
+      | "deposit_submitted"
+      | "deposit_approved"
+      | "completed",
     receiptId?: string
   ): Promise<{ success: boolean; message: string }> {
     try {
@@ -450,13 +496,13 @@ export class PendingProductService {
       );
 
       const querySnapshot = await getDocs(q);
-      
+
       if (querySnapshot.empty) {
         return { success: false, message: "Pending product not found" };
       }
 
       const pendingProductDoc = querySnapshot.docs[0];
-      
+
       // Update PendingProduct
       const updateData: {
         status: string;
@@ -475,7 +521,7 @@ export class PendingProductService {
 
       // Update corresponding PendingDeposit status
       const { PendingDepositService } = await import("./pendingDepositService");
-      
+
       // Map PendingProduct status to PendingDeposit status
       let depositStatus: "receipt_submitted" | "deposit_paid" | "completed";
       switch (newStatus) {
@@ -494,29 +540,48 @@ export class PendingProductService {
       }
 
       // Find and update the corresponding deposit
-      const { deposit, found } = await PendingDepositService.findPendingDepositByProductAnyStatus(sellerId, productId);
-      
+      const { deposit, found } =
+        await PendingDepositService.findPendingDepositByProductAnyStatus(
+          sellerId,
+          productId
+        );
+
       if (found && deposit?.id) {
         const depositResult = await PendingDepositService.updateDepositStatus(
           deposit.id,
           depositStatus,
           receiptId
         );
-        
+
         if (!depositResult.success) {
-          console.warn("Failed to update deposit status:", depositResult.message);
+          console.warn(
+            "Failed to update deposit status:",
+            depositResult.message
+          );
         }
 
         // If status is deposit_approved, trigger the profit transfer
-        if (newStatus === "deposit_approved" && depositStatus === "deposit_paid") {
-          const paymentResult = await PendingDepositService.markDepositPaid(deposit.id, sellerId);
+        if (
+          newStatus === "deposit_approved" &&
+          depositStatus === "deposit_paid"
+        ) {
+          const paymentResult = await PendingDepositService.markDepositPaid(
+            deposit.id,
+            sellerId
+          );
           if (!paymentResult.success) {
-            console.warn("Failed to process deposit payment:", paymentResult.message);
+            console.warn(
+              "Failed to process deposit payment:",
+              paymentResult.message
+            );
           }
         }
       }
 
-      return { success: true, message: "Status updated across all systems successfully" };
+      return {
+        success: true,
+        message: "Status updated across all systems successfully",
+      };
     } catch (error) {
       console.error("Error updating status across systems:", error);
       return { success: false, message: "Failed to update status" };

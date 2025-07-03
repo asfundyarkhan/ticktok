@@ -1,12 +1,15 @@
 # Pending Page (Orders) Image Display Fix
 
 ## Issue
+
 Product images were displaying correctly in the listings page but not in the orders (pending) page.
 
 ## Root Cause
+
 The issue was due to inconsistent image handling between the two pages:
 
 1. **Listings Page**:
+
    - Used the `getBestProductImage()` and `getFirestoreImage()` utility functions from `imageHelpers.ts`
    - These functions properly handle different image field formats and Firebase Storage URLs
 
@@ -19,14 +22,17 @@ The issue was due to inconsistent image handling between the two pages:
 ## Solution Implemented
 
 1. **Added Image Helper Utilities**:
+
    - Imported `getBestProductImage` and `getFirestoreImage` from `imageHelpers.ts`
    - Used `getFirestoreImage()` to handle image src and optimization settings
 
 2. **Updated Data Model**:
+
    - Extended the `PendingProductWithProfit` interface to include mainImage and images[]
    - Made the data structure compatible with the existing image helper functions
 
 3. **Enhanced Data Mapping**:
+
    - Updated the mapping logic to populate all image-related fields
    - Ensured consistency with how images are processed in the listings page
 

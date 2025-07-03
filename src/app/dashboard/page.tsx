@@ -5,13 +5,12 @@ import { Users, CreditCard } from "lucide-react";
 import StatsCard from "../components/StatsCard";
 import ActivityTable from "../components/ActivityTable";
 import TransactionHistory from "../components/TransactionHistory";
-import CommissionHistory from "../components/CommissionHistory";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
 import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
-import CommissionBalanceCard from "../components/CommissionBalanceCard";
+import TransactionBalanceCard from "../components/TransactionBalanceCard";
 import TotalCommissionOverviewCard from "../components/TotalCommissionOverviewCard";
 
 export default function DashboardPage() {
@@ -115,7 +114,7 @@ export default function DashboardPage() {
       {userProfile?.role === "admin" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* <IndividualReferralBalanceCard /> */}
-          <CommissionBalanceCard />
+          <TransactionBalanceCard />
         </div>
       )}
 
@@ -139,14 +138,14 @@ export default function DashboardPage() {
         {/* Transaction History */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
-          <TransactionHistory />
+          <TransactionHistory maxItems={3} />
         </div>
 
-        {/* Commission History - Only for admins and superadmins */}
+        {/* Transaction Balance - Only for admins and superadmins */}
         {(userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
           <div>
-            <h2 className="text-xl font-semibold mb-4">Commission History</h2>
-            <CommissionHistory />
+            <h2 className="text-xl font-semibold mb-4">Transaction Balance</h2>
+            <TransactionBalanceCard />
           </div>
         )}
       </div>

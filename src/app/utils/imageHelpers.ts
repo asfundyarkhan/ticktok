@@ -23,8 +23,9 @@ export function getBestProductImage(
   if (!item) return null;
 
   // Check productImage first (specific to orders/pending page)
-  if (item.productImage && item.productImage.trim() !== "") return item.productImage;
-  
+  if (item.productImage && item.productImage.trim() !== "")
+    return item.productImage;
+
   // Check mainImage next
   if (item.mainImage && item.mainImage.trim() !== "") return item.mainImage;
 
@@ -37,7 +38,7 @@ export function getBestProductImage(
 
   // Log the missing image for debugging without breaking the UI
   console.warn(`No image found for item: ${JSON.stringify(item)}`);
-  
+
   // Return null to allow the caller to handle this case
   return null;
 }
@@ -92,12 +93,12 @@ export function getFirestoreImage(
 ): { src: string; unoptimized: boolean } | null {
   // This may return null if no image is found
   const imageUrl = getBestProductImage(item);
-  
+
   // If no image URL was found, return null
   if (!imageUrl) {
     return null;
   }
-  
+
   // Check if it's a Firestore storage URL
   const isFirestoreUrl =
     imageUrl.includes("firebasestorage.googleapis.com") ||
@@ -105,7 +106,7 @@ export function getFirestoreImage(
 
   // Log the image URL for debugging
   console.debug(`Using image URL: ${imageUrl} (Firebase: ${isFirestoreUrl})`);
-  
+
   return {
     src: imageUrl,
     unoptimized: isFirestoreUrl, // Only unoptimize Firebase Storage URLs

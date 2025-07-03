@@ -14,19 +14,21 @@ This meant the orders page had to fall back to fetching images from the `product
 ## The Complete Fix
 
 ### 1. Updated PendingDeposit Interface
+
 Added image fields to the `PendingDeposit` interface in `pendingDepositService.ts`:
 
 ```typescript
 export interface PendingDeposit {
   // ...existing fields...
   productImage?: string; // Main product image URL
-  productImages?: string[]; // Array of product image URLs  
+  productImages?: string[]; // Array of product image URLs
   mainImage?: string; // Alternative main image field
   // ...rest of fields...
 }
 ```
 
 ### 2. Enhanced createPendingDeposit Method
+
 Updated the method to accept and store image data:
 
 ```typescript
@@ -44,6 +46,7 @@ static async createPendingDeposit(
 ```
 
 The method now:
+
 - Accepts image parameters
 - Falls back to fetching from `products` collection if images not provided
 - Stores image data directly in the `pending_deposits` record
@@ -51,6 +54,7 @@ The method now:
 ### 3. Updated All Calls to createPendingDeposit
 
 **In `src/app/stock/page.tsx`:**
+
 ```typescript
 const depositResult = await PendingDepositService.createPendingDeposit(
   user.uid,
@@ -61,11 +65,12 @@ const depositResult = await PendingDepositService.createPendingDeposit(
   product.price,
   listingPrice,
   product.mainImage || (product.images && product.images[0]) || "", // NEW: Product image
-  product.images || (product.mainImage ? [product.mainImage] : [])   // NEW: Product images array
+  product.images || (product.mainImage ? [product.mainImage] : []) // NEW: Product images array
 );
 ```
 
 **In `src/services/stockService.ts`:**
+
 ```typescript
 const createResult = await PendingDepositService.createPendingDeposit(
   sellerId,
@@ -75,23 +80,33 @@ const createResult = await PendingDepositService.createPendingDeposit(
   quantity,
   originalCost,
   price,
-  listingData.mainImage || listingData.image || (listingData.images && listingData.images[0]) || "", // NEW: Product image
-  listingData.images || (listingData.mainImage ? [listingData.mainImage] : []) || (listingData.image ? [listingData.image] : []) // NEW: Product images array
+  listingData.mainImage ||
+    listingData.image ||
+    (listingData.images && listingData.images[0]) ||
+    "", // NEW: Product image
+  listingData.images ||
+    (listingData.mainImage ? [listingData.mainImage] : []) ||
+    (listingData.image ? [listingData.image] : []) // NEW: Product images array
 );
 ```
 
 ### 4. Simplified SellerWalletService.getPendingProfits
+
 Updated the method to prioritize image data from `pending_deposits` and only fall back to `products` collection if needed:
 
 ```typescript
 // First, try to get image from the pending_deposits data itself
-if (data.productImage && typeof data.productImage === 'string') {
+if (data.productImage && typeof data.productImage === "string") {
   productImage = data.productImage;
   console.log(`Using productImage from pending_deposits: ${productImage}`);
-} else if (data.mainImage && typeof data.mainImage === 'string') {
+} else if (data.mainImage && typeof data.mainImage === "string") {
   productImage = data.mainImage;
   console.log(`Using mainImage from pending_deposits: ${productImage}`);
-} else if (data.productImages && Array.isArray(data.productImages) && data.productImages.length > 0) {
+} else if (
+  data.productImages &&
+  Array.isArray(data.productImages) &&
+  data.productImages.length > 0
+) {
   productImage = data.productImages[0];
   console.log(`Using first image from productImages array: ${productImage}`);
 }
@@ -119,6 +134,7 @@ if (!productImage && data.productId) {
 ## Testing
 
 To verify the fix:
+
 1. Create a new product listing with images
 2. Purchase the product to create a pending deposit
 3. Check the orders page - images should now display properly

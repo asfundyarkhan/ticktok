@@ -147,28 +147,39 @@ export class NewReceiptService {
       // If this is a deposit payment, update the pending deposit status
       if (depositInfo?.pendingDepositId) {
         try {
-          const { PendingDepositService } = await import("./pendingDepositService");
+          const { PendingDepositService } = await import(
+            "./pendingDepositService"
+          );
           await PendingDepositService.updateDepositStatus(
             depositInfo.pendingDepositId,
             "receipt_submitted",
             docRef.id
           );
           console.log(`✅ Updated pending deposit status to receipt_submitted`);
-          
+
           // Also update any related pending product status
           if (depositInfo.pendingProductId) {
             try {
-              const { PendingProductService } = await import("./pendingProductService");
-              const pendingProducts = await PendingProductService.getSellerPendingProducts(receiptData.userId as string);
-              const targetProduct = pendingProducts.find(p => p.id === depositInfo.pendingProductId);
-              
+              const { PendingProductService } = await import(
+                "./pendingProductService"
+              );
+              const pendingProducts =
+                await PendingProductService.getSellerPendingProducts(
+                  receiptData.userId as string
+                );
+              const targetProduct = pendingProducts.find(
+                (p) => p.id === depositInfo.pendingProductId
+              );
+
               if (targetProduct) {
                 await PendingProductService.updateStatusAcrossSystems(
                   receiptData.userId as string,
                   targetProduct.productId,
                   "deposit_submitted"
                 );
-                console.log(`✅ Updated pending product status to deposit_submitted`);
+                console.log(
+                  `✅ Updated pending product status to deposit_submitted`
+                );
               }
             } catch (error) {
               console.error("❌ Error updating pending product status:", error);
@@ -321,7 +332,10 @@ export class NewReceiptService {
       // First, handle deposit processing outside of the main transaction
       // to avoid multiple processing during retries
       let depositProcessed = false;
-      let depositProcessingResult: { success: boolean; message: string } | null = null;
+      let depositProcessingResult: {
+        success: boolean;
+        message: string;
+      } | null = null;
 
       // Get receipt data first to check if it's a deposit payment
       const receiptRef = doc(firestore, this.COLLECTION, receiptId);
@@ -347,30 +361,47 @@ export class NewReceiptService {
         );
 
         try {
-          const { PendingDepositService } = await import("./pendingDepositService");
-          
+          const { PendingDepositService } = await import(
+            "./pendingDepositService"
+          );
+
           // Check if deposit is already processed to avoid duplicate processing
-          const existingDeposit = await PendingDepositService.getDepositById(receiptData.pendingDepositId);
+          const existingDeposit = await PendingDepositService.getDepositById(
+            receiptData.pendingDepositId
+          );
           if (existingDeposit && existingDeposit.status === "deposit_paid") {
-            console.log(`✅ Deposit ${receiptData.pendingDepositId} already processed, skipping`);
-            depositProcessed = true;
-            depositProcessingResult = { success: true, message: "Deposit already processed" };
-          } else {
-            depositProcessingResult = await PendingDepositService.markDepositPaid(
-              receiptData.pendingDepositId,
-              receiptData.userId
+            console.log(
+              `✅ Deposit ${receiptData.pendingDepositId} already processed, skipping`
             );
+            depositProcessed = true;
+            depositProcessingResult = {
+              success: true,
+              message: "Deposit already processed",
+            };
+          } else {
+            depositProcessingResult =
+              await PendingDepositService.markDepositPaid(
+                receiptData.pendingDepositId,
+                receiptData.userId
+              );
             depositProcessed = depositProcessingResult.success;
           }
 
           if (depositProcessed && receiptData.pendingProductId) {
             try {
-              const { PendingProductService } = await import("./pendingProductService");
-              
+              const { PendingProductService } = await import(
+                "./pendingProductService"
+              );
+
               // Get the pending product to find the productId
-              const pendingProducts = await PendingProductService.getSellerPendingProducts(receiptData.userId);
-              const targetProduct = pendingProducts.find(p => p.id === receiptData.pendingProductId);
-              
+              const pendingProducts =
+                await PendingProductService.getSellerPendingProducts(
+                  receiptData.userId
+                );
+              const targetProduct = pendingProducts.find(
+                (p) => p.id === receiptData.pendingProductId
+              );
+
               if (targetProduct) {
                 // Only update to deposit_approved when deposit is actually processed
                 // The deposit processing should handle this status update automatically
@@ -396,7 +427,9 @@ export class NewReceiptService {
         if (!depositProcessed) {
           return {
             success: false,
-            message: depositProcessingResult?.message || "Failed to process deposit payment",
+            message:
+              depositProcessingResult?.message ||
+              "Failed to process deposit payment",
           };
         }
       }
@@ -479,7 +512,7 @@ export class NewReceiptService {
           const userRef = doc(firestore, "users", receiptData.userId);
           const userDoc = await getDoc(userRef);
           const userData = userDoc.data();
-          
+
           if (userData?.referredBy) {
             const { CommissionService } = await import("./commissionService");
             await CommissionService.recordReceiptApprovalCommission(

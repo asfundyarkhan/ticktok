@@ -250,9 +250,9 @@ export class StockService {
 
       const querySnapshot = await getDocs(q);
       const items: StockItem[] = [];
-      
+
       // Cache for seller data to avoid repeated lookups
-      const sellerCache: Record<string, {name: string, email: string}> = {};
+      const sellerCache: Record<string, { name: string; email: string }> = {};
 
       for (const docSnapshot of querySnapshot.docs) {
         const data = docSnapshot.data(); // Validate required fields exist
@@ -267,10 +267,10 @@ export class StockService {
         ) {
           // Ensure stock is always a number (default to 0 for null/undefined)
           const stockValue = typeof data.stock === "number" ? data.stock : 0;
-          
+
           // Get seller name if we have a seller ID
           let sellerName = data.sellerName || "Unknown Seller";
-          
+
           if (data.sellerId && !data.sellerName) {
             // Check cache first to avoid redundant lookups
             if (sellerCache[data.sellerId]) {
@@ -278,21 +278,29 @@ export class StockService {
             } else {
               try {
                 // Fetch seller info from users collection
-                const sellerDoc = await getDoc(doc(firestore, "users", data.sellerId));
+                const sellerDoc = await getDoc(
+                  doc(firestore, "users", data.sellerId)
+                );
                 if (sellerDoc.exists()) {
                   const sellerData = sellerDoc.data();
-                  sellerName = sellerData.displayName || sellerData.name || 
-                              (sellerData.firstName && sellerData.lastName ? 
-                               `${sellerData.firstName} ${sellerData.lastName}` : "Unknown Seller");
-                  
+                  sellerName =
+                    sellerData.displayName ||
+                    sellerData.name ||
+                    (sellerData.firstName && sellerData.lastName
+                      ? `${sellerData.firstName} ${sellerData.lastName}`
+                      : "Unknown Seller");
+
                   // Cache the seller data for future use
                   sellerCache[data.sellerId] = {
                     name: sellerName,
-                    email: sellerData.email || ""
+                    email: sellerData.email || "",
                   };
                 }
               } catch (error) {
-                console.error(`Error fetching seller details for ${data.sellerId}:`, error);
+                console.error(
+                  `Error fetching seller details for ${data.sellerId}:`,
+                  error
+                );
               }
             }
           }
@@ -566,8 +574,10 @@ export class StockService {
               rating: stockData.rating || productData.rating || 0,
               reviews: stockData.reviews || productData.reviews || [],
               // Ensure original cost is preserved or set
-              originalCost: productData.originalCost || productData.cost || stockData.price,
-              cost: productData.cost || productData.originalCost || stockData.price,
+              originalCost:
+                productData.originalCost || productData.cost || stockData.price,
+              cost:
+                productData.cost || productData.originalCost || stockData.price,
               updatedAt: Timestamp.now(),
             });
           } else {
@@ -750,8 +760,13 @@ export class StockService {
           quantity,
           originalCost,
           price,
-          listingData.mainImage || listingData.image || (listingData.images && listingData.images[0]) || "", // Product image
-          listingData.images || (listingData.mainImage ? [listingData.mainImage] : []) || (listingData.image ? [listingData.image] : []) // Product images array
+          listingData.mainImage ||
+            listingData.image ||
+            (listingData.images && listingData.images[0]) ||
+            "", // Product image
+          listingData.images ||
+            (listingData.mainImage ? [listingData.mainImage] : []) ||
+            (listingData.image ? [listingData.image] : []) // Product images array
         );
 
         if (!createResult.success) {
@@ -822,7 +837,7 @@ export class StockService {
           if (!deposit.id) {
             throw new Error("Pending deposit ID is missing");
           }
-          
+
           const saleResult = await PendingDepositService.markProductSold(
             deposit.id,
             sellerId,
@@ -1958,8 +1973,10 @@ export class StockService {
               rating: stockData.rating || productData.rating || 0,
               reviews: stockData.reviews || productData.reviews || [],
               // Ensure original cost is preserved or set
-              originalCost: productData.originalCost || productData.cost || stockData.price,
-              cost: productData.cost || productData.originalCost || stockData.price,
+              originalCost:
+                productData.originalCost || productData.cost || stockData.price,
+              cost:
+                productData.cost || productData.originalCost || stockData.price,
               updatedAt: Timestamp.now(),
             });
           } else {
@@ -2089,7 +2106,7 @@ export class StockService {
 
   /**
    * Fetch real seller names for listings and update them in real-time
-   * 
+   *
    * @param listings The listings to update with real seller names
    * @param onUpdate Callback when listings are updated with real seller names
    */
@@ -2100,22 +2117,27 @@ export class StockService {
     try {
       // Create a map of seller IDs to track which ones we need to fetch
       const sellerIds = new Set<string>();
-      
+
       // Collect all seller IDs that don't already have names
-      listings.forEach(listing => {
-        if (listing.sellerId && (!listing.sellerName || listing.sellerName === "Unknown Seller" || listing.sellerName === "Loading...")) {
+      listings.forEach((listing) => {
+        if (
+          listing.sellerId &&
+          (!listing.sellerName ||
+            listing.sellerName === "Unknown Seller" ||
+            listing.sellerName === "Loading...")
+        ) {
           sellerIds.add(listing.sellerId);
         }
       });
-      
+
       // If we don't have any sellers to fetch, just return
       if (sellerIds.size === 0) {
         return;
       }
-      
+
       // Create a map to cache seller data as we fetch it
       const sellerData: Record<string, string> = {};
-      
+
       // Fetch all seller information in parallel
       await Promise.all(
         Array.from(sellerIds).map(async (sellerId) => {
@@ -2123,30 +2145,36 @@ export class StockService {
             const sellerDoc = await getDoc(doc(firestore, "users", sellerId));
             if (sellerDoc.exists()) {
               const data = sellerDoc.data();
-              sellerData[sellerId] = data.displayName || 
-                                     data.name || 
-                                    (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : "Unknown Seller");
+              sellerData[sellerId] =
+                data.displayName ||
+                data.name ||
+                (data.firstName && data.lastName
+                  ? `${data.firstName} ${data.lastName}`
+                  : "Unknown Seller");
             } else {
               sellerData[sellerId] = "Unknown Seller";
             }
           } catch (error) {
-            console.error(`Error fetching seller name for ID ${sellerId}:`, error);
+            console.error(
+              `Error fetching seller name for ID ${sellerId}:`,
+              error
+            );
             sellerData[sellerId] = "Unknown Seller";
           }
         })
       );
-      
+
       // Update the listings with real seller names
-      const updatedListings = listings.map(listing => {
+      const updatedListings = listings.map((listing) => {
         if (listing.sellerId && sellerData[listing.sellerId]) {
           return {
             ...listing,
-            sellerName: sellerData[listing.sellerId]
+            sellerName: sellerData[listing.sellerId],
           };
         }
         return listing;
       });
-      
+
       // Call the update callback with the updated listings
       onUpdate(updatedListings);
     } catch (error) {

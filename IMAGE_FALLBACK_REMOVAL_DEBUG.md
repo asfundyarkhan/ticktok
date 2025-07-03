@@ -7,6 +7,7 @@ This change removes the fallback mechanism from image helper functions to expose
 ## Changes Made
 
 1. **Modified `getBestProductImage` function:**
+
    - Now throws errors instead of returning `null` when images aren't found
    - Added detailed error messages to help identify problematic items
 
@@ -20,6 +21,7 @@ This change removes the fallback mechanism from image helper functions to expose
 After this change:
 
 1. **Console errors will be more informative:**
+
    - You'll see specific error messages about which items are missing images
    - The error messages will include JSON stringification of the item objects to help identify the problematic data
 
@@ -30,6 +32,7 @@ After this change:
 ## How to Find Issues
 
 1. Check the browser console for errors like:
+
    - `Error: No image found for item: {...}`
    - `Error: Item object is null or undefined`
 
@@ -45,6 +48,7 @@ If you want to revert to the fallback mechanism after debugging:
 ## Benefits of This Approach
 
 By temporarily removing fallbacks, you can:
+
 - Find all places where images are missing
 - Fix the root cause of missing images
 - Ensure your data contains proper image fields

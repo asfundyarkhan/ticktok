@@ -36,15 +36,15 @@ export class TransactionHelperService {
     } = options;
 
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const result = await runTransaction(firestore, transactionFunction);
-        
+
         if (attempt > 0) {
           console.log(`✅ Transaction succeeded after ${attempt} retries`);
         }
-        
+
         return {
           success: true,
           result,
@@ -52,11 +52,11 @@ export class TransactionHelperService {
         };
       } catch (error) {
         lastError = error as Error;
-        
+
         // Check if this is a transaction version conflict
         const isVersionConflict = this.isVersionConflictError(error);
         const isTransactionConflict = this.isTransactionConflictError(error);
-        
+
         if (!isVersionConflict && !isTransactionConflict) {
           // If it's not a conflict error, don't retry
           console.error(`❌ Non-retryable error in transaction:`, error);
@@ -66,28 +66,33 @@ export class TransactionHelperService {
             retryCount: attempt,
           };
         }
-        
+
         if (attempt === maxRetries) {
           // Last attempt failed
-          console.error(`❌ Transaction failed after ${maxRetries} retries:`, error);
+          console.error(
+            `❌ Transaction failed after ${maxRetries} retries:`,
+            error
+          );
           break;
         }
-        
+
         // Calculate delay with exponential backoff and jitter
         const delay = Math.min(
           baseDelayMs * Math.pow(2, attempt) + Math.random() * baseDelayMs,
           maxDelayMs
         );
-        
+
         console.warn(
-          `⚠️ Transaction conflict (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${Math.round(delay)}ms...`
+          `⚠️ Transaction conflict (attempt ${attempt + 1}/${
+            maxRetries + 1
+          }), retrying in ${Math.round(delay)}ms...`
         );
-        
+
         // Wait before retrying
         await this.sleep(delay);
       }
     }
-    
+
     return {
       success: false,
       error: lastError?.message || "Transaction failed after all retries",
@@ -100,11 +105,11 @@ export class TransactionHelperService {
    */
   private static isVersionConflictError(error: unknown): boolean {
     if (!error) return false;
-    
+
     const errorObj = error as { message?: string; code?: string };
     const errorMessage = errorObj.message?.toLowerCase() || "";
     const errorCode = errorObj.code?.toLowerCase() || "";
-    
+
     return (
       errorMessage.includes("stored version") ||
       errorMessage.includes("does not match") ||
@@ -119,11 +124,11 @@ export class TransactionHelperService {
    */
   private static isTransactionConflictError(error: unknown): boolean {
     if (!error) return false;
-    
+
     const errorObj = error as { message?: string; code?: string };
     const errorMessage = errorObj.message?.toLowerCase() || "";
     const errorCode = errorObj.code?.toLowerCase() || "";
-    
+
     return (
       errorMessage.includes("transaction") ||
       errorMessage.includes("contention") ||
@@ -137,7 +142,7 @@ export class TransactionHelperService {
    * Sleep for specified milliseconds
    */
   private static sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -150,24 +155,26 @@ export class TransactionHelperService {
     if (retryCount === 0) {
       return { performance: "excellent" };
     }
-    
+
     if (retryCount <= 2) {
-      return { 
+      return {
         performance: "good",
-        action: "Normal transaction contention - no action needed"
+        action: "Normal transaction contention - no action needed",
       };
     }
-    
+
     if (retryCount <= 4) {
-      return { 
+      return {
         performance: "concerning",
-        action: "High transaction contention - consider reducing concurrent operations"
+        action:
+          "High transaction contention - consider reducing concurrent operations",
       };
     }
-    
-    return { 
+
+    return {
       performance: "poor",
-      action: "Very high contention - investigate concurrent access patterns and consider batching operations"
+      action:
+        "Very high contention - investigate concurrent access patterns and consider batching operations",
     };
   }
 }
