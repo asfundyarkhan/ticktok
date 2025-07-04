@@ -125,8 +125,9 @@ function AddStockPageContent() {
         }
       }
 
-      await StockService.addStockItem(productData);
-      toast.success("Product added successfully and is now available for sellers!");
+      const createdItemIds = await StockService.addStockItem(productData);
+      const instanceCount = createdItemIds.length;
+      toast.success(`Product added successfully! Created ${instanceCount} unique instance${instanceCount > 1 ? 's' : ''} and now available for sellers!`);
 
       setFormData({
         name: "",

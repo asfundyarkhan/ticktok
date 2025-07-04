@@ -34,6 +34,15 @@ export interface StockItem {
   salePrice?: number; // Calculated sale price
   createdAt?: Date;
   updatedAt?: Date;
+
+  // Instance-related fields for unique product instances
+  isInstance?: boolean; // Whether this is a product instance
+  originalProductCode?: string; // Original product code before instance creation
+  instanceNumber?: number; // Instance number (1, 2, 3, etc.)
+  totalInstances?: number; // Total number of instances for this product
+  depositReceiptApproved?: boolean; // Whether deposit receipt is approved for this instance
+  depositReceiptUrl?: string; // URL of the deposit receipt for this instance
+  pendingDepositId?: string; // ID of the pending deposit for this instance
 }
 
 export interface PurchaseResult {

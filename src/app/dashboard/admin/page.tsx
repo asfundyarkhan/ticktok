@@ -288,6 +288,10 @@ function AdminPageContent() {
     window.location.href = "/dashboard/admin/withdrawals";
   };
 
+  const navigateToMigration = () => {
+    window.location.href = "/dashboard/admin/migration";
+  };
+
   const handleDismissWithdrawalNotification = () => {
     setShowWithdrawalNotification(false);
   };
@@ -343,6 +347,12 @@ function AdminPageContent() {
                 {pendingWithdrawalsCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={navigateToMigration}
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            Migration Tools
           </button>
         </div>
       </div>

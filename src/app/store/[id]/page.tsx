@@ -229,7 +229,7 @@ export default function ProductDetailPage() {
   };
 
   // Handler for related product quick add
-  const handleRelatedProductQuickAdd = (e: React.MouseEvent) => {
+  const handleRelatedProductQuickAdd = () => {
     // Check if user is authenticated
     if (!user) {
       setShowLoginModal(true);
@@ -741,9 +741,9 @@ export default function ProductDetailPage() {
             You Might Also Like
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {relatedProducts.map((relatedProduct) => (
+            {relatedProducts.map((relatedProduct, index) => (
               <div
-                key={relatedProduct.id}
+                key={`${relatedProduct.id}-${index}`}
                 className="bg-white rounded-lg shadow-sm overflow-hidden"
               >
                 <div className="relative aspect-square">

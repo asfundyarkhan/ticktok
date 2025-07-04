@@ -7,7 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
 import SellerWalletDashboard from "../components/SellerWalletDashboard";
-import { Save, Shield, CheckCircle, AlertCircle, Camera, Upload } from "lucide-react";
+import ProfileReceiptsSection from "../components/ProfileReceiptsSection";
+import { Save, Shield, CheckCircle, AlertCircle, Camera } from "lucide-react";
 import { StorageService } from "@/services/storageService";
 import { toast } from "react-hot-toast";
 
@@ -495,6 +496,11 @@ function UserProfileContent() {
             <SellerWalletDashboard sellerId={userProfile.uid} />
           </div>
         )}
+
+        {/* Payment Receipts Section */}
+        <div className="mt-6">
+          <ProfileReceiptsSection userId={userProfile.uid} />
+        </div>
       </div>
     </div>
   );

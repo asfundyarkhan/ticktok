@@ -11,12 +11,6 @@ import { StockItem } from "../../types/marketplace";
 import QuantityCounter from "../components/QuantityCounter";
 
 export default function StockPage() {
-  const [walletSummary, setWalletSummary] = useState({
-    availableBalance: 0,
-    totalPendingDeposits: 0,
-    withdrawableAmount: 0,
-    totalProfit: 0,
-  });
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -194,21 +188,6 @@ export default function StockPage() {
   };
 
   useEffect(() => {
-    const loadWalletSummary = async () => {
-      if (user?.uid) {
-        try {
-          const summary = await PendingDepositService.getSellerWalletSummary(user.uid);
-          setWalletSummary(summary);
-        } catch (error) {
-          console.error("Error loading wallet summary:", error);
-        }
-      }
-    };
-
-    loadWalletSummary();
-  }, [user?.uid]);
-
-  useEffect(() => {
     // Highlight row if needed
     if (highlightedProductCode && typeof window !== "undefined") {
       const element = document.getElementById(`product-${highlightedProductCode}`);
@@ -272,60 +251,7 @@ export default function StockPage() {
           </Link>
         </div>
 
-        {/* Enhanced Wallet Summary Card */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border-l-4 border-[#FF0059]">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500">
-                  WALLET SUMMARY
-                </h3>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${walletSummary.availableBalance.toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-600">Available Balance</p>
-              </div>
-              <Link
-                href="/receipts-v2"
-                className="px-4 py-2 bg-[#FF0059] text-white rounded-md text-sm font-medium"
-              >
-                Add Funds
-              </Link>
-            </div>
-            
-            {/* Additional wallet info */}
-            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-100">
-              <div>
-                <p className="text-xs text-gray-500">Pending Deposits</p>
-                <p className="text-sm font-semibold text-orange-600">
-                  ${walletSummary.totalPendingDeposits.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Pending Profit</p>
-                <p className="text-sm font-semibold text-yellow-600">
-                  ${walletSummary.totalProfit.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Withdrawable</p>
-                <p className="text-sm font-semibold text-green-600">
-                  ${walletSummary.withdrawableAmount.toFixed(2)}
-                </p>
-              </div>
-            </div>
-
-            {(walletSummary.totalPendingDeposits > 0 || walletSummary.totalProfit > 0) && (
-              <div className="bg-orange-50 border border-orange-200 rounded-md p-2">
-                <p className="text-xs text-orange-700">
-                  ⚠️ {walletSummary.totalPendingDeposits > 0 && "You have pending deposits required."} 
-                  {walletSummary.totalProfit > 0 && " Profits from sales will be added to your wallet after you pay the required deposits."}
-                  {walletSummary.totalPendingDeposits > 0 && " Funds cannot be withdrawn until deposits are paid."}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>        {/* Search and Filter Section */}
+        {/* Search and Filter Section */}
         <div className="mb-6 space-y-4">
           {/* Search Bar */}
           <div className="relative">

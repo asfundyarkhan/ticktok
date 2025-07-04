@@ -6,15 +6,12 @@ import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
 import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
-import WithdrawalModal from "@/app/components/WithdrawalModal";
 import FilterModal from "@/app/components/FilterModal";
 import { useCart } from "@/app/components/NewCartContext";
 import { useAuth } from "@/context/AuthContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
 import { StockService } from "@/services/stockService";
-import { SellerWalletService } from "@/services/sellerWalletService";
 import type { StockItem, StockListing } from "@/types/marketplace";
-import type { WalletBalance } from "@/types/wallet";
 import "rc-pagination/assets/index.css";
 import { toast } from "react-hot-toast";
 import { getBestProductImage } from "../utils/imageHelpers";
@@ -37,7 +34,7 @@ const animationSettings = {
 };
 
 export default function StorePage() {
-  const { user, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const [products, setProducts] = useState<StockItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,15 +53,6 @@ export default function StorePage() {
     y: 0,
   });
   
-  // Withdrawal functionality state
-  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<WalletBalance>({
-    available: 0,
-    pending: 0,
-    total: 0,
-  });
-  const [sellerName, setSellerName] = useState("");
-  const [sellerEmail, setSellerEmail] = useState("");
   const [showFilterModal, setShowFilterModal] = useState(false);
   
   const cartIconRef = useRef<HTMLDivElement>(null);
@@ -122,35 +110,6 @@ export default function StorePage() {
     return () => window.removeEventListener("resize", updateCartPosition);
   }, []);
 
-  // Load wallet balance and seller profile for withdrawal functionality
-  useEffect(() => {
-    if (user?.uid) {
-      // Subscribe to wallet balance
-      const unsubscribe = SellerWalletService.subscribeToWalletBalance(
-        user.uid,
-        setWalletBalance
-      );
-
-      // Load seller profile
-      const loadSellerProfile = async () => {
-        try {
-          const { UserService } = await import("@/services/userService");
-          const profile = await UserService.getUserProfile(user.uid);
-          if (profile) {
-            setSellerName(profile.displayName || profile.email?.split("@")[0] || "Unknown Seller");
-            setSellerEmail(profile.email || "");
-          }
-        } catch (error) {
-          console.warn("Could not load seller profile:", error);
-        }
-      };
-
-      loadSellerProfile();
-
-      return unsubscribe;
-    }
-  }, [user?.uid]);
-  
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -178,7 +137,12 @@ export default function StorePage() {
               createdAt: listing.createdAt,
               updatedAt: listing.updatedAt,
             }));
-            setProducts(stockItems);
+            
+            // Remove duplicates by productId before setting state
+            const uniqueStockItems = stockItems.filter((item, index, self) => 
+              index === self.findIndex(t => t.productId === item.productId)
+            );
+            setProducts(uniqueStockItems);
             
             // After loading the basic stock items, fetch real seller names
             StockService.fetchSellerNamesForListings(listings, (updatedListings) => {
@@ -204,7 +168,12 @@ export default function StorePage() {
                 createdAt: listing.createdAt,
                 updatedAt: listing.updatedAt,
               }));
-              setProducts(updatedStockItems);
+              
+              // Remove duplicates by productId before setting state
+              const uniqueUpdatedStockItems = updatedStockItems.filter((item, index, self) => 
+                index === self.findIndex(t => t.productId === item.productId)
+              );
+              setProducts(uniqueUpdatedStockItems);
             });
           },
           (error) => {
@@ -227,11 +196,16 @@ export default function StorePage() {
         console.log('Store: Loading stock items...');
         const stockItems = await StockService.getAllStockItems();
         console.log('Store: Loaded stock items:', stockItems.length, stockItems);
-        setProducts(stockItems);
+        
+        // Remove duplicates by productId before setting state
+        const uniqueStockItems = stockItems.filter((item, index, self) => 
+          index === self.findIndex(t => t.productId === item.productId)
+        );
+        setProducts(uniqueStockItems);
         
         // Also fetch real seller names for static loads
         // First convert to StockListing format
-        const listingsFormat = stockItems.map(item => ({
+        const listingsFormat = uniqueStockItems.map(item => ({
           id: item.id || item.productId || "", // Ensure id is never undefined
           productId: item.productId,
           name: item.name,
@@ -252,7 +226,7 @@ export default function StorePage() {
         StockService.fetchSellerNamesForListings(listingsFormat, (updatedListings) => {
           // Map back to StockItem format and update state
           const updatedStockItems = updatedListings.map((listing) => {
-            const originalItem = stockItems.find(item => item.productId === listing.productId);
+            const originalItem = uniqueStockItems.find(item => item.productId === listing.productId);
             if (!originalItem) return null;
             
             return {
@@ -261,7 +235,12 @@ export default function StorePage() {
             };
           }).filter(Boolean) as StockItem[];
           
-          setProducts(updatedStockItems);
+          // Remove duplicates again after processing
+          const finalUniqueStockItems = updatedStockItems.filter((item, index, self) => 
+            index === self.findIndex(t => t.productId === item.productId)
+          );
+          
+          setProducts(finalUniqueStockItems);
         });
       } catch (error) {
         console.error("Failed to load products:", error);
@@ -494,34 +473,6 @@ export default function StorePage() {
           </div>
           
           <div className="flex items-center gap-4">
-            {/* Wallet Balance Display - only show for logged-in users */}
-            {user && (
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">Wallet: </span>
-                <span className="text-green-600 font-semibold">
-                  ${walletBalance.available.toFixed(2)}
-                </span>
-                {walletBalance.pending > 0 && (
-                  <span className="text-orange-600 ml-1">
-                    (+${walletBalance.pending.toFixed(2)} pending)
-                  </span>
-                )}
-              </div>
-            )}
-            
-            {/* Withdrawal Button - only show for logged-in users with available balance */}
-            {user && walletBalance.available >= 5 && (
-              <button
-                onClick={() => setShowWithdrawalModal(true)}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                </svg>
-                Withdraw
-              </button>
-            )}
-            
             <div className="relative" ref={cartIconRef}>
               <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
             </div>
@@ -584,15 +535,6 @@ export default function StorePage() {
           </div>
         </div>
       </div>
-      
-      {/* Withdrawal Modal */}
-      <WithdrawalModal
-        isOpen={showWithdrawalModal}
-        onClose={() => setShowWithdrawalModal(false)}
-        availableBalance={walletBalance.available}
-        sellerName={sellerName}
-        sellerEmail={sellerEmail}
-      />
       
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />

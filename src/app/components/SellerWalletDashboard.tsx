@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { DollarSign, Clock, CheckCircle } from "lucide-react";
+import { DollarSign, Clock, CheckCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { SellerWalletService } from "../../services/sellerWalletService";
 import { NewReceiptService, NewReceipt } from "../../services/newReceiptService";
 import { WalletBalance, PendingProfit } from "../../types/wallet";
@@ -23,6 +23,8 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [sellerName, setSellerName] = useState("");
   const [sellerEmail, setSellerEmail] = useState("");
+  const [visibleProfitsCount, setVisibleProfitsCount] = useState(3);
+  const PROFITS_PER_PAGE = 3;
 
   const loadData = useCallback(async () => {
     try {
@@ -100,6 +102,25 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
       toast.error("Failed to submit deposit");
     }
   };
+
+  const loadMoreProfits = () => {
+    const newVisibleCount = visibleProfitsCount + PROFITS_PER_PAGE;
+    setVisibleProfitsCount(newVisibleCount);
+  };
+
+  const toggleShowAllProfits = () => {
+    const showingAll = visibleProfitsCount >= pendingProfits.length;
+    if (showingAll) {
+      // If currently showing all, go back to showing first 3
+      setVisibleProfitsCount(PROFITS_PER_PAGE);
+    } else {
+      // If currently showing limited, show all
+      setVisibleProfitsCount(pendingProfits.length);
+    }
+  };
+
+  // Calculate which profits to display
+  const displayedProfits = pendingProfits.slice(0, visibleProfitsCount);
 
   if (loading) {
     return (
@@ -186,7 +207,21 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
       {/* Pending Profits */}
       {pendingProfits.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales & Profits</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900">Sales & Profits</h3>
+              {pendingProfits.length > 0 && (
+                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  {pendingProfits.length}
+                </span>
+              )}
+            </div>
+            {pendingProfits.length > PROFITS_PER_PAGE && (
+              <span className="text-sm text-gray-500">
+                Showing {Math.min(visibleProfitsCount, pendingProfits.length)} of {pendingProfits.length}
+              </span>
+            )}
+          </div>
           
           <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -200,7 +235,7 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
           </div>
           
           <div className="space-y-3">
-            {pendingProfits.map((profit) => (
+            {displayedProfits.map((profit) => (
               <div 
                 key={profit.id} 
                 className={`border rounded-lg p-4 ${
@@ -318,6 +353,40 @@ export default function SellerWalletDashboard({ sellerId }: SellerWalletDashboar
               </div>
             ))}
           </div>
+
+          {/* Load more / Show all controls */}
+          {pendingProfits.length > PROFITS_PER_PAGE && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                {visibleProfitsCount < pendingProfits.length && (
+                  <button
+                    onClick={loadMoreProfits}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                    Load More ({Math.min(PROFITS_PER_PAGE, pendingProfits.length - visibleProfitsCount)} more)
+                  </button>
+                )}
+                
+                <button
+                  onClick={toggleShowAllProfits}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-pink-600 hover:text-pink-700 hover:bg-pink-50 rounded-md transition-colors"
+                >
+                  {visibleProfitsCount >= pendingProfits.length ? (
+                    <>
+                      <ChevronRight className="w-4 h-4" />
+                      Show Less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Show All ({pendingProfits.length})
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

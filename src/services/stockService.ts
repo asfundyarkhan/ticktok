@@ -237,7 +237,7 @@ export class StockService {
   }
 
   /**
-   * Get all stock items available for sellers
+   * Get all stock items available for sellers (excludes migrated duplicates, prioritizes instances)
    * @returns Promise with array of stock items
    */
   static async getAllStockItems(): Promise<StockItem[]> {
@@ -255,7 +255,15 @@ export class StockService {
       const sellerCache: Record<string, { name: string; email: string }> = {};
 
       for (const docSnapshot of querySnapshot.docs) {
-        const data = docSnapshot.data(); // Validate required fields exist
+        const data = docSnapshot.data();
+
+        // Skip migrated products (they've been split into instances)
+        if (data.migrated === true) {
+          console.log(`Skipping migrated product: ${data.name}`);
+          continue;
+        }
+
+        // Validate required fields exist
         if (
           data.productCode &&
           data.name &&
@@ -331,6 +339,15 @@ export class StockService {
             sellerName: sellerName, // Use the resolved seller name
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
+
+            // Instance-related fields
+            isInstance: data.isInstance || false,
+            originalProductCode: data.originalProductCode,
+            instanceNumber: data.instanceNumber,
+            totalInstances: data.totalInstances,
+            depositReceiptApproved: data.depositReceiptApproved || false,
+            depositReceiptUrl: data.depositReceiptUrl,
+            pendingDepositId: data.pendingDepositId,
           };
           items.push(item);
         }
@@ -397,41 +414,96 @@ export class StockService {
   }
 
   /**
-   * Add new stock item (admin only)
+   * Generate unique instance ID for product instances
+   */
+  private static generateUniqueInstanceId(
+    baseProductCode: string,
+    instanceNumber: number
+  ): string {
+    const timestamp = Date.now();
+    const nanoTime = performance.now().toString().replace(".", "");
+    const random1 = Math.random().toString(36).substring(2, 8);
+    const random2 = Math.random().toString(36).substring(2, 6);
+    return `${baseProductCode}-inst-${instanceNumber}-${timestamp}-${nanoTime}-${random1}${random2}`;
+  }
+
+  /**
+   * Generate unique product code for product instances
+   */
+  private static generateUniqueProductCode(
+    baseProductCode: string,
+    instanceNumber: number
+  ): string {
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${baseProductCode}-${instanceNumber}-${random}`;
+  }
+
+  /**
+   * Add new stock item (admin only) - Creates unique instances for each unit
    * @param item Stock item details
-   * @returns Promise with the new item ID
+   * @returns Promise with array of new item IDs
    */
   static async addStockItem(
     item: Omit<StockItem, "id" | "createdAt" | "updatedAt">
-  ): Promise<string> {
+  ): Promise<string[]> {
     try {
       const stockRef = collection(firestore, StockService.COLLECTION);
+      const quantity = item.stock || 1;
+      const createdItemIds: string[] = [];
 
-      // Check if item with this product code already exists
-      const existing = await this.getStockItem(item.productCode, true);
+      // Create individual instances for each unit
+      for (let i = 1; i <= quantity; i++) {
+        // Add a small delay to ensure unique timestamps
+        if (i > 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
 
-      if (existing) {
-        // Update existing item instead of creating a new one
-        await updateDoc(doc(firestore, StockService.COLLECTION, existing.id!), {
+        const uniqueInstanceId = this.generateUniqueInstanceId(
+          item.productCode,
+          i
+        );
+        const uniqueProductCode = this.generateUniqueProductCode(
+          item.productCode,
+          i
+        );
+
+        const instanceItem = {
           ...item,
-          stock: item.stock + existing.stock, // Add to existing stock
-          updatedAt: Timestamp.now(),
-        });
+          // Each instance has quantity of 1
+          stock: 1,
 
-        return existing.id!;
+          // Unique identifiers for each instance
+          productId: uniqueInstanceId,
+          productCode: uniqueProductCode,
+          originalProductCode: item.productCode, // Keep reference to original
+          instanceNumber: i,
+          totalInstances: quantity,
+
+          // Instance metadata
+          isInstance: true,
+          depositReceiptApproved: false,
+          depositReceiptUrl: null,
+          pendingDepositId: null,
+
+          // Timestamps
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        };
+
+        const docRef = await addDoc(stockRef, instanceItem);
+        createdItemIds.push(docRef.id);
+
+        console.log(
+          `Created instance ${i}/${quantity} for ${item.name}: ${docRef.id}`
+        );
       }
 
-      // Create new item
-      const newItem = {
-        ...item,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      const docRef = await addDoc(stockRef, newItem);
-      return docRef.id;
+      console.log(
+        `Successfully created ${createdItemIds.length} instances for ${item.name}`
+      );
+      return createdItemIds;
     } catch (error) {
-      console.error("Error adding stock item:", error);
+      console.error("Error adding stock item instances:", error);
       throw error;
     }
   }
@@ -1949,8 +2021,46 @@ export class StockService {
               totalCost: 0,
             };
           }
+          // Get the stock item first to check if it's an instance
+          const initialStockDoc = await getDoc(
+            doc(firestore, StockService.COLLECTION, stockId)
+          );
+
+          if (!initialStockDoc.exists()) {
+            console.log(`Stock document not found for ID: ${stockId}`);
+            return {
+              success: false,
+              message: "Stock item not found",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+
+          const initialStockData = initialStockDoc.data() as DocumentData;
+
+          // If this is a product instance (isInstance: true), only allow quantity 1
+          if (initialStockData.isInstance && quantity > 1) {
+            return {
+              success: false,
+              message:
+                "Cannot list multiple quantities of product instances. Each instance must be listed individually.",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
+
+          // If this is a product instance, ensure quantity is exactly 1
+          if (initialStockData.isInstance && quantity !== 1) {
+            return {
+              success: false,
+              message: "Product instances must be listed with quantity 1",
+              quantity: 0,
+              totalCost: 0,
+            };
+          }
 
           // Check inventory for existing product
+          // Use the unique productId from the stock data (instance ID) if available
           const productId = stockData.productId || stockId;
           const productRef = doc(inventoryRef, productId);
           const productDoc = await t.get(productRef);
