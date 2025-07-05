@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { NewReceiptService, NewReceipt } from "../../services/newReceiptService";
 import ReceiptSubmission from "../components/ReceiptSubmission";
 import Image from "next/image";
@@ -28,15 +29,37 @@ function ReceiptsV2Content() {
     depositId?: string;
     amount?: string;
   }>({});
+  const [hasProcessedParams, setHasProcessedParams] = useState(false);
 
   useEffect(() => {
-    // Check for deposit context in URL parameters
-    const depositId = searchParams.get('deposit');
-    const amount = searchParams.get('amount');
+    // Always check for URL parameters when the component mounts or searchParams change
+    if (typeof window === 'undefined') return; // Server-side rendering guard
+    
+    console.log('Receipts page useEffect running...');
+    console.log('Full URL:', window.location.href);
+    console.log('Search params string:', searchParams.toString());
+    console.log('Window location search:', window.location.search);
+    
+    // Use direct URL parsing as primary method
+    const urlParams = new URLSearchParams(window.location.search);
+    const depositId = urlParams.get('deposit') || searchParams.get('deposit');
+    const amount = urlParams.get('amount') || searchParams.get('amount');
+    
+    console.log('Direct URL params:', urlParams.toString());
+    console.log('Parsed params:', { depositId, amount });
+    console.log('Has processed params:', hasProcessedParams);
     
     if (depositId) {
+      console.log('✅ Found deposit ID, setting context and showing form');
       setDepositContext({ depositId, amount: amount || undefined });
       setShowSubmissionForm(true);
+      if (!hasProcessedParams) {
+        setHasProcessedParams(true);
+      }
+    } else if (!hasProcessedParams) {
+      console.log('❌ No deposit ID found in any URL parameters');
+      console.log('All URL params:', Object.fromEntries(urlParams.entries()));
+      setHasProcessedParams(true);
     }
 
     const loadReceipts = async () => {
@@ -53,15 +76,76 @@ function ReceiptsV2Content() {
     };
 
     loadReceipts();
-  }, [user, searchParams]);
+  }, [user, searchParams, hasProcessedParams]);
+
+  // Additional effect to handle URL parameters on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // Server-side rendering guard
+    
+    console.log('Mount effect: Checking URL parameters...');
+    const urlParams = new URLSearchParams(window.location.search);
+    const depositId = urlParams.get('deposit');
+    const amount = urlParams.get('amount');
+    
+    console.log('Mount effect - URL params:', {
+      deposit: depositId,
+      amount: amount,
+      search: window.location.search,
+      href: window.location.href
+    });
+    
+    if (depositId) {
+      console.log('Mount effect: Found deposit ID, forcing form to show');
+      setDepositContext({ depositId, amount: amount || undefined });
+      setShowSubmissionForm(true);
+    }
+  }, []); // Only run on mount
+
+  // Additional effect to handle URL changes and delayed searchParams
+  useEffect(() => {
+    if (searchParams.get('deposit') && !hasProcessedParams) {
+      console.log('Secondary effect: Found deposit param, processing...');
+      const depositId = searchParams.get('deposit');
+      const amount = searchParams.get('amount');
+      
+      setDepositContext({ 
+        depositId: depositId || undefined, 
+        amount: amount || undefined 
+      });
+      setShowSubmissionForm(true);
+      setHasProcessedParams(true);
+    }
+  }, [searchParams, hasProcessedParams]);
 
   const handleReceiptSubmitted = () => {
     setShowSubmissionForm(false);
+    setDepositContext({});
+    setHasProcessedParams(false);
     // Reload receipts
     if (user?.uid) {
       NewReceiptService.getUserReceipts(user.uid).then(setReceipts);
     }
   };
+
+  // Computed property to determine if form should be shown
+  const shouldShowForm = (() => {
+    if (typeof window === 'undefined') return false; // Server-side rendering guard
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasDepositParam = urlParams.has('deposit');
+    return showSubmissionForm || hasDepositParam || !!depositContext.depositId;
+  })();
+
+  // Computed property to get current deposit context
+  const currentDepositContext = (() => {
+    if (typeof window === 'undefined') return {}; // Server-side rendering guard
+    if (depositContext.depositId) {
+      return depositContext;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const depositId = urlParams.get('deposit');
+    const amount = urlParams.get('amount');
+    return depositId ? { depositId, amount: amount || undefined } : {};
+  })();
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -122,21 +206,58 @@ function ReceiptsV2Content() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">My Receipts</h1>
-          <p className="text-gray-600">Track your submitted payment receipts</p>
+    <div className="min-h-screen bg-gray-50 pt-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Receipts</h1>
+          <p className="mt-1 text-sm sm:text-base text-gray-600">Track your submitted payment receipts</p>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
+          <Link href="/profile" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            General
+          </Link>
+          <Link href="/receipts-v2" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
+            Receipts
+          </Link>
+          <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            Product Pool
+          </Link>
+          <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            My Listings
+          </Link>
+          <Link href="/stock/pending" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            Orders
+          </Link>
         </div>
 
         {/* Submit New Receipt Button */}
         <div className="mb-8">
           <button
-            onClick={() => setShowSubmissionForm(!showSubmissionForm)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] transition-colors"
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Submit New Receipt button clicked, current showSubmissionForm:', showSubmissionForm);
+              console.log('Current shouldShowForm:', shouldShowForm);
+              console.log('Current depositContext:', depositContext);
+              
+              if (depositContext.depositId) {
+                // If we have a deposit context, clear it and hide the form
+                setDepositContext({});
+                setShowSubmissionForm(false);
+                setHasProcessedParams(false);
+              } else {
+                // Normal toggle behavior for manual form opening
+                setShowSubmissionForm(!showSubmissionForm);
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] transition-colors cursor-pointer"
+            style={{ zIndex: 10 }}
           >
             <Plus className="w-5 h-5" />
-            Submit New Receipt
+            {shouldShowForm ? 'Hide Form' : 'Submit New Receipt'}
           </button>
         </div>
 
@@ -172,17 +293,56 @@ function ReceiptsV2Content() {
         </div>
 
         {/* Submission Form */}
-        {showSubmissionForm && (
+        {shouldShowForm && (
           <div className="mb-8">
-            <ReceiptSubmission 
-              onSubmitted={handleReceiptSubmitted}
-              className="max-w-2xl"
-              isDepositPayment={!!depositContext.depositId}
-              pendingDepositId={depositContext.depositId}
-              requiredAmount={depositContext.amount ? parseFloat(depositContext.amount) : undefined}
-            />
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Submit Receipt</h3>
+                {currentDepositContext.depositId && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    Pre-filled from order
+                  </span>
+                )}
+              </div>
+              {currentDepositContext.depositId && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Order ID:</strong> {currentDepositContext.depositId}
+                    {currentDepositContext.amount && (
+                      <>
+                        <br />
+                        <strong>Required Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
+                      </>
+                    )}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Just upload your payment receipt - the form is already filled with your order details!
+                  </p>
+                </div>
+              )}
+              <ReceiptSubmission 
+                onSubmitted={handleReceiptSubmitted}
+                className="max-w-2xl"
+                isDepositPayment={!!currentDepositContext.depositId}
+                pendingDepositId={currentDepositContext.depositId}
+                requiredAmount={currentDepositContext.amount ? parseFloat(currentDepositContext.amount) : undefined}
+              />
+            </div>
           </div>
         )}
+        
+        {/* Debug Info */}
+        <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
+          <details>
+            <summary className="cursor-pointer font-medium text-sm mb-2">🐛 Debug Information</summary>
+            <div className="space-y-1 mt-2">
+              <p>shouldShowForm = {shouldShowForm ? '✅ true' : '❌ false'}</p>
+              <p>currentDepositContext = {JSON.stringify(currentDepositContext)}</p>
+              <p>window.location.search = &quot;{typeof window !== 'undefined' ? window.location.search : 'N/A (SSR)'}&quot;</p>
+              <p>Direct URL params = {typeof window !== 'undefined' ? new URLSearchParams(window.location.search).toString() : 'N/A (SSR)'}</p>
+            </div>
+          </details>
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

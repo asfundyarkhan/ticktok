@@ -20,6 +20,10 @@ import {
   Sale,
 } from "../types/wallet";
 
+// Simple cache to prevent repeated image fetches
+const productImageCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 100; // Limit cache size to prevent memory issues
+
 export class SellerWalletService {
   // Get seller's wallet balance
   static async getWalletBalance(sellerId: string): Promise<WalletBalance> {
@@ -213,35 +217,18 @@ export class SellerWalletService {
 
       const depositsSnapshot = await getDocs(depositsQuery);
 
-      // Get all purchases to identify admin purchases
-      const purchasesQuery = query(
-        collection(firestore, "purchases"),
-        where("sellerId", "==", sellerId),
-        where("isAdminPurchase", "==", true)
-      );
-
-      const purchasesSnapshot = await getDocs(purchasesQuery);
-      const adminPurchasesByProduct = new Map();
-
-      purchasesSnapshot.forEach((doc) => {
-        const purchase = doc.data();
-        adminPurchasesByProduct.set(purchase.productId, purchase);
-      });
-
       const pendingProfits = await Promise.all(
         depositsSnapshot.docs.map(async (docSnapshot) => {
           const data = docSnapshot.data();
 
-          // Include deposits that are either:
-          // 1. Already sold (traditional flow)
-          // 2. Have been purchased by admin (even if status is still "pending")
-          const hasAdminPurchase = adminPurchasesByProduct.has(data.productId);
+          // Only include deposits that have been actually sold to customers
+          // NOT just purchased by admin for inventory
           const isSold = ["sold", "receipt_submitted", "deposit_paid"].includes(
             data.status
           );
 
-          if (!isSold && !hasAdminPurchase) {
-            return null; // Skip items that haven't been purchased by admin and aren't sold
+          if (!isSold) {
+            return null; // Skip items that haven't been sold to actual customers
           }
 
           let productImage = "";
@@ -270,83 +257,124 @@ export class SellerWalletService {
 
           // If no image in pending_deposits, fallback to fetching from products collection
           if (!productImage && data.productId) {
-            console.log(
-              `No image in pending_deposits for ${data.productId}, fetching from products collection...`
-            );
-            try {
-              const productRef = doc(firestore, "products", data.productId);
-              const productDoc = await getDoc(productRef);
-              if (productDoc.exists()) {
-                const productData = productDoc.data();
+            // Check cache first
+            if (productImageCache.has(data.productId)) {
+              productImage = productImageCache.get(data.productId) || "";
+              console.log(
+                `Using cached image for ${data.productId}: ${
+                  productImage || "NO IMAGE"
+                }`
+              );
+            } else {
+              console.log(
+                `No image in pending_deposits for ${data.productId}, fetching from products collection...`
+              );
+              try {
+                const productRef = doc(firestore, "products", data.productId);
+                const productDoc = await getDoc(productRef);
+                if (productDoc.exists()) {
+                  const productData = productDoc.data();
 
-                // Try various image field names
-                if (
-                  productData.image &&
-                  typeof productData.image === "string"
-                ) {
-                  productImage = productData.image;
-                  console.log(
-                    `Found image field for ${data.productId}: ${productImage}`
-                  );
-                } else if (
-                  productData.mainImage &&
-                  typeof productData.mainImage === "string"
-                ) {
-                  productImage = productData.mainImage;
-                  console.log(
-                    `Found mainImage field for ${data.productId}: ${productImage}`
-                  );
-                } else if (
-                  productData.images &&
-                  Array.isArray(productData.images) &&
-                  productData.images.length > 0
-                ) {
-                  productImage = productData.images[0];
-                  console.log(
-                    `Found image in images array for ${data.productId}: ${productImage}`
-                  );
+                  // Try various image field names
+                  if (
+                    productData.image &&
+                    typeof productData.image === "string"
+                  ) {
+                    productImage = productData.image;
+                    console.log(
+                      `Found image field for ${data.productId}: ${productImage}`
+                    );
+                  } else if (
+                    productData.mainImage &&
+                    typeof productData.mainImage === "string"
+                  ) {
+                    productImage = productData.mainImage;
+                    console.log(
+                      `Found mainImage field for ${data.productId}: ${productImage}`
+                    );
+                  } else if (
+                    productData.images &&
+                    Array.isArray(productData.images) &&
+                    productData.images.length > 0
+                  ) {
+                    productImage = productData.images[0];
+                    console.log(
+                      `Found image in images array for ${data.productId}: ${productImage}`
+                    );
+                  }
+                }
+
+                // Cache the image result (even if empty) to prevent repeated fetches
+                if (productImageCache.size >= MAX_CACHE_SIZE) {
+                  // Remove oldest entry to prevent memory issues
+                  const firstKey = productImageCache.keys().next().value;
+                  if (firstKey) {
+                    productImageCache.delete(firstKey);
+                  }
+                }
+                productImageCache.set(data.productId, productImage || "");
+              } catch (err) {
+                console.error(
+                  `Error fetching product image for ${data.productId}:`,
+                  err
+                );
+                // Cache empty result to prevent repeated failed fetches
+                if (productImageCache.size >= MAX_CACHE_SIZE) {
+                  // Remove oldest entry to prevent memory issues
+                  const firstKey = productImageCache.keys().next().value;
+                  if (firstKey) {
+                    productImageCache.delete(firstKey);
+                  }
+                }
+                productImageCache.set(data.productId, "");
+              }
+            }
+
+            // Format Firebase Storage URLs if needed
+            if (
+              productImage &&
+              !productImage.startsWith("http") &&
+              !productImage.startsWith("data:")
+            ) {
+              try {
+                if (!productImage.includes("/")) {
+                  // It's likely just a filename - construct a path in the products folder
+                  productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/products%2F${encodeURIComponent(
+                    productImage
+                  )}?alt=media`;
+                } else if (productImage.startsWith("/")) {
+                  // Remove the leading slash before encoding
+                  const path = productImage.substring(1);
+                  productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(
+                    path
+                  )}?alt=media`;
+                } else {
+                  productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(
+                    productImage
+                  )}?alt=media`;
+                }
+                console.log(
+                  `Formatted image URL for ${data.productId}: ${productImage}`
+                );
+              } catch (err) {
+                console.error(
+                  `Error formatting image URL for ${data.productId}:`,
+                  err
+                );
+                productImage = "";
+              }
+            }
+
+            // Cache the image result (even if empty) to prevent repeated fetches
+            if (data.productId) {
+              if (productImageCache.size >= MAX_CACHE_SIZE) {
+                // Remove oldest entry to prevent memory issues
+                const firstKey = productImageCache.keys().next().value;
+                if (firstKey) {
+                  productImageCache.delete(firstKey);
                 }
               }
-            } catch (err) {
-              console.error(
-                `Error fetching product image for ${data.productId}:`,
-                err
-              );
-            }
-          }
-
-          // Format Firebase Storage URLs if needed
-          if (
-            productImage &&
-            !productImage.startsWith("http") &&
-            !productImage.startsWith("data:")
-          ) {
-            try {
-              if (!productImage.includes("/")) {
-                // It's likely just a filename - construct a path in the products folder
-                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/products%2F${encodeURIComponent(
-                  productImage
-                )}?alt=media`;
-              } else if (productImage.startsWith("/")) {
-                // Remove the leading slash before encoding
-                const path = productImage.substring(1);
-                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(
-                  path
-                )}?alt=media`;
-              } else {
-                productImage = `https://firebasestorage.googleapis.com/v0/b/ticktokshop-5f1e9.appspot.com/o/${encodeURIComponent(
-                  productImage
-                )}?alt=media`;
-              }
-              console.log(
-                `Formatted image URL for ${data.productId}: ${productImage}`
-              );
-            } catch (err) {
-              console.error(
-                `Error formatting image URL for ${data.productId}:`,
-                err
-              );
-              productImage = "";
+              productImageCache.set(data.productId, productImage || "");
             }
           }
 
@@ -356,25 +384,11 @@ export class SellerWalletService {
             }`
           );
 
-          // Calculate profit amount based on status and admin purchase
-          let profitAmount = data.pendingProfitAmount || 0;
-          let saleAmount = data.salePrice || data.listingPrice;
-          let quantitySold =
+          // Calculate profit amount based on actual sales only
+          const profitAmount = data.pendingProfitAmount || 0;
+          const saleAmount = data.salePrice || data.listingPrice;
+          const quantitySold =
             data.actualQuantitySold || data.quantityListed || 1;
-
-          // If item was purchased by admin but not yet sold, calculate potential profit
-          if (hasAdminPurchase && data.status === "pending") {
-            const adminPurchase = adminPurchasesByProduct.get(data.productId);
-            if (adminPurchase) {
-              saleAmount = adminPurchase.pricePerUnit;
-              quantitySold = adminPurchase.quantity;
-              profitAmount =
-                (saleAmount - data.originalCostPerUnit) * quantitySold;
-              console.log(
-                `Admin purchase profit calculation: ${saleAmount} - ${data.originalCostPerUnit} = ${profitAmount} (potential profit)`
-              );
-            }
-          }
 
           // Map pending_deposits data to PendingProfit interface
           return {
@@ -391,8 +405,6 @@ export class SellerWalletService {
             status:
               data.status === "sold"
                 ? "pending"
-                : hasAdminPurchase && data.status === "pending"
-                ? "pending" // Admin purchased but not sold to customer yet
                 : data.status === "deposit_paid"
                 ? "deposit_made"
                 : data.status,

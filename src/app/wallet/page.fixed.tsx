@@ -320,7 +320,7 @@ export default function WalletPage() {
 
         {/* Transaction History Section */}
         <div className="mt-8">
-          <TransactionHistory maxItems={10} showCommissions={false} />
+          <TransactionHistory maxItems={10} />
         </div>
       </div>
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
-import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -10,7 +9,7 @@ import { SellerWalletService } from "../../../services/sellerWalletService";
 import { NewReceiptService, NewReceipt } from "../../../services/newReceiptService";
 import { PendingProfit } from "../../../types/wallet";
 import { toast } from "react-hot-toast";
-import { AlertCircle, Clock } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 export default function PendingProductsPage() {
   const router = useRouter();
@@ -41,40 +40,43 @@ export default function PendingProductsPage() {
     }
   }, [authLoading, user, userProfile, router]);
 
-  useEffect(() => {
+  // Load data using the exact same logic as profile page
+  const loadData = useCallback(async () => {
     if (!userProfile?.uid) return;
 
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        // Use exact same service call as profile page
-        const profits = await SellerWalletService.getPendingProfits(userProfile.uid);
-        setPendingProfits(profits);
-        
-        // Load deposit receipts for this user (exact same logic)
-        const receipts = await NewReceiptService.getUserReceipts(userProfile.uid);
-        const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
-        setDepositReceipts(depositReceiptsOnly);
-      } catch (error) {
-        console.error("Error loading orders data:", error);
-        toast.error("Failed to load orders data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-    
-    // Subscribe to receipt updates (exact same logic as profile page)
-    const unsubscribeReceipts = NewReceiptService.subscribeToUserReceipts(userProfile.uid, (receipts) => {
+    try {
+      setLoading(true);
+      // Use exact same service call as profile page
+      const profits = await SellerWalletService.getPendingProfits(userProfile.uid);
+      setPendingProfits(profits);
+      
+      // Load deposit receipts for this user (exact same logic)
+      const receipts = await NewReceiptService.getUserReceipts(userProfile.uid);
       const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
       setDepositReceipts(depositReceiptsOnly);
-    });
-    
-    return () => {
-      unsubscribeReceipts();
-    };
+    } catch (error) {
+      console.error("Error loading orders data:", error);
+      toast.error("Failed to load orders data");
+    } finally {
+      setLoading(false);
+    }
   }, [userProfile?.uid]);
+
+  useEffect(() => {
+    if (userProfile?.uid) {
+      loadData();
+      
+      // Subscribe to receipt updates (exact same logic as profile page)
+      const unsubscribeReceipts = NewReceiptService.subscribeToUserReceipts(userProfile.uid, (receipts) => {
+        const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
+        setDepositReceipts(depositReceiptsOnly);
+      });
+      
+      return () => {
+        unsubscribeReceipts();
+      };
+    }
+  }, [userProfile?.uid, loadData]);
 
   // Get receipt status for a pending deposit (exact same logic as profile page)
   const getDepositReceiptStatus = (depositId: string) => {
@@ -144,19 +146,6 @@ export default function PendingProductsPage() {
               </svg>
             </div>
           </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              router.push('/receipts-v2');
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            Make Deposit
-          </button>
         </div>
 
         {/* Orders Content */}
@@ -251,59 +240,12 @@ export default function PendingProductsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           {profit.status === 'pending' && (
-                            <div>
-                              {(() => {
-                                const receipt = getDepositReceiptStatus(profit.id);
-                                if (receipt) {
-                                  if (receipt.status === 'pending') {
-                                    return (
-                                      <div className="bg-blue-100 border border-blue-300 rounded p-2">
-                                        <p className="text-xs text-blue-800 flex items-center">
-                                          <Clock className="w-3 h-3 mr-1" />
-                                          Receipt submitted - awaiting approval
-                                        </p>
-                                      </div>
-                                    );
-                                  } else if (receipt.status === 'rejected') {
-                                    return (
-                                      <div className="bg-red-100 border border-red-300 rounded p-2">
-                                        <p className="text-xs text-red-800">
-                                          Deposit receipt rejected. Please submit a new receipt.
-                                        </p>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const targetUrl = `/receipts-v2?deposit=${profit.id}`;
-                                            router.push(targetUrl);
-                                          }}
-                                          className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
-                                        >
-                                          🔄 Resubmit Receipt
-                                        </button>
-                                      </div>
-                                    );
-                                  }
-                                }
-                                
-                                return (
-                                  <div className="flex flex-col gap-2">
-                                    <div className="text-sm text-blue-600 font-medium">
-                                      Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const targetUrl = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`;
-                                        router.push(targetUrl);
-                                      }}
-                                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                                    >
-                                      💳 Pay Now
-                                    </button>
-                                  </div>
-                                );
-                              })()}
-                            </div>
+                            <Link
+                              href="/receipts-v2"
+                              className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                            >
+                              Submit Receipt
+                            </Link>
                           )}
                         </td>
                       </tr>
@@ -369,59 +311,12 @@ export default function PendingProductsPage() {
                               <span className="text-green-600 ml-2">+${profit.profitAmount.toFixed(2)} profit</span>
                             </div>
                             {profit.status === 'pending' && (
-                              <div className="mt-2">
-                                {(() => {
-                                  const receipt = getDepositReceiptStatus(profit.id);
-                                  if (receipt) {
-                                    if (receipt.status === 'pending') {
-                                      return (
-                                        <div className="bg-blue-100 border border-blue-300 rounded p-2">
-                                          <p className="text-xs text-blue-800 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" />
-                                            Receipt submitted - awaiting approval
-                                          </p>
-                                        </div>
-                                      );
-                                    } else if (receipt.status === 'rejected') {
-                                      return (
-                                        <div className="bg-red-100 border border-red-300 rounded p-2">
-                                          <p className="text-xs text-red-800">
-                                            Deposit receipt rejected. Please submit a new receipt.
-                                          </p>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const targetUrl = `/receipts-v2?deposit=${profit.id}`;
-                                              router.push(targetUrl);
-                                            }}
-                                            className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
-                                          >
-                                            🔄 Resubmit Receipt
-                                          </button>
-                                        </div>
-                                      );
-                                    }
-                                  }
-                                  
-                                  return (
-                                    <div className="flex flex-col gap-2 mt-3">
-                                      <div className="text-sm text-blue-600 font-medium">
-                                        Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const targetUrl = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`;
-                                          router.push(targetUrl);
-                                        }}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm transition-colors"
-                                      >
-                                        💳 Pay Now
-                                      </button>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
+                              <Link
+                                href="/receipts-v2"
+                                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                              >
+                                Submit Receipt
+                              </Link>
                             )}
                           </div>
                         </div>

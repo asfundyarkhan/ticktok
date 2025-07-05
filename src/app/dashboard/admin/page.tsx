@@ -9,7 +9,7 @@ import { LoadingSpinner } from "../../components/Loading";
 import toast from "react-hot-toast";
 import { WithdrawalRequestService } from "../../../services/withdrawalRequestService";
 import WithdrawalNotification from "../../components/WithdrawalNotification";
-import TransactionHistory from "../../components/TransactionHistory";
+import RecentActivityPanel from "../../components/RecentActivityPanel";
 
 // Modified User interface to match our Firebase structure
 interface User {
@@ -220,16 +220,21 @@ function AdminPageContent() {
   };
   const toggleSuspension = async (uid: string) => {
     try {
-      const user = users.find((u) => u.uid === uid);
-      if (!user) return;
+      const targetUser = users.find((u) => u.uid === uid);
+      if (!targetUser) return;
 
-      const newSuspendedState = !user.suspended;
+      const newSuspendedState = !targetUser.suspended;
       const loadingToast = toast.loading(`${newSuspendedState ? 'Suspending' : 'Unsuspending'} user...`);
 
-      // Update user profile in Firestore
-      await UserService.updateUserProfile(uid, {
-        suspended: newSuspendedState,
-      });
+      // Update user profile in Firestore with admin info for activity logging
+      await UserService.updateUserProfile(
+        uid, 
+        {
+          suspended: newSuspendedState,
+        },
+        user?.uid, // Current admin's UID
+        user?.email || user?.displayName || "Admin" // Current admin's name
+      );
 
       // Update local state
       setUsers(
@@ -357,93 +362,220 @@ function AdminPageContent() {
         </div>
       </div>
       
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Sellers</p>
-              <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Sellers</p>
-              <p className="text-2xl font-bold text-green-600">{users.filter(u => !u.suspended).length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">With Referral Codes</p>
-              <p className="text-2xl font-bold text-purple-600">{users.filter(u => u.referralCode).length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Balance</p>
-              <p className="text-2xl font-bold text-yellow-600">
-                ${users.reduce((sum, u) => sum + u.balance, 0).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction History Section */}
-      <div className="mb-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">Recent Transactions</h2>
-                <p className="text-sm text-gray-600 mt-1">Latest commission earnings from your referred sellers</p>
-              </div>
-              <button
-                onClick={() => window.location.href = '/dashboard/admin/transactions'}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 transition-colors shrink-0"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      {/* Dashboard Summary Section - 2x2 Grid Layout */}
+      <div className="mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          {/* Top Left: Total Earnings */}
+          <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-start space-x-3 lg:space-x-4 mb-4 lg:mb-6">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 lg:w-6 lg:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-5 0a3 3 0 118 0H9l-1 1H8m6-1h1a3 3 0 118 0h-2m-4-4v4m0-4V4a1 1 0 011-1h2a1 1 0 011 1v4M9 4h6m-6 0V3m6 1V3" />
                 </svg>
-                View All Transactions
-              </button>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-1">Total Earnings</h3>
+                <p className="text-xs lg:text-sm text-gray-500">Your accumulated transaction earnings</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 lg:space-y-4">
+              <div className="flex items-baseline space-x-2 lg:space-x-3">
+                <span className="text-2xl lg:text-4xl font-bold text-green-600">
+                  ${users.reduce((sum, u) => sum + u.balance, 0).toFixed(2)}
+                </span>
+                <div className="flex items-center space-x-1">
+                  <svg className="w-3 h-3 lg:w-4 lg:h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                  <span className="text-xs lg:text-sm font-medium text-green-600">+12.5%</span>
+                </div>
+              </div>
+              
+              <p className="text-xs lg:text-sm text-gray-600 mb-4 lg:mb-6">From deposits and receipt approvals • Updated in real-time</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+                <div className="bg-blue-50 p-3 lg:p-4 rounded-xl">
+                  <div className="flex items-center space-x-2 lg:space-x-3">
+                    <div className="w-6 h-6 lg:w-8 lg:h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <span className="text-blue-600 font-bold text-xs lg:text-sm">$</span>
+                    </div>
+                    <div>
+                      <p className="text-xs lg:text-sm font-medium text-gray-700">Admin Deposit</p>
+                      <p className="text-sm lg:text-lg font-bold text-gray-900">$0.00</p>
+                      <p className="text-xs text-gray-500">From manual deposits</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 p-3 lg:p-4 rounded-xl">
+                  <div className="flex items-center space-x-2 lg:space-x-3">
+                    <div className="w-6 h-6 lg:w-8 lg:h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-3 h-3 lg:w-4 lg:h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs lg:text-sm font-medium text-gray-700">Receipt Approval</p>
+                      <p className="text-sm lg:text-lg font-bold text-gray-900">${users.reduce((sum, u) => sum + u.balance, 0).toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">From approved receipts</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="p-4 sm:p-6 overflow-hidden">
-            <TransactionHistory 
-              adminId={user?.uid} 
-              maxItems={3} 
-              showTitle={false}
-            />
+
+          {/* Top Right: Monthly Revenue */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Monthly Revenue</h3>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-sm text-gray-500">2026</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-blue-600 p-4 rounded-xl text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">July 2025</span>
+                  <span className="text-sm">54 transactions</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">Total Revenue</p>
+                    <p className="text-2xl font-bold">$9,351.18</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold">$9,351.18</p>
+                    <p className="text-xs opacity-75">Avg: $173.17</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center text-sm text-gray-500">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Last updated: 05/07/2025</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Left: User ID & Total Earnings */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">User ID</h3>
+              <div className="inline-block">
+                <span className="text-2xl font-bold text-pink-500 bg-pink-50 px-3 py-1 rounded-lg">
+                  {user?.uid?.slice(0, 8) || 'DysgDHFt'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h4>
+                <div className="space-y-1">
+                  <div className="text-sm text-gray-500 uppercase tracking-wide font-medium mb-3">
+                    <div className="grid grid-cols-3 gap-4">
+                      <span>DATE</span>
+                      <span>ACTIVITY</span>
+                      <span>STATUS</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-xl">
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-5 0a3 3 0 118 0H9l-1 1H8m6-1h1a3 3 0 118 0h-2m-4-4v4m0-4V4a1 1 0 011-1h2a1 1 0 011 1v4M9 4h6m-6 0V3m6 1V3" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-1">Total Earnings</h4>
+                    <p className="text-sm text-gray-600 mb-2">Your accumulated transaction earnings</p>
+                    <div className="flex items-baseline space-x-3 mb-2">
+                      <span className="text-3xl font-bold text-green-600">$9351.18</span>
+                      <div className="flex items-center space-x-1">
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                        </svg>
+                        <span className="text-sm font-medium text-green-600">+12.5%</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600">From deposits and receipt approvals Updated in real-time</p>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="bg-white p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
+                            <span className="text-blue-600 font-bold text-xs">$</span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-700">Admin Deposit</p>
+                            <p className="text-lg font-bold text-gray-900">$0.00</p>
+                            <p className="text-xs text-gray-500">From manual deposits</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-6 h-6 bg-orange-100 rounded-md flex items-center justify-center">
+                            <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-700">Transactions</p>
+                            <p className="text-lg font-bold text-gray-900">54</p>
+                            <p className="text-xs text-gray-500">Last 03/07/2025</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="bg-green-200 text-green-800 px-2 py-1 rounded-md text-xs font-medium mb-2">
+                      Active
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Right: Recent Activity */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              
+              <div className="space-y-1">
+                <div className="text-sm text-gray-500 uppercase tracking-wide font-medium mb-3">
+                  <div className="grid grid-cols-3 gap-4">
+                    <span>DATE</span>
+                    <span>ACTIVITY</span>
+                    <span>STATUS</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <RecentActivityPanel maxItems={3} />
+            </div>
           </div>
         </div>
       </div>
@@ -486,129 +618,137 @@ function AdminPageContent() {
         <>
           {/* Desktop Table */}
           <div className="hidden lg:block">
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white rounded-lg">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seller Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Seller ID</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit Balance</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referral Code</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">Actions</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <div className="overflow-x-auto bg-white rounded-lg shadow-sm border">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Seller Information
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Balance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Referral Code
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Credit Management
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">{paginatedUsers.map((user) => (
-                  <tr key={user.uid}>
-                    <td className="px-4 py-4">
-                      <div>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedUsers.map((user) => (
+                    <tr key={user.uid} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-pink-600">
+                                {user.displayName?.charAt(0) || user.email.charAt(0)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.displayName}
+                            </div>
+                            <div className="text-sm text-gray-500">{user.email}</div>
+                            <div className="text-xs text-gray-400 font-mono">
+                              {user.uid.slice(0, 8)}...{user.uid.slice(-4)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {user.displayName}
+                          ${user.balance.toFixed(2)}
                         </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">
-                      <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded truncate max-w-32" title={user.uid}>
-                        {user.uid.slice(0, 8)}...{user.uid.slice(-4)}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">
-                      ${user.balance.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-4 text-sm">
-                      {user.referralCode ? (
-                        <div className="flex items-center">
-                          <span className="font-medium text-pink-600 bg-pink-50 px-2 py-1 rounded-md border border-pink-200">
-                            {user.referralCode}
-                          </span>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(user.referralCode || "");
-                              toast.success("Referral code copied to clipboard!");
-                            }}
-                            className="ml-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
-                            title="Copy to clipboard"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <span className="text-gray-400 text-xs bg-gray-50 px-2 py-1 rounded border border-gray-200 mr-2">
-                            No code
-                          </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {user.referralCode ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                              {user.referralCode}
+                            </span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(user.referralCode || "");
+                                toast.success("Referral code copied!");
+                              }}
+                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              title="Copy to clipboard"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             onClick={() => generateReferralCode(user.uid)}
-                            className="text-pink-600 hover:text-pink-800 font-medium bg-pink-50 hover:bg-pink-100 px-2 py-1 rounded-md text-xs border border-pink-200"
+                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-pink-700 bg-pink-100 hover:bg-pink-200 transition-colors"
                             disabled={generatingReferralCode && referralCodeGeneratedFor === user.uid}
                           >
                             {generatingReferralCode && referralCodeGeneratedFor === user.uid ? (
-                              <span className="flex items-center">
+                              <>
                                 <LoadingSpinner size="sm" />
                                 <span className="ml-1">Generating...</span>
-                              </span>
+                              </>
                             ) : (
                               "Generate"
                             )}
                           </button>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col space-y-2 min-w-[200px]">
-                        {/* Operation Selection */}
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => setCreditInput({
-                              ...creditInput,
-                              uid: user.uid,
-                              operation: 'add'
-                            })}
-                            className={`flex-1 px-2 py-1 text-xs rounded ${
-                              creditInput.uid === user.uid && creditInput.operation === 'add'
-                                ? 'bg-green-100 text-green-700 border border-green-300'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => setCreditInput({
-                              ...creditInput,
-                              uid: user.uid,
-                              operation: 'subtract'
-                            })}
-                            className={`flex-1 px-2 py-1 text-xs rounded ${
-                              creditInput.uid === user.uid && creditInput.operation === 'subtract'
-                                ? 'bg-red-100 text-red-700 border border-red-300'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            Subtract
-                          </button>
-                        </div>
-                        
-                        {/* Amount Input and Action Button */}
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                              $
-                            </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-2">
+                          {/* Operation Selection */}
+                          <div className="flex rounded-md shadow-sm">
+                            <button
+                              onClick={() => setCreditInput({
+                                ...creditInput,
+                                uid: user.uid,
+                                operation: 'add'
+                              })}
+                              className={`relative inline-flex items-center px-3 py-1 rounded-l-md border text-xs font-medium ${
+                                creditInput.uid === user.uid && creditInput.operation === 'add'
+                                  ? 'bg-green-100 border-green-300 text-green-700'
+                                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => setCreditInput({
+                                ...creditInput,
+                                uid: user.uid,
+                                operation: 'subtract'
+                              })}
+                              className={`relative inline-flex items-center px-3 py-1 rounded-r-md border text-xs font-medium ${
+                                creditInput.uid === user.uid && creditInput.operation === 'subtract'
+                                  ? 'bg-red-100 border-red-300 text-red-700'
+                                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              Subtract
+                            </button>
+                          </div>
+                          
+                          {/* Amount Input */}
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-sm">$</span>
+                            </div>
                             <input
                               type="number"
                               step="0.01"
                               min="0"
-                              placeholder="Amount"
-                              className="pl-6 pr-2 py-1 border border-gray-300 rounded-md w-full focus:outline-none focus:border-pink-500 text-sm"
-                              value={
-                                creditInput.uid === user.uid
-                                  ? creditInput.amount
-                                  : ""
-                              }
+                              placeholder="0.00"
+                              className="block w-20 pl-7 pr-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-pink-500 focus:border-pink-500"
+                              value={creditInput.uid === user.uid ? creditInput.amount : ""}
                               onChange={(e) =>
                                 setCreditInput({
                                   uid: user.uid,
@@ -618,21 +758,20 @@ function AdminPageContent() {
                               }
                             />
                           </div>
+                          
+                          {/* Action Button */}
                           <button
                             onClick={() => {
-                              if (
-                                creditInput.uid === user.uid &&
-                                creditInput.amount
-                              ) {
+                              if (creditInput.uid === user.uid && creditInput.amount) {
                                 openConfirmation(user);
                               }
                             }}
-                            className={`px-3 py-1 rounded-md text-xs whitespace-nowrap ${
+                            className={`inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md transition-colors ${
                               creditInput.uid === user.uid && creditInput.operation === 'add'
-                                ? 'text-green-600 hover:text-green-900 bg-green-50 border border-green-200'
+                                ? 'text-green-700 bg-green-100 hover:bg-green-200'
                                 : creditInput.uid === user.uid && creditInput.operation === 'subtract'
-                                ? 'text-red-600 hover:text-red-900 bg-red-50 border border-red-200'
-                                : 'text-pink-600 hover:text-pink-900 bg-pink-50 border border-pink-200'
+                                ? 'text-red-700 bg-red-100 hover:bg-red-200'
+                                : 'text-pink-700 bg-pink-100 hover:bg-pink-200'
                             } disabled:opacity-50 disabled:cursor-not-allowed`}
                             disabled={
                               creditInput.uid !== user.uid ||
@@ -641,70 +780,64 @@ function AdminPageContent() {
                             }
                           >
                             {creditOperationLoading && creditInput.uid === user.uid ? (
-                              <div className="flex items-center">
-                                <svg className="animate-spin -ml-1 mr-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Processing...
-                              </div>
+                              <LoadingSpinner size="sm" />
                             ) : (
-                              creditInput.uid === user.uid && creditInput.operation === 'subtract' 
-                                ? 'Subtract' 
-                                : 'Add'
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
                             )}
                           </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <label className="inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!user.suspended}
-                          onChange={() => toggleSuspension(user.uid)}
-                          className="sr-only"
-                        />
-                        <div
-                          className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
-                            user.suspended ? "bg-red-500" : "bg-green-500"
-                          }`}
-                        >
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!user.suspended}
+                            onChange={() => toggleSuspension(user.uid)}
+                            className="sr-only"
+                          />
                           <div
-                            className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow transform transition-transform ${
-                              user.suspended ? "" : "translate-x-5"
+                            className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
+                              user.suspended ? "bg-red-500" : "bg-green-500"
                             }`}
-                          ></div>
-                        </div>
-                        <span className="ml-2 text-sm text-gray-700">
-                          {user.suspended ? "Suspended" : "Active"}
-                        </span>
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          >
+                            <div
+                              className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow transform transition-transform ${
+                                user.suspended ? "" : "translate-x-5"
+                              }`}
+                            ></div>
+                          </div>
+                          <span className="ml-2 text-sm text-gray-700">
+                            {user.suspended ? "Suspended" : "Active"}
+                          </span>
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
           {/* Mobile Layout */}
           <div className="lg:hidden space-y-4">
             {paginatedUsers.map((user) => (
-              <div key={user.uid} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                <div className="flex flex-col space-y-4">
-                  {/* User Info */}
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
-                        {user.displayName}
-                      </h3>
-                      <p className="text-sm text-gray-500">{user.email}</p>
-                      <div className="mt-1 flex items-center">
-                        <span className="text-xs text-gray-400 mr-2">ID:</span>
-                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
-                          {user.uid.slice(0, 8)}...{user.uid.slice(-4)}
+              <div key={user.uid} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="p-4 space-y-4">
+                  {/* User Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-medium text-pink-600">
+                          {user.displayName?.charAt(0) || user.email.charAt(0)}
                         </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">
+                          {user.displayName}
+                        </h3>
+                        <p className="text-sm text-gray-500 truncate">{user.email}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -715,75 +848,81 @@ function AdminPageContent() {
                     </div>
                   </div>
 
+                  {/* User ID */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">ID:</span>
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded text-gray-600">
+                      {user.uid.slice(0, 8)}...{user.uid.slice(-4)}
+                    </span>
+                  </div>
+
                   {/* Referral Code Section */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Referral Code
-                    </p>
-                    {user.referralCode ? (
-                      <div className="flex items-center justify-between bg-pink-50 rounded-md p-3 border border-pink-200">
-                        <span className="font-medium text-pink-600 bg-white px-2 py-1 rounded border border-pink-200">
-                          {user.referralCode}
-                        </span>
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Referral Code
+                      </p>
+                      {user.referralCode && (
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(user.referralCode || "");
-                            toast.success("Referral code copied to clipboard!");
+                            toast.success("Referral code copied!");
                           }}
-                          className="p-2 text-pink-600 hover:text-pink-800 hover:bg-pink-100 rounded-full transition-colors"
+                          className="p-1 text-pink-600 hover:text-pink-800 hover:bg-pink-50 rounded transition-colors"
                           title="Copy to clipboard"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                         </button>
+                      )}
+                    </div>
+                    {user.referralCode ? (
+                      <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-pink-100 text-pink-800 border border-pink-200">
+                        {user.referralCode}
                       </div>
                     ) : (
-                      <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-gray-500">No referral code generated</span>
-                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">Empty</span>
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-400">No code generated</span>
                         <button
                           onClick={() => generateReferralCode(user.uid)}
-                          className="w-full text-pink-600 hover:text-pink-800 font-medium bg-pink-50 hover:bg-pink-100 px-3 py-2 rounded-md text-sm border border-pink-200 transition-colors"
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-pink-700 bg-pink-100 hover:bg-pink-200 transition-colors"
                           disabled={generatingReferralCode && referralCodeGeneratedFor === user.uid}
                         >
                           {generatingReferralCode && referralCodeGeneratedFor === user.uid ? (
-                            <span className="flex items-center justify-center">
+                            <>
                               <LoadingSpinner size="sm" />
-                              <span className="ml-2">Generating...</span>
-                            </span>
+                              <span className="ml-1">Generating...</span>
+                            </>
                           ) : (
-                            "Generate Referral Code"
+                            "Generate"
                           )}
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Add/Subtract Credit Section */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Manage Credit
+                  {/* Credit Management Section */}
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+                      Credit Management
                     </p>
                     
-                    {/* Operation Selection for Mobile */}
-                    <div className="flex gap-2 mb-3">
+                    {/* Operation Selection */}
+                    <div className="flex rounded-lg border border-gray-200 mb-3">
                       <button
                         onClick={() => setCreditInput({
                           ...creditInput,
                           uid: user.uid,
                           operation: 'add'
                         })}
-                        className={`flex-1 px-3 py-2 text-sm rounded ${
+                        className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-lg transition-colors ${
                           creditInput.uid === user.uid && creditInput.operation === 'add'
-                            ? 'bg-green-100 text-green-700 border border-green-300'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-green-100 text-green-700 border-green-300'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
-                        Add
+                        Add Credit
                       </button>
                       <button
                         onClick={() => setCreditInput({
@@ -791,32 +930,29 @@ function AdminPageContent() {
                           uid: user.uid,
                           operation: 'subtract'
                         })}
-                        className={`flex-1 px-3 py-2 text-sm rounded ${
+                        className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-lg border-l transition-colors ${
                           creditInput.uid === user.uid && creditInput.operation === 'subtract'
-                            ? 'bg-red-100 text-red-700 border border-red-300'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-red-100 text-red-700 border-red-300'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
-                        Subtract
+                        Subtract Credit
                       </button>
                     </div>
                     
+                    {/* Amount Input and Action */}
                     <div className="flex space-x-2">
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                          $
-                        </span>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-sm">$</span>
+                        </div>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          placeholder="Amount"
-                          className="pl-8 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:border-pink-500"
-                          value={
-                            creditInput.uid === user.uid
-                              ? creditInput.amount
-                              : ""
-                          }
+                          placeholder="Enter amount"
+                          className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                          value={creditInput.uid === user.uid ? creditInput.amount : ""}
                           onChange={(e) =>
                             setCreditInput({
                               uid: user.uid,
@@ -825,21 +961,19 @@ function AdminPageContent() {
                             })
                           }
                         />
-                      </div>                      <button
+                      </div>
+                      <button
                         onClick={() => {
-                          if (
-                            creditInput.uid === user.uid &&
-                            creditInput.amount
-                          ) {
+                          if (creditInput.uid === user.uid && creditInput.amount) {
                             openConfirmation(user);
                           }
                         }}
-                        className={`px-4 py-2 rounded-md font-medium border ${
+                        className={`px-6 py-2 rounded-md font-medium transition-colors ${
                           creditInput.uid === user.uid && creditInput.operation === 'add'
-                            ? 'text-green-600 hover:text-green-900 bg-green-50 border-green-200'
+                            ? 'text-green-700 bg-green-100 hover:bg-green-200 border border-green-300'
                             : creditInput.uid === user.uid && creditInput.operation === 'subtract'
-                            ? 'text-red-600 hover:text-red-900 bg-red-50 border-red-200'
-                            : 'text-pink-600 hover:text-pink-900 bg-pink-50 border-pink-200'
+                            ? 'text-red-700 bg-red-100 hover:bg-red-200 border border-red-300'
+                            : 'text-pink-700 bg-pink-100 hover:bg-pink-200 border border-pink-300'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                         disabled={
                           creditInput.uid !== user.uid ||
@@ -848,103 +982,99 @@ function AdminPageContent() {
                         }
                       >
                         {creditOperationLoading && creditInput.uid === user.uid ? (
-                          <div className="flex items-center">
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </div>
+                          <LoadingSpinner size="sm" />
                         ) : (
-                          creditInput.uid === user.uid && creditInput.operation === 'subtract' 
-                            ? 'Subtract' 
-                            : 'Add'
+                          "Apply"
                         )}
                       </button>
                     </div>
                   </div>
 
                   {/* Status Section */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Account Status
-                    </p>
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={!user.suspended}
-                        onChange={() => toggleSuspension(user.uid)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
-                          user.suspended ? "bg-red-500" : "bg-green-500"
-                        }`}
-                      >
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Account Status
+                      </p>
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!user.suspended}
+                          onChange={() => toggleSuspension(user.uid)}
+                          className="sr-only"
+                        />
                         <div
-                          className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow transform transition-transform ${
-                            user.suspended ? "" : "translate-x-5"
+                          className={`relative inline-block w-11 h-6 rounded-full transition-colors ${
+                            user.suspended ? "bg-red-500" : "bg-green-500"
                           }`}
-                        ></div>
-                      </div>
-                      <span className="ml-3 text-sm font-medium text-gray-700">
-                        {user.suspended ? "Suspended" : "Active"}
-                      </span>
-                    </label>
+                        >
+                          <div
+                            className={`absolute top-0.5 left-0.5 bg-white w-5 h-5 rounded-full shadow transform transition-transform ${
+                              user.suspended ? "" : "translate-x-5"
+                            }`}
+                          ></div>
+                        </div>
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          {user.suspended ? "Suspended" : "Active"}
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
             ))}
-          </div>          {/* Pagination controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 px-2 space-y-4 sm:space-y-0">
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              <span className="text-sm text-gray-700">Rows per page:</span>
-              <select
-                value={rowsPerPage}
-                onChange={changeRowsPerPage}
-                className="border border-gray-300 rounded py-1 px-2 text-sm min-w-[60px] appearance-none bg-white"
-                style={{ paddingRight: "24px" }}
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-              <div className="relative" style={{ marginLeft: "-20px", pointerEvents: "none" }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
+          </div>          {/* Pagination Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 bg-white rounded-lg border border-gray-200 p-4 space-y-4 sm:space-y-0">
+            <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Show:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={changeRowsPerPage}
+                  className="border border-gray-300 rounded-md py-1 px-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-sm text-gray-700">per page</span>
+              </div>
+              <div className="text-sm text-gray-700">
+                Showing <span className="font-medium">{((currentPage - 1) * rowsPerPage) + 1}</span> to{" "}
+                <span className="font-medium">{Math.min(currentPage * rowsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-medium">{filteredUsers.length}</span> sellers
               </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
-              <span className="text-sm text-gray-700 sm:mr-4 text-center sm:text-left">
-                Page {currentPage} of {totalPages || 1}
-                {" | "}
-                Showing {paginatedUsers.length} of {filteredUsers.length} sellers
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-700">
+                Page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages || 1}</span>
               </span>
-              <div className="flex justify-center sm:justify-start space-x-1">
+              <div className="flex space-x-1">
                 <button
                   onClick={goToPrevPage}
                   disabled={currentPage === 1}
-                  className={`p-2 rounded-md ${
+                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
                     currentPage === 1
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-pink-600 hover:bg-pink-50"
+                      ? "text-gray-400 bg-gray-50 cursor-not-allowed"
+                      : "text-gray-700 bg-white hover:bg-gray-50 hover:text-pink-600"
                   }`}
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Previous
                 </button>
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage >= totalPages}
-                  className={`p-2 rounded-md ${
+                  className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
                     currentPage >= totalPages
-                      ? "text-gray-400 cursor-not-allowed"
-                      : "text-pink-600 hover:bg-pink-50"
+                      ? "text-gray-400 bg-gray-50 cursor-not-allowed"
+                      : "text-gray-700 bg-white hover:bg-gray-50 hover:text-pink-600"
                   }`}
                 >
-                  <ChevronRight size={20} />
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-1" />
                 </button>
               </div>
             </div>
@@ -953,34 +1083,81 @@ function AdminPageContent() {
       )}      {/* Confirmation Dialog */}
       {showConfirmation && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl max-w-md w-full mx-4">            <h3 className="text-lg font-medium mb-4">
-              Confirm Credit {creditInput.operation === 'add' ? 'Addition' : 'Subtraction'}
-            </h3>
-            <p className="text-sm sm:text-base">
-              Are you sure you want to {creditInput.operation === 'add' ? 'add' : 'subtract'} ${creditInput.amount} {creditInput.operation === 'add' ? 'to' : 'from'}{" "}              <span className="font-semibold">
-                {selectedUser.displayName || selectedUser.email}
-              </span>
-              &apos;s account?
-            </p>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900">
+                Confirm Credit {creditInput.operation === 'add' ? 'Addition' : 'Subtraction'}
+              </h3>
+            </div>
             
-            {creditInput.operation === 'subtract' && (
-              <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> This will reduce the seller&apos;s balance, but will not affect the Total Referral Balance displayed to admins (it only increases).
-                </p>
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-medium text-pink-600">
+                    {selectedUser.displayName?.charAt(0) || selectedUser.email.charAt(0)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {selectedUser.displayName}
+                  </p>
+                  <p className="text-sm text-gray-500 truncate">{selectedUser.email}</p>
+                </div>
               </div>
-            )}            <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">
+              
+              <div className="bg-gray-50 rounded-md p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Current Balance:</span>
+                  <span className="text-sm font-semibold text-gray-900">${selectedUser.balance.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    {creditInput.operation === 'add' ? 'Amount to Add:' : 'Amount to Subtract:'}
+                  </span>
+                  <span className={`text-sm font-semibold ${
+                    creditInput.operation === 'add' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {creditInput.operation === 'add' ? '+' : '-'}${creditInput.amount}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                  <span className="text-sm font-medium text-gray-700">New Balance:</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    ${(selectedUser.balance + (creditInput.operation === 'add' ? 1 : -1) * parseFloat(creditInput.amount || '0')).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              
+              {creditInput.operation === 'subtract' && (
+                <div className="rounded-md bg-yellow-50 p-4 border border-yellow-200">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Note:</strong> This will reduce the seller&apos;s balance, but will not affect the Total Referral Balance displayed to admins (it only increases).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row gap-3 sm:justify-end">
               <button
                 onClick={closeConfirmation}
                 disabled={creditOperationLoading}
-                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 order-2 sm:order-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50 disabled:cursor-not-allowed order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleCreditChange(selectedUser.uid)}
                 disabled={creditOperationLoading}
-                className="w-full sm:w-auto px-4 py-2 bg-pink-600 text-white rounded-md text-sm font-medium hover:bg-pink-700 order-1 sm:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
               >
                 {creditOperationLoading ? (
                   <div className="flex items-center justify-center">
@@ -991,7 +1168,7 @@ function AdminPageContent() {
                     Processing...
                   </div>
                 ) : (
-                  'Confirm'
+                  `Confirm ${creditInput.operation === 'add' ? 'Addition' : 'Subtraction'}`
                 )}
               </button>
             </div>
@@ -1004,14 +1181,7 @@ function AdminPageContent() {
 
 // Export a wrapper component that applies the SuperAdminRoute protection
 export default function AdminPage() {
-  // Add debugging to help identify when admin page renders
-  console.log('Admin page component mounted');
-  
-  // Store in localStorage that we reached the admin page component
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('admin_page_loaded', 'true');
-    localStorage.setItem('admin_page_loaded_time', new Date().toString());
-  }    return (
+  return (
     <SuperAdminRoute>
       <AdminPageContent />
     </SuperAdminRoute>

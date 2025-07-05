@@ -84,24 +84,27 @@ export default function CommissionHistory({
       </div>
     );
   }
-  return (      <div className="bg-white rounded-lg shadow-sm border">
-        {showTitle && (
-          <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Commission History</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Earnings from deposits and receipt approvals only
-            </p>
-          </div>
-        )}
-      
-      <div className="divide-y divide-gray-200">
-        {transactions.length > 0 ? (
-          transactions.map((transaction) => (
-            <div key={transaction.id} className="p-4 sm:p-6">
-              {/* Mobile-first layout that stacks vertically */}
-              <div className="space-y-4">
-                {/* Header with icon and type */}
-                <div className="flex items-center space-x-3">
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border">
+      {showTitle && (
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Commission History</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Earnings from deposits and receipt approvals only
+          </p>
+        </div>
+      )}
+    
+    <div className="divide-y divide-gray-200">
+      {transactions.length > 0 ? (
+        transactions.map((transaction) => (
+          <div key={transaction.id} className="p-4 sm:p-6">
+            {/* Mobile-first layout that stacks vertically */}
+            <div className="space-y-3">
+              {/* Header with icon and type */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
                   <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
                     transaction.type === "superadmin_deposit" 
                       ? "bg-blue-100" 
@@ -146,17 +149,17 @@ export default function CommissionHistory({
                 </div>
 
                 {/* Transaction details - stacked on mobile */}
-                <div className="space-y-2 text-sm text-gray-500">
+                <div className="space-y-1 text-sm text-gray-500">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                    <span className="font-medium">
-                      From: <span className="font-normal">{transaction.sellerName || transaction.sellerEmail || "Unknown"}</span>
+                    <span className="break-words">
+                      <span className="font-medium">From:</span> {transaction.sellerName || transaction.sellerEmail || "Unknown"}
                     </span>
                     <span className="hidden sm:inline">•</span>
-                    <span className="font-medium">
-                      Original: <span className="font-normal">${transaction.originalAmount.toFixed(2)}</span>
+                    <span className="shrink-0">
+                      <span className="font-medium">Original:</span> ${transaction.originalAmount.toFixed(2)}
                     </span>
                     <span className="hidden sm:inline">•</span>
-                    <span>
+                    <span className="shrink-0">
                       {transaction.createdAt.toDate().toLocaleDateString()}
                     </span>
                   </div>

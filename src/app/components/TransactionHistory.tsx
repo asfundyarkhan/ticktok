@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { CommissionService } from "../../services/commissionService";
-import { CommissionTransaction } from "../../types/commission";
+import { MonthlyRevenueService, MonthlyRevenue } from "../../services/monthlyRevenueService";
 import { 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Receipt, 
-  DollarSign, 
+  TrendingUp, 
   Calendar,
-  Search,
-  TrendingUp
+  DollarSign,
+  BarChart3,
+  ArrowUpRight,
+  ArrowDownRight
 } from "lucide-react";
 
 interface TransactionHistoryProps {
@@ -26,10 +24,9 @@ export default function TransactionHistory({
   showTitle = true 
 }: TransactionHistoryProps) {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<CommissionTransaction[]>([]);
+  const [monthlyRevenues, setMonthlyRevenues] = useState<MonthlyRevenue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "deposits" | "receipts">("all");
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const targetAdminId = adminId || user?.uid;
 
@@ -39,78 +36,55 @@ export default function TransactionHistory({
       return;
     }
 
-    // Subscribe to real-time transaction updates
-    const unsubscribe = CommissionService.subscribeToAdminCommissionTransactions(
-      targetAdminId,
-      (newTransactions) => {
-        setTransactions(newTransactions.slice(0, maxItems));
+    const loadMonthlyRevenue = async () => {
+      try {
+        setLoading(true);
+        // Get monthly revenue data - assuming admin role for commission earnings
+        const revenues = await MonthlyRevenueService.getMonthlyRevenue(
+          targetAdminId,
+          "admin", // Most users in admin panel are admins earning commissions
+          maxItems
+        );
+        setMonthlyRevenues(revenues);
+      } catch (error) {
+        console.error("Error loading monthly revenue:", error);
+      } finally {
         setLoading(false);
-      },
-      maxItems
-    );
+      }
+    };
 
-    return () => unsubscribe();
-  }, [targetAdminId, maxItems]);
+    loadMonthlyRevenue();
+  }, [targetAdminId, maxItems, selectedYear]);
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = 
-      transaction.sellerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.sellerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesFilter = 
-      filterType === "all" ||
-      (filterType === "deposits" && transaction.type === "superadmin_deposit") ||
-      (filterType === "receipts" && transaction.type === "receipt_approval");
-
-    return matchesSearch && matchesFilter;
-  });
-
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "superadmin_deposit":
-        return <ArrowDownLeft className="w-5 h-5 text-blue-600" />;
-      case "receipt_approval":
-        return <Receipt className="w-5 h-5 text-purple-600" />;
-      default:
-        return <DollarSign className="w-5 h-5 text-slate-600" />;
-    }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(amount);
   };
 
-  const getTransactionColor = (type: string) => {
-    switch (type) {
-      case "superadmin_deposit":
-        return "from-blue-500 to-indigo-600";
-      case "receipt_approval":
-        return "from-purple-500 to-pink-600";
-      default:
-        return "from-slate-500 to-slate-600";
-    }
+  const getMonthChangePercentage = (currentMonth: MonthlyRevenue, previousMonth: MonthlyRevenue | null) => {
+    if (!previousMonth || previousMonth.totalRevenue === 0) return null;
+    
+    const change = ((currentMonth.totalRevenue - previousMonth.totalRevenue) / previousMonth.totalRevenue) * 100;
+    return change;
   };
 
-  const getTransactionLabel = (type: string) => {
-    switch (type) {
-      case "superadmin_deposit":
-        return "Admin Deposit";
-      case "receipt_approval":
-        return "Receipt Approval";
-      default:
-        return "Transaction";
-    }
+  const getRevenueIcon = (revenue: MonthlyRevenue, previousRevenue: MonthlyRevenue | null) => {
+    const change = getMonthChangePercentage(revenue, previousRevenue);
+    if (change === null) return <BarChart3 className="w-5 h-5 text-blue-600" />;
+    return change >= 0 
+      ? <ArrowUpRight className="w-5 h-5 text-green-600" />
+      : <ArrowDownRight className="w-5 h-5 text-red-600" />;
   };
 
-  const formatDate = (timestamp: { toDate?: () => Date } | undefined) => {
-    if (timestamp?.toDate) {
-      return timestamp.toDate().toLocaleDateString();
-    }
-    return 'N/A';
-  };
-
-  const formatTime = (timestamp: { toDate?: () => Date } | undefined) => {
-    if (timestamp?.toDate) {
-      return timestamp.toDate().toLocaleTimeString();
-    }
-    return 'N/A';
+  const getRevenueColor = (revenue: MonthlyRevenue, previousRevenue: MonthlyRevenue | null) => {
+    const change = getMonthChangePercentage(revenue, previousRevenue);
+    if (change === null) return "from-blue-500 to-indigo-600";
+    return change >= 0 
+      ? "from-green-500 to-emerald-600"
+      : "from-red-500 to-rose-600";
   };
 
   if (loading) {
@@ -120,7 +94,6 @@ export default function TransactionHistory({
           {showTitle && (
             <div className="flex items-center justify-between mb-6">
               <div className="h-6 bg-slate-200 rounded-lg w-48"></div>
-              <div className="h-10 bg-slate-200 rounded-lg w-32"></div>
             </div>
           )}
           {[...Array(3)].map((_, i) => (
@@ -147,81 +120,102 @@ export default function TransactionHistory({
               <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shrink-0">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Transaction History</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Monthly Revenue</h3>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as "all" | "deposits" | "receipts")}
-                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-0"
               >
-                <option value="all">All Types</option>
-                <option value="deposits">Deposits</option>
-                <option value="receipts">Receipts</option>
+                {[...Array(3)].map((_, i) => {
+                  const year = new Date().getFullYear() - i;
+                  return (
+                    <option key={year} value={year}>{year}</option>
+                  );
+                })}
               </select>
             </div>
-          </div>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search transactions..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
         </div>
       )}
 
       <div className="p-4 sm:p-6 overflow-hidden">
-        {filteredTransactions.length > 0 ? (
+        {monthlyRevenues.length > 0 ? (
           <div className="space-y-3 sm:space-y-4">
-            {filteredTransactions.map((transaction) => (
-              <div
-                key={transaction.id}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 border border-slate-200 rounded-xl hover:shadow-md transition-shadow overflow-hidden"
-              >
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getTransactionColor(transaction.type)} rounded-xl flex items-center justify-center shrink-0`}>
-                  {getTransactionIcon(transaction.type)}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-                    <h4 className="font-semibold text-slate-900 text-sm sm:text-base truncate">
-                      {getTransactionLabel(transaction.type)}
-                    </h4>
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium self-start shrink-0">
-                      Completed
-                    </span>
+            {monthlyRevenues.map((revenue, index) => {
+              const previousRevenue = index < monthlyRevenues.length - 1 ? monthlyRevenues[index + 1] : null;
+              const changePercentage = getMonthChangePercentage(revenue, previousRevenue);
+              
+              return (
+                <div
+                  key={revenue.month}
+                  className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 border border-slate-200 rounded-xl hover:shadow-md transition-shadow"
+                >
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getRevenueColor(revenue, previousRevenue)} rounded-xl flex items-center justify-center shrink-0`}>
+                    {getRevenueIcon(revenue, previousRevenue)}
                   </div>
-                  <p className="text-slate-600 text-xs sm:text-sm mb-1 max-w-full">
-                    <span className="inline-block max-w-[120px] sm:max-w-[200px] truncate">{transaction.sellerName}</span>
-                    <span className="mx-1">•</span>
-                    <span className="inline-block max-w-[150px] sm:max-w-[250px] truncate">{transaction.sellerEmail}</span>
-                  </p>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-slate-500">
-                    <span className="flex items-center gap-1 shrink-0">
-                      <Calendar className="w-3 h-3" />
-                      {formatDate(transaction.createdAt)}
-                    </span>
-                    <span className="hidden sm:inline shrink-0">{formatTime(transaction.createdAt)}</span>
-                    <span className="sm:hidden shrink-0">{formatTime(transaction.createdAt)}</span>
+                  
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <h4 className="font-semibold text-slate-900 text-sm sm:text-base">
+                        {revenue.monthName} {revenue.year}
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium self-start shrink-0">
+                          {revenue.transactionCount} transaction{revenue.transactionCount !== 1 ? 's' : ''}
+                        </span>
+                        {changePercentage !== null && (
+                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                            changePercentage >= 0 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {changePercentage >= 0 ? '+' : ''}{changePercentage.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-500 block">Total Revenue</span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(revenue.totalRevenue)}</span>
+                      </div>
+                      {revenue.commissionRevenue > 0 && (
+                        <div>
+                          <span className="text-slate-500 block">Commission</span>
+                          <span className="font-semibold text-blue-600">{formatCurrency(revenue.commissionRevenue)}</span>
+                        </div>
+                      )}
+                      {revenue.profitRevenue > 0 && (
+                        <div>
+                          <span className="text-slate-500 block">Profit</span>
+                          <span className="font-semibold text-green-600">{formatCurrency(revenue.profitRevenue)}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-slate-500">
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Calendar className="w-3 h-3" />
+                        <span>Last updated: {revenue.lastUpdated.toLocaleDateString()}</span>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-left sm:text-right shrink-0">
+                    <div className="flex items-center gap-1 text-slate-900 font-bold text-base sm:text-lg">
+                      <DollarSign className="w-4 h-4 shrink-0" />
+                      <span>{formatCurrency(revenue.totalRevenue)}</span>
+                    </div>
+                    <p className="text-slate-500 text-xs">
+                      Avg: {formatCurrency(revenue.totalRevenue / Math.max(1, revenue.transactionCount))}
+                    </p>
                   </div>
                 </div>
-                
-                <div className="text-left sm:text-right shrink-0 min-w-0">
-                  <div className="flex items-center gap-1 text-green-600 font-bold text-base sm:text-lg">
-                    <ArrowUpRight className="w-4 h-4 shrink-0" />
-                    <span className="truncate">+${transaction.commissionAmount.toFixed(2)}</span>
-                  </div>
-                  <p className="text-slate-500 text-xs truncate">
-                    From ${transaction.originalAmount?.toFixed(2) || '0.00'}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
@@ -229,54 +223,39 @@ export default function TransactionHistory({
               <TrendingUp className="w-8 h-8 text-slate-400" />
             </div>
             <h4 className="text-lg font-semibold text-slate-900 mb-2">
-              {searchTerm || filterType !== "all" ? "No matching transactions" : "No transactions yet"}
+              No revenue data yet
             </h4>
             <p className="text-slate-500 max-w-md mx-auto">
-              {searchTerm || filterType !== "all" 
-                ? "Try adjusting your search criteria or filters to find transactions."
-                : "Earnings are generated when administrators deposit funds to your referred merchants or when their receipts are approved."
-              }
+              Revenue will appear here once you start earning commissions from deposits and receipt approvals.
             </p>
           </div>
         )}
       </div>
 
-      {transactions.length >= maxItems && maxItems < 10 && (
+      {monthlyRevenues.length >= maxItems && maxItems < 10 && (
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 border-t border-slate-200 rounded-b-2xl">
           <div className="text-center">
             <p className="text-xs sm:text-sm text-slate-600 mb-3">
-              Showing latest {maxItems} transactions
-              {filteredTransactions.length !== transactions.length && (
-                <span className="block sm:inline">
-                  <span className="hidden sm:inline"> • </span>
-                  <span className="font-medium">{filteredTransactions.length} match your filters</span>
-                </span>
-              )}
+              Showing latest {maxItems} months of revenue data
             </p>
             <button
-              onClick={() => window.location.href = '/dashboard/admin/transactions'}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-pink-600 bg-pink-50 border border-pink-200 rounded-md hover:bg-pink-100 hover:border-pink-300 transition-colors"
+              onClick={() => window.location.href = '/dashboard/admin/revenue'}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-md hover:bg-emerald-100 hover:border-emerald-300 transition-colors"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              View All Transactions
+              View Detailed Revenue Report
             </button>
           </div>
         </div>
       )}
 
-      {transactions.length >= maxItems && maxItems >= 10 && (
+      {monthlyRevenues.length >= maxItems && maxItems >= 10 && (
         <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 border-t border-slate-200 rounded-b-2xl">
           <div className="text-center">
             <p className="text-xs sm:text-sm text-slate-600">
-              Showing latest {maxItems} transactions
-              {filteredTransactions.length !== transactions.length && (
-                <span className="block sm:inline">
-                  <span className="hidden sm:inline"> • </span>
-                  <span className="font-medium">{filteredTransactions.length} match your filters</span>
-                </span>
-              )}
+              Showing latest {maxItems} months
             </p>
           </div>
         </div>

@@ -138,10 +138,20 @@ export class UserService {
   // Create/Update user profile
   static async updateUserProfile(
     uid: string,
-    data: Partial<UserProfile>
+    data: Partial<UserProfile>,
+    adminId?: string,
+    adminName?: string
   ): Promise<void> {
     try {
-      const userRef = doc(firestore, this.COLLECTION, uid); // Filter out any undefined values to prevent Firestore errors
+      const userRef = doc(firestore, this.COLLECTION, uid);
+
+      // Get current user data for activity logging
+      const userSnap = await getDoc(userRef);
+      const currentUserData = userSnap.exists()
+        ? (userSnap.data() as UserProfile)
+        : null;
+
+      // Filter out any undefined values to prevent Firestore errors
       const filteredData = Object.fromEntries(
         Object.entries(data).filter(([, value]) => value !== undefined)
       );
@@ -153,6 +163,32 @@ export class UserService {
       };
 
       await setDoc(userRef, firestoreData, { merge: true });
+
+      // Log activity if suspension status changed
+      if (
+        currentUserData &&
+        "suspended" in filteredData &&
+        filteredData.suspended !== currentUserData.suspended
+      ) {
+        try {
+          const { ActivityService } = await import("./activityService");
+          await ActivityService.logUserSuspension(
+            uid,
+            currentUserData.displayName ||
+              currentUserData.email ||
+              "Unknown User",
+            !!filteredData.suspended,
+            adminId,
+            adminName
+          );
+        } catch (activityError) {
+          console.error(
+            "Error logging user suspension activity:",
+            activityError
+          );
+          // Don't fail the profile update if activity logging fails
+        }
+      }
     } catch (error) {
       console.error("Error updating user profile:", error);
       throw error;
@@ -393,6 +429,22 @@ export class UserService {
         updatedAt: Timestamp.now(),
       });
 
+      // Log referral code generation activity
+      try {
+        const { ActivityService } = await import("./activityService");
+        await ActivityService.logReferralCodeGeneration(
+          uid,
+          userData.displayName || userData.email || "Unknown User",
+          referralCode
+        );
+      } catch (activityError) {
+        console.error(
+          "Error logging referral code generation activity:",
+          activityError
+        );
+        // Don't fail the operation if activity logging fails
+      }
+
       return referralCode;
     } catch (error) {
       console.error("Error generating referral code:", error);
@@ -598,7 +650,7 @@ export class UserService {
       console.error("Error getting all referral codes:", error);
       throw error;
     }
-  }  // Calculate referral balance for a specific admin (sum of all referred users' balances)
+  } // Calculate referral balance for a specific admin (sum of all referred users' balances)
   static async getAdminReferralBalance(adminUid: string): Promise<number> {
     try {
       const referredUsersQuery = query(
@@ -690,14 +742,14 @@ export class UserService {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         const peakBalance = userData.peakReferralBalance || 0;
-        
+
         // Also check current balance and update peak if necessary
         const currentBalance = await this.getAdminReferralBalance(adminUid);
         if (currentBalance > peakBalance) {
           await this.updatePeakReferralBalance(adminUid);
           return currentBalance;
         }
-        
+
         return peakBalance;
       }
 
@@ -744,7 +796,10 @@ export class UserService {
   }
 
   // Subtract credits from user balance (for admin use)
-  static async subtractUserBalance(uid: string, amount: number): Promise<number> {
+  static async subtractUserBalance(
+    uid: string,
+    amount: number
+  ): Promise<number> {
     try {
       const userRef = doc(firestore, this.COLLECTION, uid);
       const userSnap = await getDoc(userRef);
@@ -755,7 +810,7 @@ export class UserService {
 
       const userData = userSnap.data() as UserProfile;
       const currentBalance = userData.balance || 0;
-      
+
       if (currentBalance < amount) {
         throw new Error("Insufficient balance");
       }
@@ -766,6 +821,26 @@ export class UserService {
         balance: newBalance,
         updatedAt: Timestamp.now(),
       });
+
+      // Log balance update activity (negative amount for subtraction)
+      try {
+        const { ActivityService } = await import("./activityService");
+        await ActivityService.logBalanceUpdate(
+          uid,
+          userData.displayName || userData.email || "Unknown User",
+          -amount, // Negative amount to indicate subtraction
+          "system", // No specific admin ID for subtract operation
+          "System Admin",
+          currentBalance,
+          newBalance
+        );
+      } catch (activityError) {
+        console.error(
+          "Error logging balance subtraction activity:",
+          activityError
+        );
+        // Don't fail the balance update if activity logging fails
+      }
 
       // Update peak balances for all admins to ensure they don't decrease
       const allAdmins = await this.getUsersByRole("admin");
@@ -785,11 +860,16 @@ export class UserService {
 
   // Add credits to user balance with commission tracking (for admin use)
   static async addUserBalance(
-    uid: string, 
-    amount: number, 
+    uid: string,
+    amount: number,
     depositedBy: string,
     description: string = "Admin deposit"
-  ): Promise<{ success: boolean; message: string; newBalance?: number; commissionPaid?: number }> {
+  ): Promise<{
+    success: boolean;
+    message: string;
+    newBalance?: number;
+    commissionPaid?: number;
+  }> {
     try {
       const userRef = doc(firestore, this.COLLECTION, uid);
       const userSnap = await getDoc(userRef);
@@ -808,18 +888,43 @@ export class UserService {
         updatedAt: Timestamp.now(),
       });
 
+      // Get admin info for activity logging
+      const adminRef = doc(firestore, this.COLLECTION, depositedBy);
+      const adminSnap = await getDoc(adminRef);
+      const adminData = adminSnap.exists() ? adminSnap.data() : null;
+      const adminName =
+        adminData?.displayName || adminData?.email || "Unknown Admin";
+
+      // Log balance update activity
+      try {
+        const { ActivityService } = await import("./activityService");
+        await ActivityService.logBalanceUpdate(
+          uid,
+          userData.displayName || userData.email || "Unknown User",
+          amount,
+          depositedBy,
+          adminName,
+          currentBalance,
+          newBalance
+        );
+      } catch (activityError) {
+        console.error("Error logging balance update activity:", activityError);
+        // Don't fail the balance update if activity logging fails
+      }
+
       // Check if user has a referrer (admin) and record commission
       let commissionPaid = 0;
       if (userData.referredBy) {
         const { CommissionService } = await import("./commissionService");
-        
-        const commissionResult = await CommissionService.recordSuperadminDeposit(
-          userData.referredBy,
-          uid,
-          amount,
-          depositedBy,
-          description
-        );
+
+        const commissionResult =
+          await CommissionService.recordSuperadminDeposit(
+            userData.referredBy,
+            uid,
+            amount,
+            depositedBy,
+            description
+          );
 
         if (commissionResult.success && commissionResult.commissionAmount) {
           commissionPaid = commissionResult.commissionAmount;
@@ -837,7 +942,11 @@ export class UserService {
 
       return {
         success: true,
-        message: `Successfully added $${amount.toFixed(2)} to user balance${commissionPaid > 0 ? ` (Commission: $${commissionPaid.toFixed(2)})` : ""}`,
+        message: `Successfully added $${amount.toFixed(2)} to user balance${
+          commissionPaid > 0
+            ? ` (Commission: $${commissionPaid.toFixed(2)})`
+            : ""
+        }`,
         newBalance,
         commissionPaid,
       };
@@ -845,7 +954,8 @@ export class UserService {
       console.error("Error adding user balance:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Failed to add balance",
+        message:
+          error instanceof Error ? error.message : "Failed to add balance",
       };
     }
   }
