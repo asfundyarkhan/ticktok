@@ -43,7 +43,6 @@ const navigation: NavItem[] = [
     href: "/dashboard/transactions",
     icon: DollarSign,
     adminOnly: true,
-    excludeSuperadmin: true,
   },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
   {

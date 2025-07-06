@@ -55,6 +55,10 @@ function ReceiptsV2Content() {
       setShowSubmissionForm(true);
       if (!hasProcessedParams) {
         setHasProcessedParams(true);
+        // Scroll to top to ensure the centered form is visible
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
       }
     } else if (!hasProcessedParams) {
       console.log('❌ No deposit ID found in any URL parameters');
@@ -98,6 +102,10 @@ function ReceiptsV2Content() {
       console.log('Mount effect: Found deposit ID, forcing form to show');
       setDepositContext({ depositId, amount: amount || undefined });
       setShowSubmissionForm(true);
+      // Scroll to top to ensure the centered form is visible
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     }
   }, []); // Only run on mount
 
@@ -232,36 +240,107 @@ function ReceiptsV2Content() {
           </Link>
         </div>
 
-        {/* Submit New Receipt Button */}
-        <div className="mb-8">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              console.log('Submit New Receipt button clicked, current showSubmissionForm:', showSubmissionForm);
-              console.log('Current shouldShowForm:', shouldShowForm);
-              console.log('Current depositContext:', depositContext);
-              
-              if (depositContext.depositId) {
-                // If we have a deposit context, clear it and hide the form
-                setDepositContext({});
-                setShowSubmissionForm(false);
-                setHasProcessedParams(false);
-              } else {
-                // Normal toggle behavior for manual form opening
-                setShowSubmissionForm(!showSubmissionForm);
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] transition-colors cursor-pointer"
-            style={{ zIndex: 10 }}
-          >
-            <Plus className="w-5 h-5" />
-            {shouldShowForm ? 'Hide Form' : 'Submit New Receipt'}
-          </button>
-        </div>
+        {/* Centered Receipt Form - Shows when coming from Pay Now */}
+        {shouldShowForm && currentDepositContext.depositId && (
+          <div className="mb-8">
+            <div className="flex justify-center">
+              <div className="w-full max-w-2xl">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg border-2 border-blue-200 p-8">
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-medium mb-4">
+                      <DollarSign className="w-4 h-4" />
+                      Payment Required
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Submit Your Payment Receipt</h2>
+                    <p className="text-gray-600">Upload your payment receipt to complete this order</p>
+                  </div>
+                  
+                  <div className="mb-6 p-4 bg-blue-100 border border-blue-300 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Order ID:</strong> {currentDepositContext.depositId}
+                      {currentDepositContext.amount && (
+                        <>
+                          <br />
+                          <strong>Required Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  
+                  <ReceiptSubmission 
+                    onSubmitted={handleReceiptSubmitted}
+                    className="w-full"
+                    isDepositPayment={true}
+                    pendingDepositId={currentDepositContext.depositId}
+                    requiredAmount={currentDepositContext.amount ? parseFloat(currentDepositContext.amount) : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-        {/* USDT Payment Information */}
+        {/* Regular Form - Shows when manually opened */}
+        {shouldShowForm && !currentDepositContext.depositId && (
+          <div className="mb-8">
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Submit Receipt</h3>
+              </div>
+              <ReceiptSubmission 
+                onSubmitted={handleReceiptSubmitted}
+                className="max-w-2xl"
+                isDepositPayment={false}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Submit New Receipt Button - Only show when no form is displayed */}
+        {!shouldShowForm && (
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowSubmissionForm(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] transition-colors cursor-pointer"
+            >
+              <Plus className="w-5 h-5" />
+              Submit New Receipt
+            </button>
+          </div>
+        )}
+
+        {/* Close Form Button - Show when form is displayed */}
+        {shouldShowForm && (
+          <div className="mb-8 flex justify-center">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (currentDepositContext.depositId) {
+                  // If we have a deposit context, clear it and hide the form
+                  setDepositContext({});
+                  setShowSubmissionForm(false);
+                  setHasProcessedParams(false);
+                } else {
+                  // Normal toggle behavior for manual form closing
+                  setShowSubmissionForm(false);
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
+            >
+              <XCircle className="w-5 h-5" />
+              Close Form
+            </button>
+          </div>
+        )}
+
+        {/* USDT Payment Information - Now appears after the form */}
         <div className="bg-white rounded-lg shadow-sm border mb-8">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Payment Information</h2>
@@ -291,45 +370,6 @@ function ReceiptsV2Content() {
             </div>
           </div>
         </div>
-
-        {/* Submission Form */}
-        {shouldShowForm && (
-          <div className="mb-8">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Submit Receipt</h3>
-                {currentDepositContext.depositId && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                    Pre-filled from order
-                  </span>
-                )}
-              </div>
-              {currentDepositContext.depositId && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>Order ID:</strong> {currentDepositContext.depositId}
-                    {currentDepositContext.amount && (
-                      <>
-                        <br />
-                        <strong>Required Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
-                      </>
-                    )}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Just upload your payment receipt - the form is already filled with your order details!
-                  </p>
-                </div>
-              )}
-              <ReceiptSubmission 
-                onSubmitted={handleReceiptSubmitted}
-                className="max-w-2xl"
-                isDepositPayment={!!currentDepositContext.depositId}
-                pendingDepositId={currentDepositContext.depositId}
-                requiredAmount={currentDepositContext.amount ? parseFloat(currentDepositContext.amount) : undefined}
-              />
-            </div>
-          </div>
-        )}
         
         {/* Debug Info */}
         <div className="mb-4 p-3 bg-gray-100 rounded text-xs">

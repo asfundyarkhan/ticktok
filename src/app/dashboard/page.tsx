@@ -173,7 +173,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-1">
-                    {userProfile?.role === "superadmin" ? "Total Commission" : "Transaction Overview"}
+                    {userProfile?.role === "superadmin" ? "Transaction History" : "Transaction Overview"}
                   </h3>
                   <p className="text-xs lg:text-sm text-gray-500">Performance metrics</p>
                 </div>
@@ -247,7 +247,7 @@ export default function DashboardPage() {
           {/* Bottom Right: Recent Activity */}
           <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="mb-4 lg:mb-6">
-              <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+              <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Activity Overview</h3>
               
               <div className="space-y-1">
                 <div className="text-xs lg:text-sm text-gray-500 uppercase tracking-wide font-medium mb-3">

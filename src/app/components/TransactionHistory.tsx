@@ -53,7 +53,15 @@ export default function TransactionHistory({
       }
     };
 
+    // Initial load
     loadMonthlyRevenue();
+
+    // Set up real-time updates for live data
+    const interval = setInterval(loadMonthlyRevenue, 30 * 1000); // Refresh every 30 seconds
+    
+    return () => {
+      clearInterval(interval);
+    };
   }, [targetAdminId, maxItems, selectedYear]);
 
   const formatCurrency = (amount: number) => {

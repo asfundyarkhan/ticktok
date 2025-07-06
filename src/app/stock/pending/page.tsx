@@ -55,8 +55,7 @@ export default function PendingProductsPage() {
         const receipts = await NewReceiptService.getUserReceipts(userProfile.uid);
         const depositReceiptsOnly = receipts.filter((r: NewReceipt) => r.isDepositPayment);
         setDepositReceipts(depositReceiptsOnly);
-      } catch (error) {
-        console.error("Error loading orders data:", error);
+      } catch {
         toast.error("Failed to load orders data");
       } finally {
         setLoading(false);
@@ -103,10 +102,14 @@ export default function PendingProductsPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orders</h1>
-          <p className="mt-1 text-sm sm:text-base text-gray-600">
-            Track your sales and manage deposit requirements
-          </p>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Orders</h1>
+              <p className="mt-1 text-sm sm:text-base text-gray-600">
+                Track your sales and manage deposit requirements
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Navigation Tabs */}
@@ -144,19 +147,6 @@ export default function PendingProductsPage() {
               </svg>
             </div>
           </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-6">
-          <button
-            type="button"
-            onClick={() => {
-              router.push('/receipts-v2');
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            Make Deposit
-          </button>
         </div>
 
         {/* Orders Content */}
@@ -231,19 +221,37 @@ export default function PendingProductsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                Deposit Needed
-                              </span>
-                            ) : profit.status === 'deposit_made' ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                Available
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                Pending
-                              </span>
-                            )}
+                            {(() => {
+                              const receipt = getDepositReceiptStatus(profit.id);
+                              if (receipt) {
+                                if (receipt.status === 'pending') {
+                                  return (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                      <Clock className="w-3 h-3 mr-1" />
+                                      Pending Approval
+                                    </span>
+                                  );
+                                } else if (receipt.status === 'rejected') {
+                                  return (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      Deposit Needed
+                                    </span>
+                                  );
+                                } else if (receipt.status === 'approved') {
+                                  return (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      ✅ Approved
+                                    </span>
+                                  );
+                                }
+                              }
+                              
+                              return (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  Deposit Required
+                                </span>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -257,29 +265,47 @@ export default function PendingProductsPage() {
                                 if (receipt) {
                                   if (receipt.status === 'pending') {
                                     return (
-                                      <div className="bg-blue-100 border border-blue-300 rounded p-2">
-                                        <p className="text-xs text-blue-800 flex items-center">
-                                          <Clock className="w-3 h-3 mr-1" />
-                                          Receipt submitted - awaiting approval
-                                        </p>
+                                      <div className="flex flex-col gap-2">
+                                        <div className="text-sm text-orange-600 font-medium">
+                                          Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
+                                        </div>
+                                        <button
+                                          type="button"
+                                          disabled={true}
+                                          className="bg-gray-400 text-gray-600 px-3 py-1 rounded-md text-sm cursor-not-allowed flex items-center justify-center"
+                                        >
+                                          <Clock className="w-4 h-4 mr-1" />
+                                          Pending Approval
+                                        </button>
                                       </div>
                                     );
                                   } else if (receipt.status === 'rejected') {
                                     return (
-                                      <div className="bg-red-100 border border-red-300 rounded p-2">
-                                        <p className="text-xs text-red-800">
-                                          Deposit receipt rejected. Please submit a new receipt.
-                                        </p>
+                                      <div className="flex flex-col gap-2">
+                                        <div className="text-sm text-red-600 font-medium">
+                                          Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
+                                        </div>
                                         <button
                                           type="button"
                                           onClick={() => {
                                             const targetUrl = `/receipts-v2?deposit=${profit.id}`;
                                             router.push(targetUrl);
                                           }}
-                                          className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
+                                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
                                         >
                                           🔄 Resubmit Receipt
                                         </button>
+                                      </div>
+                                    );
+                                  } else if (receipt.status === 'approved') {
+                                    return (
+                                      <div className="flex flex-col gap-2">
+                                        <div className="text-sm text-green-600 font-medium">
+                                          ✅ Deposit Approved
+                                        </div>
+                                        <span className="inline-flex items-center px-3 py-1 rounded-md text-sm bg-green-100 text-green-800">
+                                          Ready for Transfer
+                                        </span>
                                       </div>
                                     );
                                   }
@@ -348,19 +374,37 @@ export default function PendingProductsPage() {
                               </div>
                             </div>
                             <div className="ml-2 flex-shrink-0">
-                              {getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                  Deposit Needed
-                                </span>
-                              ) : profit.status === 'deposit_made' ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Available
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                  Pending
-                                </span>
-                              )}
+                              {(() => {
+                                const receipt = getDepositReceiptStatus(profit.id);
+                                if (receipt) {
+                                  if (receipt.status === 'pending') {
+                                    return (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        Pending Approval
+                                      </span>
+                                    );
+                                  } else if (receipt.status === 'rejected') {
+                                    return (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Deposit Needed
+                                      </span>
+                                    );
+                                  } else if (receipt.status === 'approved') {
+                                    return (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        ✅ Approved
+                                      </span>
+                                    );
+                                  }
+                                }
+                                
+                                return (
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Deposit Required
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div className="mt-2 flex items-center justify-between">
@@ -375,29 +419,47 @@ export default function PendingProductsPage() {
                                   if (receipt) {
                                     if (receipt.status === 'pending') {
                                       return (
-                                        <div className="bg-blue-100 border border-blue-300 rounded p-2">
-                                          <p className="text-xs text-blue-800 flex items-center">
-                                            <Clock className="w-3 h-3 mr-1" />
-                                            Receipt submitted - awaiting approval
-                                          </p>
+                                        <div className="flex flex-col gap-2">
+                                          <div className="text-sm text-orange-600 font-medium">
+                                            Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            disabled={true}
+                                            className="bg-gray-400 text-gray-600 px-3 py-2 rounded-md text-sm cursor-not-allowed flex items-center justify-center"
+                                          >
+                                            <Clock className="w-4 h-4 mr-1" />
+                                            Pending Approval
+                                          </button>
                                         </div>
                                       );
                                     } else if (receipt.status === 'rejected') {
                                       return (
-                                        <div className="bg-red-100 border border-red-300 rounded p-2">
-                                          <p className="text-xs text-red-800">
-                                            Deposit receipt rejected. Please submit a new receipt.
-                                          </p>
+                                        <div className="flex flex-col gap-2">
+                                          <div className="text-sm text-red-600 font-medium">
+                                            Deposit Required: ${profit.depositRequired?.toFixed(2) || '0.00'}
+                                          </div>
                                           <button
                                             type="button"
                                             onClick={() => {
                                               const targetUrl = `/receipts-v2?deposit=${profit.id}`;
                                               router.push(targetUrl);
                                             }}
-                                            className="mt-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded"
+                                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm transition-colors"
                                           >
                                             🔄 Resubmit Receipt
                                           </button>
+                                        </div>
+                                      );
+                                    } else if (receipt.status === 'approved') {
+                                      return (
+                                        <div className="flex flex-col gap-2">
+                                          <div className="text-sm text-green-600 font-medium">
+                                            ✅ Deposit Approved
+                                          </div>
+                                          <span className="inline-flex items-center px-3 py-2 rounded-md text-sm bg-green-100 text-green-800">
+                                            Ready for Transfer
+                                          </span>
                                         </div>
                                       );
                                     }
