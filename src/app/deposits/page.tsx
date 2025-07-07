@@ -184,7 +184,7 @@ function DepositsPageContent() {
         
         // Redirect to pending products page if this was for a specific product
         if (productId) {
-          router.push("/stock/pending");
+          router.push("/stock/orders");
         }
       } else {
         toast.error(result.message || "Failed to submit deposit receipt");

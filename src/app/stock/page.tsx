@@ -244,7 +244,7 @@ export default function StockPage() {
             My Listings
           </Link>
           <Link
-            href="/stock/pending"
+            href="/stock/orders"
             className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Orders

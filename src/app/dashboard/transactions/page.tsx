@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 function TransactionDashboardContent() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [transactionSummary, setTransactionSummary] = useState<CommissionSummary>({
     totalCommissionBalance: 0,
     totalFromSuperadminDeposits: 0,
@@ -32,6 +32,8 @@ function TransactionDashboardContent() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
 
+  const isSuperadmin = userProfile?.role === "superadmin";
+
   useEffect(() => {
     if (!user) return;
 
@@ -39,9 +41,21 @@ function TransactionDashboardContent() {
       try {
         setLoading(true);
         
-        // Fetch summary
-        const summary = await CommissionService.getAdminCommissionSummary(user.uid);
-        setTransactionSummary(summary);
+        // Fetch summary based on user role
+        if (isSuperadmin) {
+          // For superadmin, get platform-wide data
+          const summary = await CommissionService.getTotalCommissionBalance();
+          setTransactionSummary({
+            totalCommissionBalance: summary.totalBalance,
+            totalFromSuperadminDeposits: summary.totalFromSuperadminDeposits,
+            totalFromReceiptApprovals: summary.totalFromReceiptApprovals,
+            transactionCount: summary.adminsCount, // Using adminsCount as transaction count
+          });
+        } else {
+          // For regular admin, get personal data
+          const summary = await CommissionService.getAdminCommissionSummary(user.uid);
+          setTransactionSummary(summary);
+        }
       } catch (error) {
         console.error("Error fetching transaction data:", error);
         setError(error instanceof Error ? error.message : "Failed to fetch transaction data");
@@ -66,7 +80,7 @@ function TransactionDashboardContent() {
     return () => {
       unsubscribeBalance();
     };
-  }, [user]);
+  }, [user, isSuperadmin]);
 
   if (loading) {
     return (
@@ -112,10 +126,12 @@ function TransactionDashboardContent() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-                Transaction Dashboard
+                {isSuperadmin ? "Platform Revenue Dashboard" : "Transaction Dashboard"}
               </h1>
               <p className="text-slate-600 mt-1">
-                Monitor your earnings from merchant deposits and receipt approvals
+                {isSuperadmin 
+                  ? "Monitor platform-wide revenue from deposits and withdrawals"
+                  : "Monitor your earnings from merchant deposits and receipt approvals"}
               </p>
             </div>
           </div>
@@ -162,17 +178,23 @@ function TransactionDashboardContent() {
                   <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
                     <DollarSign className="w-6 h-6 text-white" />
                   </div>
-                  <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium">
-                    <ArrowUpRight className="w-4 h-4" />
-                    +12.5%
-                  </div>
+                  {!isSuperadmin && (
+                    <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium">
+                      <ArrowUpRight className="w-4 h-4" />
+                      +12.5%
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-slate-600 text-sm font-medium mb-1">Total Earnings</h3>
+                  <h3 className="text-slate-600 text-sm font-medium mb-1">
+                    {isSuperadmin ? "Net Platform Revenue" : "Total Earnings"}
+                  </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     ${transactionSummary.totalCommissionBalance.toFixed(2)}
                   </p>
-                  <p className="text-slate-500 text-xs mt-1">From all sources</p>
+                  <p className="text-slate-500 text-xs mt-1">
+                    {isSuperadmin ? "Deposits minus withdrawals" : "From all sources"}
+                  </p>
                 </div>
               </div>
 
@@ -188,11 +210,15 @@ function TransactionDashboardContent() {
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-slate-600 text-sm font-medium mb-1">Deposit Commissions</h3>
+                  <h3 className="text-slate-600 text-sm font-medium mb-1">
+                    {isSuperadmin ? "Deposits Accepted" : "Deposit Commissions"}
+                  </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     ${transactionSummary.totalFromSuperadminDeposits.toFixed(2)}
                   </p>
-                  <p className="text-slate-500 text-xs mt-1">From admin deposits</p>
+                  <p className="text-slate-500 text-xs mt-1">
+                    {isSuperadmin ? "Total deposits processed" : "From admin deposits"}
+                  </p>
                 </div>
               </div>
 
@@ -202,17 +228,23 @@ function TransactionDashboardContent() {
                   <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                     <Receipt className="w-6 h-6 text-white" />
                   </div>
-                  <div className="flex items-center gap-1 text-purple-600 text-sm font-medium">
-                    <ArrowUpRight className="w-4 h-4" />
-                    +15.1%
-                  </div>
+                  {!isSuperadmin && (
+                    <div className="flex items-center gap-1 text-purple-600 text-sm font-medium">
+                      <ArrowUpRight className="w-4 h-4" />
+                      +15.1%
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-slate-600 text-sm font-medium mb-1">Receipt Approvals</h3>
+                  <h3 className="text-slate-600 text-sm font-medium mb-1">
+                    {isSuperadmin ? "Withdrawals Processed" : "Receipt Approvals"}
+                  </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     ${transactionSummary.totalFromReceiptApprovals.toFixed(2)}
                   </p>
-                  <p className="text-slate-500 text-xs mt-1">From approved receipts</p>
+                  <p className="text-slate-500 text-xs mt-1">
+                    {isSuperadmin ? "Total withdrawals processed" : "From approved receipts"}
+                  </p>
                 </div>
               </div>
 
@@ -222,20 +254,22 @@ function TransactionDashboardContent() {
                   <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl flex items-center justify-center">
                     <Activity className="w-6 h-6 text-white" />
                   </div>
-                  <div className="flex items-center gap-1 text-orange-600 text-sm font-medium">
-                    <ArrowUpRight className="w-4 h-4" />
-                    +24
-                  </div>
+                  {!isSuperadmin && (
+                    <div className="flex items-center gap-1 text-orange-600 text-sm font-medium">
+                      <ArrowUpRight className="w-4 h-4" />
+                      +24
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <h3 className="text-slate-600 text-sm font-medium mb-1">Total Transactions</h3>
+                  <h3 className="text-slate-600 text-sm font-medium mb-1">
+                    {isSuperadmin ? "Total Operations" : "Total Transactions"}
+                  </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     {transactionSummary.transactionCount}
                   </p>
                   <p className="text-slate-500 text-xs mt-1">
-                    {transactionSummary.lastTransaction && (
-                      `Last: ${transactionSummary.lastTransaction.toLocaleDateString()}`
-                    )}
+                    {isSuperadmin ? "Platform operations" : "This month"}
                   </p>
                 </div>
               </div>

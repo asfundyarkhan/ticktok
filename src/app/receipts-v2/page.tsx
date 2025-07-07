@@ -235,7 +235,7 @@ function ReceiptsV2Content() {
           <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             My Listings
           </Link>
-          <Link href="/stock/pending" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+          <Link href="/stock/orders" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Orders
           </Link>
         </div>

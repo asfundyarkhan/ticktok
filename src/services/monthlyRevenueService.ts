@@ -45,11 +45,11 @@ export class MonthlyRevenueService {
   ];
 
   /**
-   * Get monthly revenue breakdown for an admin/seller
+   * Get monthly revenue breakdown for an admin/seller/superadmin
    */
   static async getMonthlyRevenue(
     userId: string,
-    userRole: "admin" | "seller" = "admin",
+    userRole: "admin" | "seller" | "superadmin" = "admin",
     limitMonths: number = 12
   ): Promise<MonthlyRevenue[]> {
     try {
@@ -58,11 +58,12 @@ export class MonthlyRevenueService {
       if (userRole === "admin") {
         // Get commission revenue for admins
         await this.addCommissionRevenue(userId, revenueMap);
-      }
-
-      if (userRole === "seller") {
+      } else if (userRole === "seller") {
         // Get profit revenue for sellers
         await this.addProfitRevenue(userId, revenueMap);
+      } else if (userRole === "superadmin") {
+        // Get superadmin revenue (deposits accepted minus withdrawals)
+        await this.addSuperadminRevenue(userId, revenueMap);
       }
 
       // Convert map to array and sort by date (most recent first)
@@ -337,6 +338,92 @@ export class MonthlyRevenueService {
         bestMonth: null,
         averageMonthlyRevenue: 0,
       };
+    }
+  }
+
+  /**
+   * Add superadmin revenue from deposits accepted minus withdrawals
+   */
+  private static async addSuperadminRevenue(
+    superadminId: string,
+    revenueMap: Map<string, MonthlyRevenue>
+  ): Promise<void> {
+    try {
+      // Get approved deposit receipts (money coming in)
+      const depositsQuery = query(
+        collection(firestore, "receipts_v2"),
+        where("status", "==", "approved"),
+        orderBy("createdAt", "desc")
+      );
+
+      const depositsSnapshot = await getDocs(depositsQuery);
+
+      depositsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.createdAt && data.amount) {
+          const date = data.createdAt.toDate();
+          const monthKey = `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, "0")}`;
+
+          if (!revenueMap.has(monthKey)) {
+            revenueMap.set(monthKey, {
+              month: monthKey,
+              year: date.getFullYear(),
+              monthName: this.MONTHS[date.getMonth()],
+              totalRevenue: 0,
+              profitRevenue: 0,
+              commissionRevenue: 0,
+              transactionCount: 0,
+              lastUpdated: new Date(),
+            });
+          }
+
+          const monthData = revenueMap.get(monthKey)!;
+          monthData.totalRevenue += data.amount;
+          monthData.commissionRevenue += data.amount; // Deposits are commission revenue for superadmin
+          monthData.transactionCount += 1;
+        }
+      });
+
+      // Get withdrawals (money going out)
+      const withdrawalsQuery = query(
+        collection(firestore, "withdrawals"),
+        where("status", "==", "approved"),
+        orderBy("createdAt", "desc")
+      );
+
+      const withdrawalsSnapshot = await getDocs(withdrawalsQuery);
+
+      withdrawalsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.createdAt && data.amount) {
+          const date = data.createdAt.toDate();
+          const monthKey = `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, "0")}`;
+
+          if (!revenueMap.has(monthKey)) {
+            revenueMap.set(monthKey, {
+              month: monthKey,
+              year: date.getFullYear(),
+              monthName: this.MONTHS[date.getMonth()],
+              totalRevenue: 0,
+              profitRevenue: 0,
+              commissionRevenue: 0,
+              transactionCount: 0,
+              lastUpdated: new Date(),
+            });
+          }
+
+          const monthData = revenueMap.get(monthKey)!;
+          monthData.totalRevenue -= data.amount; // Subtract withdrawals
+          monthData.commissionRevenue -= data.amount;
+          monthData.transactionCount += 1;
+        }
+      });
+    } catch (error) {
+      console.error("Error adding superadmin revenue:", error);
     }
   }
 }

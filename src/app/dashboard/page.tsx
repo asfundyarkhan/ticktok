@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ActivityTable from "../components/ActivityTable";
-import TransactionHistory from "../components/TransactionHistory";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
@@ -261,28 +259,13 @@ export default function DashboardPage() {
             </div>
             
             <div className="space-y-4">
-              <RecentActivityPanel maxItems={3} />
+              <RecentActivityPanel maxItems={50} showPagination={true} itemsPerPage={3} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Additional Content for Admins/SuperAdmins */}
-      {(userProfile?.role === "admin" || userProfile?.role === "superadmin") && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-          {/* Transaction History */}
-          <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Transaction History</h2>
-            <TransactionHistory maxItems={5} />
-          </div>
 
-          {/* Activity Overview */}
-          <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Activity Overview</h2>
-            <ActivityTable title="" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

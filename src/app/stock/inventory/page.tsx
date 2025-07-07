@@ -230,7 +230,7 @@ export default function InventoryPage() {
             My Listings
           </Link>
           <Link
-            href="/stock/pending"
+            href="/stock/orders"
             className="px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
           >
             Orders

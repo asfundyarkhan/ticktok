@@ -23,7 +23,7 @@ export default function TransactionHistory({
   maxItems = 10,
   showTitle = true 
 }: TransactionHistoryProps) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [monthlyRevenues, setMonthlyRevenues] = useState<MonthlyRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -39,10 +39,11 @@ export default function TransactionHistory({
     const loadMonthlyRevenue = async () => {
       try {
         setLoading(true);
-        // Get monthly revenue data - assuming admin role for commission earnings
+        // Determine user role for revenue calculation
+        const userRole = userProfile?.role === "superadmin" ? "superadmin" : "admin";
         const revenues = await MonthlyRevenueService.getMonthlyRevenue(
           targetAdminId,
-          "admin", // Most users in admin panel are admins earning commissions
+          userRole,
           maxItems
         );
         setMonthlyRevenues(revenues);
@@ -62,7 +63,7 @@ export default function TransactionHistory({
     return () => {
       clearInterval(interval);
     };
-  }, [targetAdminId, maxItems, selectedYear]);
+  }, [targetAdminId, maxItems, selectedYear, userProfile?.role]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
