@@ -261,7 +261,7 @@ export default function OrdersPage() {
                                 Deposit: ${profit.depositRequired.toFixed(2)}
                               </div>
                               <button
-                                onClick={() => window.location.href = '/deposits'}
+                                onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +291,7 @@ export default function OrdersPage() {
                                 Deposit: ${profit.depositRequired.toFixed(2)}
                               </div>
                               <button
-                                onClick={() => window.location.href = '/deposits'}
+                                onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
                                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center"
                               >
                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,7 +396,7 @@ export default function OrdersPage() {
                                   Deposit: ${profit.depositRequired.toFixed(2)}
                                 </div>
                                 <button
-                                  onClick={() => window.location.href = '/deposits'}
+                                  onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
                                   className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors inline-flex items-center"
                                 >
                                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -426,7 +426,7 @@ export default function OrdersPage() {
                                   Deposit: ${profit.depositRequired.toFixed(2)}
                                 </div>
                                 <button
-                                  onClick={() => window.location.href = '/deposits'}
+                                  onClick={() => window.location.href = `/receipts-v2?deposit=${profit.id}&amount=${profit.depositRequired}`}
                                   className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors inline-flex items-center"
                                 >
                                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
