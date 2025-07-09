@@ -37,6 +37,11 @@ export interface NewReceipt {
   pendingDepositId?: string;
   pendingProductId?: string;
   productName?: string;
+
+  // Wallet payment integration
+  isWalletPayment?: boolean;
+  walletBalanceUsed?: number;
+  isAutoProcessed?: boolean; // True if wallet payment was auto-processed
 }
 
 export interface ReceiptSubmissionResult {
@@ -93,6 +98,10 @@ export class NewReceiptService {
       pendingDepositId: string;
       pendingProductId?: string;
       productName?: string;
+    },
+    walletPayment?: {
+      isWalletPayment: boolean;
+      walletBalanceUsed?: number;
     }
   ): Promise<ReceiptSubmissionResult> {
     try {
@@ -135,7 +144,56 @@ export class NewReceiptService {
         receiptData.productName = depositInfo.productName;
       }
 
+      // Add wallet payment information if provided
+      if (walletPayment?.isWalletPayment) {
+        receiptData.isWalletPayment = true;
+        receiptData.walletBalanceUsed =
+          walletPayment.walletBalanceUsed || amount;
+      }
+
       console.log("📋 Receipt data before submission:", receiptData);
+
+      // For wallet payments, we need to handle the payment immediately
+      if (walletPayment?.isWalletPayment) {
+        console.log(
+          `💳 Processing wallet payment of $${
+            walletPayment.walletBalanceUsed || amount
+          }`
+        );
+
+        // Import UserService to deduct wallet balance
+        const { UserService } = await import("./userService");
+
+        try {
+          const deductedBalance = await UserService.subtractUserBalance(
+            userId,
+            walletPayment.walletBalanceUsed || amount
+          );
+          console.log(
+            `✅ Wallet balance deducted successfully. New balance: $${deductedBalance}`
+          );
+
+          // For wallet payments, keep as pending but mark as auto-processed
+          // This allows superadmins to see them in the dashboard with visual indicators
+          receiptData.status = "pending";
+          receiptData.isAutoProcessed = true;
+          receiptData.processedAt = Timestamp.now();
+          receiptData.processedBy = "system";
+          receiptData.processedByName = "System (Wallet Payment)";
+          receiptData.notes = `Paid via wallet balance. Amount deducted: $${
+            walletPayment.walletBalanceUsed || amount
+          }`;
+        } catch (error) {
+          console.error("❌ Error deducting wallet balance:", error);
+          return {
+            success: false,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Insufficient wallet balance or error processing payment.",
+          };
+        }
+      }
 
       const docRef = await addDoc(
         collection(firestore, this.COLLECTION),
@@ -150,12 +208,33 @@ export class NewReceiptService {
           const { PendingDepositService } = await import(
             "./pendingDepositService"
           );
-          await PendingDepositService.updateDepositStatus(
-            depositInfo.pendingDepositId,
-            "receipt_submitted",
-            docRef.id
-          );
-          console.log(`✅ Updated pending deposit status to receipt_submitted`);
+
+          // For wallet payments, mark deposit as paid immediately
+          if (walletPayment?.isWalletPayment) {
+            const markDepositResult =
+              await PendingDepositService.markDepositPaid(
+                depositInfo.pendingDepositId,
+                receiptData.userId as string // Pass the seller ID, not the receipt ID
+              );
+            if (markDepositResult.success) {
+              console.log(
+                `✅ Deposit marked as paid via wallet payment: ${markDepositResult.message}`
+              );
+            } else {
+              console.error(
+                `❌ Failed to mark deposit as paid: ${markDepositResult.message}`
+              );
+            }
+          } else {
+            await PendingDepositService.updateDepositStatus(
+              depositInfo.pendingDepositId,
+              "receipt_submitted",
+              docRef.id
+            );
+            console.log(
+              `✅ Updated pending deposit status to receipt_submitted`
+            );
+          }
 
           // Also update any related pending product status
           if (depositInfo.pendingProductId) {
@@ -172,13 +251,16 @@ export class NewReceiptService {
               );
 
               if (targetProduct) {
+                const newStatus = walletPayment?.isWalletPayment
+                  ? "deposit_approved"
+                  : "deposit_submitted";
                 await PendingProductService.updateStatusAcrossSystems(
                   receiptData.userId as string,
                   targetProduct.productId,
-                  "deposit_submitted"
+                  newStatus
                 );
                 console.log(
-                  `✅ Updated pending product status to deposit_submitted`
+                  `✅ Updated pending product status to ${newStatus}`
                 );
               }
             } catch (error) {
@@ -191,10 +273,13 @@ export class NewReceiptService {
         }
       }
 
+      const message = walletPayment?.isWalletPayment
+        ? "Payment processed successfully via wallet balance! Your profit has been added to your wallet."
+        : "Receipt submitted successfully! It will be reviewed by our admin team.";
+
       return {
         success: true,
-        message:
-          "Receipt submitted successfully! It will be reviewed by our admin team.",
+        message,
         receiptId: docRef.id,
       };
     } catch (error) {
@@ -646,6 +731,62 @@ export class NewReceiptService {
       });
     } catch (error) {
       console.error("Error getting user receipts:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Subscribe to all receipts for revenue calculation (for superadmin dashboard)
+   */
+  static subscribeToAllReceipts(
+    callback: (receipts: NewReceipt[]) => void
+  ): () => void {
+    const q = query(
+      collection(firestore, this.COLLECTION),
+      orderBy("submittedAt", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const receipts: NewReceipt[] = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          submittedAt: data.submittedAt?.toDate?.() || new Date(),
+          processedAt: data.processedAt?.toDate?.() || undefined,
+        } as NewReceipt;
+      });
+
+      callback(receipts);
+    });
+  }
+
+  /**
+   * Get all receipts for revenue calculation (for superadmin)
+   */
+  static async getAllReceipts(): Promise<NewReceipt[]> {
+    try {
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        orderBy("submittedAt", "desc")
+      );
+
+      const querySnapshot = await getDocs(q);
+      const receipts: NewReceipt[] = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        receipts.push({
+          id: doc.id,
+          ...data,
+          submittedAt: data.submittedAt?.toDate?.() || new Date(),
+          processedAt: data.processedAt?.toDate?.() || undefined,
+        } as NewReceipt);
+      });
+
+      return receipts;
+    } catch (error) {
+      console.error("Error getting all receipts:", error);
       return [];
     }
   }

@@ -13,12 +13,14 @@ import {
   FileText,
   User,
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Wallet
 } from "lucide-react";
 
 export default function NewReceiptManagementPage() {
   const { user, userProfile } = useAuth();
   const [receipts, setReceipts] = useState<NewReceipt[]>([]);
+  const [allReceipts, setAllReceipts] = useState<NewReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<NewReceipt | null>(null);
@@ -38,14 +40,24 @@ export default function NewReceiptManagementPage() {
       return;
     }
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates for both pending and all receipts
     setLoading(true);
-    const unsubscribe = NewReceiptService.subscribeToPendingReceipts((updatedReceipts) => {
+    
+    // Subscribe to pending receipts for the main view
+    const unsubscribePending = NewReceiptService.subscribeToPendingReceipts((updatedReceipts) => {
       setReceipts(updatedReceipts);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Subscribe to all receipts for revenue calculation
+    const unsubscribeAll = NewReceiptService.subscribeToAllReceipts((allUpdatedReceipts) => {
+      setAllReceipts(allUpdatedReceipts);
+    });
+
+    return () => {
+      unsubscribePending();
+      unsubscribeAll();
+    };
   }, [user, userProfile]);
 
   const handleApprove = async (receipt: NewReceipt) => {
@@ -183,7 +195,7 @@ export default function NewReceiptManagementPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total Amount</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  ${receipts.reduce((sum, r) => sum + r.amount, 0).toFixed(2)}
+                  ${allReceipts.reduce((sum, r) => sum + r.amount, 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -194,7 +206,7 @@ export default function NewReceiptManagementPage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Deposit Payments</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {receipts.filter(r => r.isDepositPayment).length}
+                  {allReceipts.filter(r => r.isDepositPayment).length}
                 </p>
               </div>
             </div>
@@ -227,6 +239,18 @@ export default function NewReceiptManagementPage() {
                             {typeInfo.icon}
                             {typeInfo.type}
                           </span>
+                          {receipt.isWalletPayment && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-800 border border-purple-200">
+                              <Wallet className="w-4 h-4" />
+                              Wallet Payment
+                            </span>
+                          )}
+                          {receipt.isAutoProcessed && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-800 border border-green-200">
+                              <CheckCircle className="w-4 h-4" />
+                              Auto-Processed
+                            </span>
+                          )}
                           <span className="text-2xl font-bold text-gray-900">
                             ${receipt.amount.toFixed(2)}
                           </span>
@@ -252,6 +276,16 @@ export default function NewReceiptManagementPage() {
                                 <span> for: {receipt.productName}</span>
                               )}
                             </p>
+                            {receipt.isWalletPayment && (
+                              <p className="text-sm text-purple-800 mt-1">
+                                <strong>💳 Paid with wallet balance:</strong> ${receipt.walletBalanceUsed?.toFixed(2)}
+                              </p>
+                            )}
+                            {receipt.isAutoProcessed && (
+                              <p className="text-sm text-green-800 mt-1">
+                                <strong>✅ Status:</strong> Payment processed automatically and deposit activated
+                              </p>
+                            )}
                           </div>
                         )}
                         
@@ -269,29 +303,46 @@ export default function NewReceiptManagementPage() {
                       </div>
                       
                       <div className="flex items-center gap-2 ml-6">
-                        <button
-                          onClick={() => window.open(receipt.receiptImageUrl, '_blank')}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleApprove(receipt)}
-                          disabled={processingId === receipt.id}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleReject(receipt)}
-                          disabled={processingId === receipt.id}
-                          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </button>
+                        {!receipt.isWalletPayment ? (
+                          <button
+                            onClick={() => window.open(receipt.receiptImageUrl, '_blank')}
+                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                          >
+                            <Eye className="w-4 h-4" />
+                            View Receipt
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
+                            <Wallet className="w-4 h-4" />
+                            Wallet Payment
+                          </span>
+                        )}
+                        
+                        {receipt.isAutoProcessed ? (
+                          <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
+                            <CheckCircle className="w-4 h-4" />
+                            Already Processed
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleApprove(receipt)}
+                              disabled={processingId === receipt.id}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(receipt)}
+                              disabled={processingId === receipt.id}
+                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Reject
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

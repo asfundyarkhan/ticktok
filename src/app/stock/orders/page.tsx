@@ -220,12 +220,19 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
+                            {getDepositReceiptStatus(profit.id)?.status === 'pending' && !getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                 <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 Pending Approval
+                              </span>
+                            ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Payment Transferred
                               </span>
                             ) : getDepositReceiptStatus(profit.id)?.status === 'rejected' ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -270,7 +277,7 @@ export default function OrdersPage() {
                                 Pay Now
                               </button>
                             </div>
-                          ) : getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
+                          ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && !getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
                             <div className="flex flex-col items-end space-y-1">
                               <div className="text-xs text-blue-600 font-medium">
                                 Deposit: ${profit.depositRequired.toFixed(2)}
@@ -285,6 +292,8 @@ export default function OrdersPage() {
                                 Processing...
                               </button>
                             </div>
+                          ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
+                            <span></span>
                           ) : getDepositReceiptStatus(profit.id)?.status === 'rejected' ? (
                             <div className="flex flex-col items-end space-y-1">
                               <div className="text-xs text-blue-600 font-medium">
@@ -354,12 +363,19 @@ export default function OrdersPage() {
                               </div>
                             </div>
                             <div className="ml-2 flex-shrink-0">
-                              {getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
+                              {getDepositReceiptStatus(profit.id)?.status === 'pending' && !getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                   Pending Approval
+                                </span>
+                              ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Payment Transferred
                                 </span>
                               ) : getDepositReceiptStatus(profit.id)?.status === 'rejected' ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -405,7 +421,7 @@ export default function OrdersPage() {
                                   Pay Now
                                 </button>
                               </div>
-                            ) : getDepositReceiptStatus(profit.id)?.status === 'pending' ? (
+                            ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && !getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
                               <div className="flex flex-col items-end space-y-1">
                                 <div className="text-xs text-blue-600 font-medium">
                                   Deposit: ${profit.depositRequired.toFixed(2)}
@@ -420,6 +436,8 @@ export default function OrdersPage() {
                                   Processing...
                                 </button>
                               </div>
+                            ) : getDepositReceiptStatus(profit.id)?.status === 'pending' && getDepositReceiptStatus(profit.id)?.isAutoProcessed ? (
+                              <span></span>
                             ) : getDepositReceiptStatus(profit.id)?.status === 'rejected' ? (
                               <div className="flex flex-col items-end space-y-1">
                                 <div className="text-xs text-blue-600 font-medium">
