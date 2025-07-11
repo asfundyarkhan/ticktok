@@ -35,22 +35,12 @@ function ReceiptsV2Content() {
     // Always check for URL parameters when the component mounts or searchParams change
     if (typeof window === 'undefined') return; // Server-side rendering guard
     
-    console.log('Receipts page useEffect running...');
-    console.log('Full URL:', window.location.href);
-    console.log('Search params string:', searchParams.toString());
-    console.log('Window location search:', window.location.search);
-    
     // Use direct URL parsing as primary method
     const urlParams = new URLSearchParams(window.location.search);
     const depositId = urlParams.get('deposit') || searchParams.get('deposit');
     const amount = urlParams.get('amount') || searchParams.get('amount');
     
-    console.log('Direct URL params:', urlParams.toString());
-    console.log('Parsed params:', { depositId, amount });
-    console.log('Has processed params:', hasProcessedParams);
-    
     if (depositId) {
-      console.log('✅ Found deposit ID, setting context and showing form');
       setDepositContext({ depositId, amount: amount || undefined });
       setShowSubmissionForm(true);
       if (!hasProcessedParams) {
@@ -61,8 +51,6 @@ function ReceiptsV2Content() {
         }, 100);
       }
     } else if (!hasProcessedParams) {
-      console.log('❌ No deposit ID found in any URL parameters');
-      console.log('All URL params:', Object.fromEntries(urlParams.entries()));
       setHasProcessedParams(true);
     }
 
@@ -86,20 +74,11 @@ function ReceiptsV2Content() {
   useEffect(() => {
     if (typeof window === 'undefined') return; // Server-side rendering guard
     
-    console.log('Mount effect: Checking URL parameters...');
     const urlParams = new URLSearchParams(window.location.search);
     const depositId = urlParams.get('deposit');
     const amount = urlParams.get('amount');
     
-    console.log('Mount effect - URL params:', {
-      deposit: depositId,
-      amount: amount,
-      search: window.location.search,
-      href: window.location.href
-    });
-    
     if (depositId) {
-      console.log('Mount effect: Found deposit ID, forcing form to show');
       setDepositContext({ depositId, amount: amount || undefined });
       setShowSubmissionForm(true);
       // Scroll to top to ensure the centered form is visible
@@ -112,7 +91,6 @@ function ReceiptsV2Content() {
   // Additional effect to handle URL changes and delayed searchParams
   useEffect(() => {
     if (searchParams.get('deposit') && !hasProcessedParams) {
-      console.log('Secondary effect: Found deposit param, processing...');
       const depositId = searchParams.get('deposit');
       const amount = searchParams.get('amount');
       
@@ -285,12 +263,12 @@ function ReceiptsV2Content() {
           <div className="mb-8">
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Submit Receipt</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Submit Deposit Receipt</h3>
               </div>
               <ReceiptSubmission 
                 onSubmitted={handleReceiptSubmitted}
                 className="max-w-2xl"
-                isDepositPayment={false}
+                isDepositPayment={true}
               />
             </div>
           </div>
@@ -309,7 +287,7 @@ function ReceiptsV2Content() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] transition-colors cursor-pointer"
             >
               <Plus className="w-5 h-5" />
-              Submit New Receipt
+              Submit Deposit Receipt
             </button>
           </div>
         )}
@@ -369,19 +347,6 @@ function ReceiptsV2Content() {
               </p>
             </div>
           </div>
-        </div>
-        
-        {/* Debug Info */}
-        <div className="mb-4 p-3 bg-gray-100 rounded text-xs">
-          <details>
-            <summary className="cursor-pointer font-medium text-sm mb-2">🐛 Debug Information</summary>
-            <div className="space-y-1 mt-2">
-              <p>shouldShowForm = {shouldShowForm ? '✅ true' : '❌ false'}</p>
-              <p>currentDepositContext = {JSON.stringify(currentDepositContext)}</p>
-              <p>window.location.search = &quot;{typeof window !== 'undefined' ? window.location.search : 'N/A (SSR)'}&quot;</p>
-              <p>Direct URL params = {typeof window !== 'undefined' ? new URLSearchParams(window.location.search).toString() : 'N/A (SSR)'}</p>
-            </div>
-          </details>
         </div>
 
         {/* Stats */}

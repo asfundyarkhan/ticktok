@@ -204,7 +204,7 @@ export default function ReceiptSubmission({
       </div>
 
       {/* USDT Payment Information */}
-      <USDTPaymentInfo />
+      <USDTPaymentInfo isDepositPayment={isDepositPayment} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Amount */}

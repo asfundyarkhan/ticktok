@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 
-export default function USDTPaymentInfo() {
+interface USDTPaymentInfoProps {
+  isDepositPayment?: boolean;
+}
+
+export default function USDTPaymentInfo({ isDepositPayment = false }: USDTPaymentInfoProps) {
   return (
     <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4">
       <h4 className="text-sm font-semibold text-gray-800 mb-3">
@@ -26,7 +30,7 @@ export default function USDTPaymentInfo() {
       <div className="mt-3 p-3 bg-blue-100 rounded-md">
         <p className="text-sm text-blue-800">
           <strong>Important:</strong> Please ensure you transfer the exact amount and upload
-          the receipt for verification. Include your user ID in the transfer reference if possible.
+          the receipt for verification. {isDepositPayment ? "This will activate your deposit and transfer profits to your wallet." : "Include your user ID in the transfer reference if possible."}
         </p>
       </div>
     </div>
