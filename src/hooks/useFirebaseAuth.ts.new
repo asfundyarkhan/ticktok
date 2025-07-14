@@ -133,7 +133,7 @@ export default function useFirebaseAuth(): UseFirebaseAuthReturn {
         uid: result.user.uid,
         email: result.user.email || email,
         displayName,
-        balance: 5000, // Default starting balance
+        balance: 0, // Default starting balance
         role: 'user',
         createdAt: new Date(),
         updatedAt: new Date()

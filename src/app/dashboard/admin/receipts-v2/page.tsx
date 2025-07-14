@@ -172,40 +172,40 @@ export default function NewReceiptManagementPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="p-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Receipt Management</h1>
-          <p className="text-gray-600">Review and approve receipt submissions</p>
+      <div className="p-4 sm:p-6">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Receipt Management</h1>
+          <p className="text-sm sm:text-base text-gray-600">Review and approve receipt submissions</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
-              <Clock className="w-8 h-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{receipts.length}</p>
+              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-600" />
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{receipts.length}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border">
             <div className="flex items-center">
-              <DollarSign className="w-8 h-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Amount</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Amount</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   ${allReceipts.reduce((sum, r) => sum + r.amount, 0).toFixed(2)}
                 </p>
               </div>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border sm:col-span-2 lg:col-span-1">
             <div className="flex items-center">
-              <FileText className="w-8 h-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Deposit Payments</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Deposit Payments</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {allReceipts.filter(r => r.isDepositPayment).length}
                 </p>
               </div>
@@ -231,10 +231,10 @@ export default function NewReceiptManagementPage() {
                 const typeInfo = getReceiptTypeInfo(receipt);
                 
                 return (
-                  <div key={receipt.id} className="p-6 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
+                  <div key={receipt.id} className="p-4 sm:p-6 hover:bg-gray-50">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${typeInfo.bgColor} ${typeInfo.textColor} ${typeInfo.borderColor} border`}>
                             {typeInfo.icon}
                             {typeInfo.type}
@@ -251,19 +251,19 @@ export default function NewReceiptManagementPage() {
                               Auto-Processed
                             </span>
                           )}
-                          <span className="text-2xl font-bold text-gray-900">
+                          <span className="text-xl sm:text-2xl font-bold text-gray-900">
                             ${receipt.amount.toFixed(2)}
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="grid grid-cols-1 gap-2 sm:gap-4 mb-4">
                           <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <User className="w-4 h-4" />
-                            <span className="font-medium">{receipt.userName}</span>
-                            <span>({receipt.userEmail})</span>
+                            <User className="w-4 h-4 flex-shrink-0" />
+                            <span className="font-medium truncate">{receipt.userName}</span>
+                            <span className="text-xs text-gray-500 truncate">({receipt.userEmail})</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Calendar className="w-4 h-4" />
+                            <Calendar className="w-4 h-4 flex-shrink-0" />
                             <span>{formatDate(receipt.submittedAt)}</span>
                           </div>
                         </div>
@@ -302,33 +302,33 @@ export default function NewReceiptManagementPage() {
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-2 ml-6">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 sm:ml-6">
                         {!receipt.isWalletPayment ? (
                           <button
                             onClick={() => window.open(receipt.receiptImageUrl, '_blank')}
-                            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                           >
                             <Eye className="w-4 h-4" />
-                            View Receipt
+                            <span className="sm:inline">View Receipt</span>
                           </button>
                         ) : (
-                          <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
+                          <span className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
                             <Wallet className="w-4 h-4" />
-                            Wallet Payment
+                            <span className="sm:inline">Wallet Payment</span>
                           </span>
                         )}
                         
                         {receipt.isAutoProcessed ? (
-                          <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
+                          <span className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
                             <CheckCircle className="w-4 h-4" />
-                            Already Processed
+                            <span className="sm:inline">Already Processed</span>
                           </span>
                         ) : (
-                          <>
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => handleApprove(receipt)}
                               disabled={processingId === receipt.id}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+                              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
                             >
                               <CheckCircle className="w-4 h-4" />
                               Approve
@@ -336,12 +336,12 @@ export default function NewReceiptManagementPage() {
                             <button
                               onClick={() => handleReject(receipt)}
                               disabled={processingId === receipt.id}
-                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
+                              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
                             >
                               <XCircle className="w-4 h-4" />
                               Reject
                             </button>
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>

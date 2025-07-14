@@ -178,12 +178,6 @@ function TransactionDashboardContent() {
                   <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
                     <DollarSign className="w-6 h-6 text-white" />
                   </div>
-                  {!isSuperadmin && (
-                    <div className="flex items-center gap-1 text-emerald-600 text-sm font-medium">
-                      <ArrowUpRight className="w-4 h-4" />
-                      +12.5%
-                    </div>
-                  )}
                 </div>
                 <div>
                   <h3 className="text-slate-600 text-sm font-medium mb-1">

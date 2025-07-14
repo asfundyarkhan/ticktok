@@ -38,7 +38,7 @@ const setStoredBalance = (balance: number): void => {
 };
 
 export function UserBalanceProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(5000); // Default starting balance
+  const [balance, setBalance] = useState(0); // Default starting balance
   const [loading, setLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const { user, userProfile } = useAuth?.() || {

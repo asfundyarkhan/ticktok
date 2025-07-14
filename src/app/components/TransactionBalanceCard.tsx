@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { CommissionService } from "../../services/commissionService";
 import { CommissionSummary } from "../../types/commission";
-import { TrendingUp, DollarSign, Wallet, ArrowUpRight } from "lucide-react";
+import { TrendingUp, DollarSign, Wallet } from "lucide-react";
 
 export default function TransactionBalanceCard() {
   const { user } = useAuth();
@@ -114,10 +114,6 @@ export default function TransactionBalanceCard() {
           <span className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent break-all">
             ${transactionSummary.totalCommissionBalance.toFixed(2)}
           </span>
-          <div className="flex items-center gap-1 text-emerald-600 flex-shrink-0">
-            <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="font-semibold text-xs sm:text-sm">+12.5%</span>
-          </div>
         </div>
         <p className="text-slate-600 text-xs sm:text-sm leading-tight">
           From deposits and receipt approvals • Updated in real-time
