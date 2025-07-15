@@ -126,7 +126,7 @@ export class NewReceiptService {
         amount,
         receiptImageUrl: imageUrl,
         description: description || "",
-        status: "pending",
+        status: walletPayment?.isWalletPayment ? "approved" : "pending", // Auto-approve wallet payments
         submittedAt: Timestamp.now(),
         isDepositPayment: !!depositInfo,
       };
@@ -173,11 +173,12 @@ export class NewReceiptService {
             `✅ Wallet balance deducted successfully. New balance: $${deductedBalance}`
           );
 
-          // For wallet payments, keep as pending but mark as auto-processed
-          // This allows superadmins to see them in the dashboard with visual indicators
-          receiptData.status = "pending";
+          // For wallet payments, set as approved immediately
+          receiptData.status = "approved";
           receiptData.isAutoProcessed = true;
           receiptData.processedAt = Timestamp.now();
+          receiptData.approvedAt = Timestamp.now();
+          receiptData.approvedBy = "SYSTEM_WALLET_PAYMENT";
           receiptData.processedBy = "system";
           receiptData.processedByName = "System (Wallet Payment)";
           receiptData.notes = `Paid via wallet balance. Amount deducted: $${

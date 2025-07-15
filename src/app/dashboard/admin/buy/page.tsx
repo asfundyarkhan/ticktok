@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { Search, ShoppingCart, Eye, User, Package } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { AdminRoute } from '../../../components/AdminRoute';
@@ -18,13 +19,22 @@ interface ListingWithSeller extends StockListing {
 function AdminBuyPageContent() {
   const { user } = useAuth();
   const [listings, setListings] = useState<ListingWithSeller[]>([]);
-  const [filteredListings, setFilteredListings] = useState<ListingWithSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedListing, setSelectedListing] = useState<ListingWithSeller | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+
+  // Debounce search query for better performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (!user) return;
@@ -32,27 +42,58 @@ function AdminBuyPageContent() {
     const unsubscribe = StockService.subscribeToAllListings(
       async (stockListings) => {
         try {
-          const listingsWithSellers: ListingWithSeller[] = [];
-          for (const listing of stockListings) {
+          setLoading(true);
+          
+          // Show listings immediately without seller info
+          const basicListings: ListingWithSeller[] = stockListings.map(listing => ({
+            ...listing,
+            sellerName: 'Loading...',
+            sellerEmail: 'Loading...'
+          }));
+          setListings(basicListings);
+          setLoading(false); // Set loading to false early for better UX
+          
+          // Get unique seller IDs to minimize API calls
+          const uniqueSellerIds = [...new Set(stockListings.map(listing => listing.sellerId))];
+          
+          // Batch fetch seller profiles using Promise.allSettled for better error handling
+          const sellerProfilePromises = uniqueSellerIds.map(async (sellerId) => {
             try {
-              const sellerProfile = await UserService.getUserProfile(listing.sellerId);
-              listingsWithSellers.push({
-                ...listing,
-                sellerName: sellerProfile?.displayName || sellerProfile?.email?.split('@')[0] || 'Unknown Seller',
-                sellerEmail: sellerProfile?.email || 'No email'
-              });
+              const profile = await UserService.getUserProfile(sellerId);
+              return {
+                sellerId,
+                sellerName: profile?.displayName || profile?.email?.split('@')[0] || 'Unknown Seller',
+                sellerEmail: profile?.email || 'No email'
+              };
             } catch (error) {
-              console.error(`Error fetching seller profile for ${listing.sellerId}:`, error);
-              listingsWithSellers.push({
-                ...listing,
+              console.error(`Error fetching seller profile for ${sellerId}:`, error);
+              return {
+                sellerId,
                 sellerName: 'Unknown Seller',
                 sellerEmail: 'No email'
-              });
+              };
             }
-          }
+          });
+          
+          const sellerResults = await Promise.allSettled(sellerProfilePromises);
+          
+          // Create seller info map for quick lookup
+          const sellerInfoMap = new Map();
+          sellerResults.forEach((result) => {
+            if (result.status === 'fulfilled') {
+              const { sellerId, sellerName, sellerEmail } = result.value;
+              sellerInfoMap.set(sellerId, { sellerName, sellerEmail });
+            }
+          });
+          
+          // Update listings with seller information
+          const listingsWithSellers: ListingWithSeller[] = stockListings.map(listing => ({
+            ...listing,
+            sellerName: sellerInfoMap.get(listing.sellerId)?.sellerName || 'Unknown Seller',
+            sellerEmail: sellerInfoMap.get(listing.sellerId)?.sellerEmail || 'No email'
+          }));
           
           setListings(listingsWithSellers);
-          setLoading(false);
         } catch (error) {
           console.error('Error processing listings:', error);
           toast.error('Failed to load listings');
@@ -68,26 +109,26 @@ function AdminBuyPageContent() {
 
     return unsubscribe;
   }, [user]);
-  useEffect(() => {
-    if (!searchQuery.trim() && selectedCategory === "all") {
-      setFilteredListings(listings);
-    } else {
-      const filtered = listings.filter(listing => {
-        const matchesSearch = !searchQuery.trim() || (
-          listing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          listing.productId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          listing.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          listing.category.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        
-        const matchesCategory = selectedCategory === "all" || 
-          listing.category?.toLowerCase() === selectedCategory.toLowerCase();
-        
-        return matchesSearch && matchesCategory;
-      });
-      setFilteredListings(filtered);
+  // Memoized filtered listings for better performance
+  const filteredListings = useMemo(() => {
+    if (!debouncedSearchQuery.trim() && selectedCategory === "all") {
+      return listings;
     }
-  }, [searchQuery, selectedCategory, listings]);
+    
+    return listings.filter(listing => {
+      const matchesSearch = !debouncedSearchQuery.trim() || (
+        listing.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        listing.productId.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        listing.sellerName.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        listing.category.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+      );
+      
+      const matchesCategory = selectedCategory === "all" || 
+        listing.category?.toLowerCase() === selectedCategory.toLowerCase();
+      
+      return matchesSearch && matchesCategory;
+    });
+  }, [debouncedSearchQuery, selectedCategory, listings]);
 
   const handleViewDetails = (listing: ListingWithSeller) => {
     setSelectedListing(listing);
@@ -277,10 +318,13 @@ function AdminBuyPageContent() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12">
-                        <img
+                        <Image
                           className="h-12 w-12 rounded-lg object-cover"
                           src={listing.mainImage || listing.images?.[0] || '/images/placeholders/t-shirt.svg'}
                           alt={listing.name}
+                          width={48}
+                          height={48}
+                          priority={false}
                           onError={(e) => {
                             e.currentTarget.src = '/images/placeholders/t-shirt.svg';
                           }}
@@ -350,10 +394,13 @@ function AdminBuyPageContent() {
             {/* Product Header */}
             <div className="flex items-start space-x-3 mb-4">
               <div className="flex-shrink-0">
-                <img
+                <Image
                   className="h-16 w-16 rounded-lg object-cover"
                   src={listing.mainImage || listing.images?.[0] || '/images/placeholders/t-shirt.svg'}
                   alt={listing.name}
+                  width={64}
+                  height={64}
+                  priority={false}
                   onError={(e) => {
                     e.currentTarget.src = '/images/placeholders/t-shirt.svg';
                   }}
@@ -443,10 +490,13 @@ function AdminBuyPageContent() {
               
               <div className="space-y-4">
                 <div className="w-full">
-                  <img
+                  <Image
                     src={selectedListing.mainImage || selectedListing.images?.[0] || '/images/placeholders/t-shirt.svg'}
                     alt={selectedListing.name}
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover rounded-lg"
+                    priority={false}
                     onError={(e) => {
                       e.currentTarget.src = '/images/placeholders/t-shirt.svg';
                     }}

@@ -80,10 +80,17 @@ export default function OrdersPage() {
     return depositReceipts.find(receipt => receipt.pendingDepositId === depositId);
   };
 
-  // Filter orders based on search query
-  const filteredOrders = pendingProfits.filter(profit =>
-    profit.productName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter orders based on search query and hide those with approved payments or auto-processed receipts
+  const filteredOrders = pendingProfits.filter(profit => {
+    // Hide profits that have approved deposit receipts (already paid)
+    const receipt = getDepositReceiptStatus(profit.id);
+    if (receipt && (receipt.status === 'approved' || receipt.isAutoProcessed)) {
+      return false; // Don't show in pending if already approved or auto-processed
+    }
+    
+    // Apply search filter
+    return profit.productName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   // Render action button based on receipt status
   const renderActionButton = (profit: PendingProfit) => {

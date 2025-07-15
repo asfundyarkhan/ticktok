@@ -131,7 +131,7 @@ export default function NewReceiptManagementPage() {
   const getReceiptTypeInfo = (receipt: NewReceipt) => {
     if (receipt.isDepositPayment) {
       return {
-        type: "Deposit Payment",
+        type: "Deposit",
         icon: <DollarSign className="w-4 h-4 text-blue-600" />,
         bgColor: "bg-blue-50",
         textColor: "text-blue-800",
@@ -204,7 +204,7 @@ export default function NewReceiptManagementPage() {
             <div className="flex items-center">
               <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
               <div className="ml-3 sm:ml-4">
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Deposit Payments</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Deposits</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {allReceipts.filter(r => r.isDepositPayment).length}
                 </p>
@@ -271,7 +271,7 @@ export default function NewReceiptManagementPage() {
                         {receipt.isDepositPayment && (
                           <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                             <p className="text-sm text-blue-800">
-                              <strong>Deposit Payment</strong>
+                              <strong>Deposit</strong>
                               {receipt.productName && (
                                 <span> for: {receipt.productName}</span>
                               )}
@@ -370,7 +370,7 @@ export default function NewReceiptManagementPage() {
                   <strong>Amount:</strong> ${selectedReceipt.amount.toFixed(2)}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Type:</strong> {selectedReceipt.isDepositPayment ? "Deposit Payment" : "Withdrawal"}
+                  <strong>Type:</strong> {selectedReceipt.isDepositPayment ? "Deposit" : "Withdrawal"}
                 </p>
               </div>
 
