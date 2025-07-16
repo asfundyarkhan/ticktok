@@ -102,8 +102,8 @@ function ReferralManagerContent() {
       setGeneratingReferralCode(true);
       setReferralCodeGeneratedFor(uid);
       
-      // Generate a referral code through the UserService
-      const code = await UserService.generateReferralCode(uid);
+      // Use the new history-aware method
+      const code = await UserService.generateReferralCodeWithHistory(uid);
       
       // Update the admin in the local state
       setAdmins(
@@ -113,12 +113,35 @@ function ReferralManagerContent() {
             : admin
         )
       );
+      
+      alert(`New referral code generated: ${code}\n\nIMPORTANT: All previous referral codes for this admin remain valid and active. Existing referred sellers will not be affected.`);
     } catch (error) {
       console.error("Error generating referral code:", error);
       alert("Failed to generate referral code. Please try again.");
     } finally {
       setGeneratingReferralCode(false);
       setReferralCodeGeneratedFor(null);
+    }
+  };
+
+  // Function to migrate existing codes to history system
+  const migrateReferralCodes = async () => {
+    try {
+      const confirm = window.confirm(
+        "This will migrate all existing referral codes to the new history system.\n\n" +
+        "✅ All existing referral relationships will be preserved\n" +
+        "✅ All old referral codes will remain valid\n" +
+        "✅ Admins can generate new codes without breaking old ones\n\n" +
+        "Continue with migration?"
+      );
+      
+      if (!confirm) return;
+
+      await UserService.migrateExistingReferralCodes();
+      alert("Migration completed successfully!\n\nAll existing referral codes have been preserved and will remain valid forever.");
+    } catch (error) {
+      console.error("Error migrating referral codes:", error);
+      alert("Migration failed. Please check console for details.");
     }
   };
 
@@ -155,7 +178,28 @@ function ReferralManagerContent() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-6">Admin Referral Code Manager</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Admin Referral Code Manager</h1>
+        <div className="flex gap-3">
+          <button
+            onClick={migrateReferralCodes}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Migrate Existing Codes
+          </button>
+        </div>
+      </div>
+      
+      <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded">
+        <h3 className="text-green-800 font-medium">Enhanced Referral System</h3>
+        <p className="text-green-700 text-sm mt-1">
+          <strong>New Feature:</strong> Referral codes now use a history system. When admins generate new codes, 
+          all previous codes remain valid forever. This ensures existing referred sellers are never disconnected.
+        </p>
+      </div>
         <div className="flex items-center justify-between mb-6">
         <div className="flex-1">
           <div className="relative">
@@ -268,7 +312,7 @@ function ReferralManagerContent() {
                         ) : (
                           <>
                             <RefreshCcw className="h-4 w-4 mr-1" />
-                            {admin.referralCode ? "Regenerate Code" : "Generate Code"}
+                            {admin.referralCode ? "Generate New Code" : "Generate Code"}
                           </>
                         )}
                       </button>

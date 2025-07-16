@@ -8,7 +8,9 @@ import {
   query,
   where,
   getDocs,
+  orderBy,
   Timestamp,
+  writeBatch,
 } from "firebase/firestore";
 import { firestore, storage } from "../lib/firebase/firebase";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
@@ -45,6 +47,9 @@ export interface UserProfile {
 
 export class UserService {
   static COLLECTION = "users";
+
+  // Collection for tracking referral code history
+  private static readonly REFERRAL_HISTORY_COLLECTION = "referral_code_history";
 
   // Get user by ID
   static async getUserById(uid: string): Promise<UserProfile | null> {
@@ -398,97 +403,18 @@ export class UserService {
     }
   }
 
-  // Generate a unique referral code for a user
+  // Generate a unique referral code for a user (deprecated - use generateReferralCodeWithHistory)
   static async generateReferralCode(uid: string): Promise<string> {
-    try {
-      // Fetch the user to check if they are admin/superadmin
-      const userRef = doc(firestore, this.COLLECTION, uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        throw new Error("User not found");
-      }
-
-      const userData = userSnap.data() as UserProfile;
-      if (userData.role !== "admin" && userData.role !== "superadmin") {
-        throw new Error(
-          "Only admin or superadmin users can generate referral codes"
-        );
-      }
-
-      // Generate a code based on user ID and random string
-      const randomPart = Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase();
-      const referralCode = `ADMIN_${randomPart}`;
-
-      // Save the referral code to the user's profile
-      await updateDoc(userRef, {
-        referralCode,
-        updatedAt: Timestamp.now(),
-      });
-
-      // Log referral code generation activity
-      try {
-        const { ActivityService } = await import("./activityService");
-        await ActivityService.logReferralCodeGeneration(
-          uid,
-          userData.displayName || userData.email || "Unknown User",
-          referralCode
-        );
-      } catch (activityError) {
-        console.error(
-          "Error logging referral code generation activity:",
-          activityError
-        );
-        // Don't fail the operation if activity logging fails
-      }
-
-      return referralCode;
-    } catch (error) {
-      console.error("Error generating referral code:", error);
-      throw error;
-    }
+    console.warn("generateReferralCode is deprecated, using generateReferralCodeWithHistory instead");
+    return this.generateReferralCodeWithHistory(uid);
   }
-  // Validate a referral code and check if it belongs to an admin
+  
+  // Validate a referral code and check if it belongs to an admin (deprecated - use validateReferralCodeWithHistory)
   static async validateReferralCode(
     referralCode: string
   ): Promise<{ isValid: boolean; adminUid?: string }> {
-    try {
-      console.log("Validating referral code in userService:", referralCode);
-
-      // Normalize the referral code to handle case insensitivity and spaces
-      const normalizedCode = referralCode.trim();
-
-      const q = query(
-        collection(firestore, this.COLLECTION),
-        where("referralCode", "==", normalizedCode)
-      );
-
-      const querySnapshot = await getDocs(q);
-      console.log("Query results count:", querySnapshot.size);
-
-      if (!querySnapshot.empty) {
-        const adminDoc = querySnapshot.docs[0];
-        const userData = adminDoc.data();
-        console.log("Found user with role:", userData.role);
-
-        // Check if user is admin or superadmin
-        if (userData.role === "admin" || userData.role === "superadmin") {
-          return { isValid: true, adminUid: adminDoc.id };
-        } else {
-          console.log("User found but not admin/superadmin");
-          return { isValid: false };
-        }
-      } else {
-        console.log("No user found with this referral code");
-        return { isValid: false };
-      }
-    } catch (error) {
-      console.error("Error validating referral code:", error);
-      throw error;
-    }
+    console.warn("validateReferralCode is deprecated, using validateReferralCodeWithHistory instead");
+    return this.validateReferralCodeWithHistory(referralCode);
   }
 
   // Upgrade user to seller role with referral code
@@ -957,6 +883,235 @@ export class UserService {
         message:
           error instanceof Error ? error.message : "Failed to add balance",
       };
+    }
+  }
+
+  // Enhanced referral code generation with history tracking
+  static async generateReferralCodeWithHistory(uid: string): Promise<string> {
+    try {
+      // Fetch the user to check if they are admin/superadmin
+      const userRef = doc(firestore, this.COLLECTION, uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnap.data() as UserProfile;
+      if (userData.role !== "admin" && userData.role !== "superadmin") {
+        throw new Error(
+          "Only admin or superadmin users can generate referral codes"
+        );
+      }
+
+      // Generate a new code
+      const randomPart = Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+      const newReferralCode = `ADMIN_${randomPart}`;
+
+      // Store the old referral code in history if it exists
+      if (userData.referralCode) {
+        await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode), {
+          code: userData.referralCode,
+          adminUid: uid,
+          adminEmail: userData.email,
+          createdAt: userData.updatedAt || Timestamp.now(),
+          replacedAt: Timestamp.now(),
+          isActive: true, // Keep old codes active for existing referrals
+        });
+      }
+
+      // Store the new referral code in history
+      await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, newReferralCode), {
+        code: newReferralCode,
+        adminUid: uid,
+        adminEmail: userData.email,
+        createdAt: Timestamp.now(),
+        replacedAt: null,
+        isActive: true,
+        isCurrent: true, // Mark as the current/primary code
+      });
+
+      // Update the user's profile with the new code
+      await updateDoc(userRef, {
+        referralCode: newReferralCode,
+        updatedAt: Timestamp.now(),
+      });
+
+      // If there was an old code, mark it as no longer current
+      if (userData.referralCode) {
+        await updateDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode), {
+          isCurrent: false,
+        });
+      }
+
+      // Log referral code generation activity
+      try {
+        const { ActivityService } = await import("./activityService");
+        await ActivityService.logReferralCodeGeneration(
+          uid,
+          userData.displayName || userData.email || "Unknown User",
+          newReferralCode
+        );
+      } catch (activityError) {
+        console.error(
+          "Error logging referral code generation activity:",
+          activityError
+        );
+      }
+
+      return newReferralCode;
+    } catch (error) {
+      console.error("Error generating referral code with history:", error);
+      throw error;
+    }
+  }
+
+  // Enhanced validation that checks both current codes and historical codes
+  static async validateReferralCodeWithHistory(
+    referralCode: string
+  ): Promise<{ isValid: boolean; adminUid?: string }> {
+    try {
+      console.log("Validating referral code with history:", referralCode);
+
+      const normalizedCode = referralCode.trim();
+
+      // First check the referral code history collection
+      const historyDocRef = doc(firestore, this.REFERRAL_HISTORY_COLLECTION, normalizedCode);
+      const historyDoc = await getDoc(historyDocRef);
+
+      if (historyDoc.exists()) {
+        const historyData = historyDoc.data();
+        if (historyData.isActive) {
+          console.log("Found referral code in history, admin:", historyData.adminUid);
+          return { isValid: true, adminUid: historyData.adminUid };
+        }
+      }
+
+      // Fallback to the original method for backwards compatibility
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where("referralCode", "==", normalizedCode)
+      );
+
+      const querySnapshot = await getDocs(q);
+      console.log("Fallback query results count:", querySnapshot.size);
+
+      if (!querySnapshot.empty) {
+        const adminDoc = querySnapshot.docs[0];
+        const userData = adminDoc.data();
+        console.log("Found user with role:", userData.role);
+
+        if (userData.role === "admin" || userData.role === "superadmin") {
+          // If we found it in the user collection but not in history, add it to history
+          await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, normalizedCode), {
+            code: normalizedCode,
+            adminUid: adminDoc.id,
+            adminEmail: userData.email,
+            createdAt: userData.createdAt || Timestamp.now(),
+            replacedAt: null,
+            isActive: true,
+            isCurrent: true,
+            migratedFromUserProfile: true,
+          });
+
+          return { isValid: true, adminUid: adminDoc.id };
+        } else {
+          console.log("User found but not admin/superadmin");
+          return { isValid: false };
+        }
+      } else {
+        console.log("No user found with this referral code");
+        return { isValid: false };
+      }
+    } catch (error) {
+      console.error("Error validating referral code with history:", error);
+      throw error;
+    }
+  }
+
+  // Migrate existing referral codes to the history system
+  static async migrateExistingReferralCodes(): Promise<void> {
+    try {
+      console.log("Starting migration of existing referral codes to history system...");
+
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where("referralCode", "!=", null)
+      );
+
+      const querySnapshot = await getDocs(q);
+      console.log(`Found ${querySnapshot.size} users with referral codes to migrate`);
+
+      const batch = writeBatch(firestore);
+      let migrationCount = 0;
+
+      for (const userDoc of querySnapshot.docs) {
+        const userData = userDoc.data();
+        if (userData.referralCode && (userData.role === "admin" || userData.role === "superadmin")) {
+          // Check if already migrated
+          const historyDocRef = doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode);
+          const historyDoc = await getDoc(historyDocRef);
+
+          if (!historyDoc.exists()) {
+            batch.set(historyDocRef, {
+              code: userData.referralCode,
+              adminUid: userDoc.id,
+              adminEmail: userData.email,
+              createdAt: userData.createdAt || Timestamp.now(),
+              replacedAt: null,
+              isActive: true,
+              isCurrent: true,
+              migratedFromUserProfile: true,
+            });
+            migrationCount++;
+          }
+        }
+      }
+
+      if (migrationCount > 0) {
+        await batch.commit();
+        console.log(`Successfully migrated ${migrationCount} referral codes to history system`);
+      } else {
+        console.log("No referral codes needed migration");
+      }
+    } catch (error) {
+      console.error("Error migrating referral codes:", error);
+      throw error;
+    }
+  }
+
+  // Get all referral codes for an admin (including historical ones)
+  static async getAdminReferralCodeHistory(adminUid: string): Promise<Array<{
+    code: string;
+    createdAt: Date;
+    replacedAt: Date | null;
+    isCurrent: boolean;
+    isActive: boolean;
+  }>> {
+    try {
+      const q = query(
+        collection(firestore, this.REFERRAL_HISTORY_COLLECTION),
+        where("adminUid", "==", adminUid),
+        orderBy("createdAt", "desc")
+      );
+
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          code: data.code,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          replacedAt: data.replacedAt?.toDate() || null,
+          isCurrent: data.isCurrent || false,
+          isActive: data.isActive || false,
+        };
+      });
+    } catch (error) {
+      console.error("Error getting admin referral code history:", error);
+      throw error;
     }
   }
 }
