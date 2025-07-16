@@ -1114,4 +1114,375 @@ export class UserService {
       throw error;
     }
   }
+
+  // Fix broken referral relationships - restore sellers to their original admins
+  static async fixBrokenReferralChains(): Promise<{
+    fixed: number;
+    alreadyFixed: number;
+    errors: number;
+    details: Array<{
+      sellerEmail: string;
+      adminEmail: string;
+      action: string;
+      error?: string;
+    }>;
+  }> {
+    try {
+      console.log("🔧 Starting broken referral chain repair...");
+
+      const result = {
+        fixed: 0,
+        alreadyFixed: 0,
+        errors: 0,
+        details: [] as Array<{
+          sellerEmail: string;
+          adminEmail: string;
+          action: string;
+          error?: string;
+        }>
+      };
+
+      // Get all sellers who have referredBy but might have broken chains
+      const sellersQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "==", "seller"),
+        where("referredBy", "!=", null)
+      );
+
+      const sellersSnapshot = await getDocs(sellersQuery);
+      console.log(`📊 Found ${sellersSnapshot.size} sellers with referredBy relationships`);
+
+      // Get all admins for reference
+      const adminsQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "in", ["admin", "superadmin"])
+      );
+      const adminsSnapshot = await getDocs(adminsQuery);
+      
+      // Create admin lookup map
+      const adminMap = new Map<string, { email: string; referralCode?: string }>();
+      adminsSnapshot.forEach(doc => {
+        const data = doc.data();
+        adminMap.set(doc.id, {
+          email: data.email,
+          referralCode: data.referralCode
+        });
+      });
+
+      console.log(`👥 Found ${adminMap.size} admins in system`);
+
+      // Process each seller
+      for (const sellerDoc of sellersSnapshot.docs) {
+        const sellerData = sellerDoc.data();
+        const sellerId = sellerDoc.id;
+        const adminUid = sellerData.referredBy;
+
+        if (!adminMap.has(adminUid)) {
+          // Admin no longer exists - this is a data integrity issue
+          result.errors++;
+          result.details.push({
+            sellerEmail: sellerData.email,
+            adminEmail: `[MISSING: ${adminUid}]`,
+            action: "ERROR - Admin not found",
+            error: "Referenced admin no longer exists"
+          });
+          continue;
+        }
+
+        const admin = adminMap.get(adminUid)!;
+
+        // Check if seller's referral code is still valid for this admin
+        let needsFix = false;
+        const currentReferralCode = sellerData.referralCode;
+
+        if (!currentReferralCode) {
+          // Seller has no referral code stored - this might be from old registration
+          needsFix = true;
+        } else {
+          // Check if the stored referral code is still valid for this admin
+          const validation = await this.validateReferralCodeWithHistory(currentReferralCode);
+          if (!validation.isValid || validation.adminUid !== adminUid) {
+            needsFix = true;
+          }
+        }
+
+        if (needsFix) {
+          // Fix the relationship by using admin's current referral code
+          if (admin.referralCode) {
+            await updateDoc(doc(firestore, this.COLLECTION, sellerId), {
+              referralCode: admin.referralCode,
+              updatedAt: Timestamp.now(),
+              // Add a flag to indicate this was auto-fixed
+              referralChainFixed: true,
+              referralChainFixedAt: Timestamp.now()
+            });
+
+            result.fixed++;
+            result.details.push({
+              sellerEmail: sellerData.email,
+              adminEmail: admin.email,
+              action: `Fixed - Updated referral code to ${admin.referralCode}`
+            });
+
+            console.log(`✅ Fixed ${sellerData.email} → ${admin.email} (${admin.referralCode})`);
+          } else {
+            // Admin has no current referral code - create one
+            const newCode = await this.generateReferralCodeWithHistory(adminUid);
+            
+            await updateDoc(doc(firestore, this.COLLECTION, sellerId), {
+              referralCode: newCode,
+              updatedAt: Timestamp.now(),
+              referralChainFixed: true,
+              referralChainFixedAt: Timestamp.now()
+            });
+
+            result.fixed++;
+            result.details.push({
+              sellerEmail: sellerData.email,
+              adminEmail: admin.email,
+              action: `Fixed - Generated new admin code ${newCode} and linked seller`
+            });
+
+            console.log(`✅ Fixed ${sellerData.email} → ${admin.email} (generated ${newCode})`);
+          }
+        } else {
+          result.alreadyFixed++;
+          result.details.push({
+            sellerEmail: sellerData.email,
+            adminEmail: admin.email,
+            action: "Already valid - No fix needed"
+          });
+        }
+      }
+
+      console.log(`\n🎉 REPAIR COMPLETE!`);
+      console.log(`   ✅ Fixed: ${result.fixed} sellers`);
+      console.log(`   ⏭️  Already valid: ${result.alreadyFixed} sellers`);
+      console.log(`   ❌ Errors: ${result.errors} sellers`);
+
+      return result;
+    } catch (error) {
+      console.error("Error fixing broken referral chains:", error);
+      throw error;
+    }
+  }
+
+  // Validate all referral relationships in the system
+  static async validateAllReferralRelationships(): Promise<{
+    valid: number;
+    broken: number;
+    orphaned: number;
+    details: Array<{
+      type: "valid" | "broken" | "orphaned";
+      sellerEmail: string;
+      adminEmail?: string;
+      issue?: string;
+    }>;
+  }> {
+    try {
+      console.log("🔍 Validating all referral relationships...");
+
+      const result = {
+        valid: 0,
+        broken: 0,
+        orphaned: 0,
+        details: [] as Array<{
+          type: "valid" | "broken" | "orphaned";
+          sellerEmail: string;
+          adminEmail?: string;
+          issue?: string;
+        }>
+      };
+
+      // Get all sellers
+      const sellersQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "==", "seller")
+      );
+
+      const sellersSnapshot = await getDocs(sellersQuery);
+      console.log(`📊 Validating ${sellersSnapshot.size} sellers...`);
+
+      // Get all admins for reference
+      const adminsQuery = query(
+        collection(firestore, this.COLLECTION),
+        where("role", "in", ["admin", "superadmin"])
+      );
+      const adminsSnapshot = await getDocs(adminsQuery);
+      
+      const adminMap = new Map<string, { email: string; referralCode?: string }>();
+      adminsSnapshot.forEach(doc => {
+        const data = doc.data();
+        adminMap.set(doc.id, {
+          email: data.email,
+          referralCode: data.referralCode
+        });
+      });
+
+      for (const sellerDoc of sellersSnapshot.docs) {
+        const sellerData = sellerDoc.data();
+
+        if (!sellerData.referredBy) {
+          // Seller not referred by anyone
+          result.orphaned++;
+          result.details.push({
+            type: "orphaned",
+            sellerEmail: sellerData.email,
+            issue: "No referredBy field - not part of referral system"
+          });
+          continue;
+        }
+
+        const adminUid = sellerData.referredBy;
+        
+        if (!adminMap.has(adminUid)) {
+          // Referenced admin doesn't exist
+          result.broken++;
+          result.details.push({
+            type: "broken",
+            sellerEmail: sellerData.email,
+            issue: `Referenced admin ${adminUid} no longer exists`
+          });
+          continue;
+        }
+
+        const admin = adminMap.get(adminUid)!;
+
+        // Check if referral code is valid
+        if (sellerData.referralCode) {
+          const validation = await this.validateReferralCodeWithHistory(sellerData.referralCode);
+          if (validation.isValid && validation.adminUid === adminUid) {
+            result.valid++;
+            result.details.push({
+              type: "valid",
+              sellerEmail: sellerData.email,
+              adminEmail: admin.email
+            });
+          } else {
+            result.broken++;
+            result.details.push({
+              type: "broken",
+              sellerEmail: sellerData.email,
+              adminEmail: admin.email,
+              issue: `Referral code ${sellerData.referralCode} is invalid or doesn't match admin`
+            });
+          }
+        } else {
+          result.broken++;
+          result.details.push({
+            type: "broken",
+            sellerEmail: sellerData.email,
+            adminEmail: admin.email,
+            issue: "Missing referral code"
+          });
+        }
+      }
+
+      console.log(`\n📊 VALIDATION COMPLETE:`);
+      console.log(`   ✅ Valid: ${result.valid} relationships`);
+      console.log(`   ❌ Broken: ${result.broken} relationships`);
+      console.log(`   👤 Orphaned: ${result.orphaned} sellers`);
+
+      return result;
+    } catch (error) {
+      console.error("Error validating referral relationships:", error);
+      throw error;
+    }
+  }
+
+  // Get detailed referral relationship report
+  static async getReferralRelationshipReport(): Promise<{
+    totalSellers: number;
+    totalAdmins: number;
+    referralRelationships: number;
+    orphanedSellers: number;
+    adminStats: Array<{
+      adminEmail: string;
+      adminUid: string;
+      currentReferralCode?: string;
+      referredSellersCount: number;
+      totalReferralBalance: number;
+      sellers: Array<{
+        email: string;
+        balance: number;
+        referralCode?: string;
+        isValid: boolean;
+      }>;
+    }>;
+  }> {
+    try {
+      console.log("📊 Generating referral relationship report...");
+
+      // Get all users
+      const allUsersSnapshot = await getDocs(collection(firestore, this.COLLECTION));
+      
+      const sellers: UserProfile[] = [];
+      const admins: UserProfile[] = [];
+      
+      allUsersSnapshot.forEach(doc => {
+        const data = doc.data() as UserProfile;
+        const userWithId = { ...data, uid: doc.id };
+        if (data.role === "seller") {
+          sellers.push(userWithId);
+        } else if (data.role === "admin" || data.role === "superadmin") {
+          admins.push(userWithId);
+        }
+      });
+
+      const orphanedSellers = sellers.filter(s => !s.referredBy).length;
+      const referralRelationships = sellers.filter(s => s.referredBy).length;
+
+      // Generate admin stats
+      const adminStats = [];
+      for (const admin of admins) {
+        const referredSellers = sellers.filter(s => s.referredBy === admin.uid);
+        let totalBalance = 0;
+        
+        const sellerDetails = [];
+        for (const seller of referredSellers) {
+          totalBalance += seller.balance || 0;
+          
+          let isValid = false;
+          if (seller.referralCode) {
+            try {
+              const validation = await this.validateReferralCodeWithHistory(seller.referralCode);
+              isValid = validation.isValid && validation.adminUid === admin.uid;
+            } catch {
+              isValid = false;
+            }
+          }
+
+          sellerDetails.push({
+            email: seller.email,
+            balance: seller.balance || 0,
+            referralCode: seller.referralCode,
+            isValid
+          });
+        }
+
+        adminStats.push({
+          adminEmail: admin.email,
+          adminUid: admin.uid,
+          currentReferralCode: admin.referralCode,
+          referredSellersCount: referredSellers.length,
+          totalReferralBalance: totalBalance,
+          sellers: sellerDetails
+        });
+      }
+
+      const report = {
+        totalSellers: sellers.length,
+        totalAdmins: admins.length,
+        referralRelationships,
+        orphanedSellers,
+        adminStats
+      };
+
+      console.log(`📋 Report generated: ${referralRelationships} referral relationships found`);
+      return report;
+    } catch (error) {
+      console.error("Error generating referral relationship report:", error);
+      throw error;
+    }
+  }
 }

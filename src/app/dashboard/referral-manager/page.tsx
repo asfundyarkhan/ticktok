@@ -145,6 +145,72 @@ function ReferralManagerContent() {
     }
   };
 
+  // Function to fix broken referral chains
+  const fixBrokenReferralChains = async () => {
+    try {
+      const confirm = window.confirm(
+        "This will repair broken referral relationships.\n\n" +
+        "🔧 Finds sellers with broken referral code links\n" +
+        "✅ Restores them to their original admin (via adminUid)\n" +
+        "🔄 Updates their referral codes to current valid ones\n" +
+        "📊 Preserves all balances and transaction history\n\n" +
+        "Continue with repair?"
+      );
+      
+      if (!confirm) return;
+
+      const result = await UserService.fixBrokenReferralChains();
+      
+      let message = `Referral Chain Repair Complete!\n\n`;
+      message += `✅ Fixed: ${result.fixed} sellers\n`;
+      message += `⏭️ Already valid: ${result.alreadyFixed} sellers\n`;
+      message += `❌ Errors: ${result.errors} sellers\n\n`;
+      
+      if (result.details.length > 0) {
+        message += `Details:\n`;
+        result.details.slice(0, 10).forEach(detail => {
+          message += `• ${detail.sellerEmail} → ${detail.adminEmail}: ${detail.action}\n`;
+        });
+        if (result.details.length > 10) {
+          message += `... and ${result.details.length - 10} more`;
+        }
+      }
+      
+      alert(message);
+    } catch (error) {
+      console.error("Error fixing referral chains:", error);
+      alert("Repair failed. Please check console for details.");
+    }
+  };
+
+  // Function to validate all referral relationships
+  const validateAllReferrals = async () => {
+    try {
+      const result = await UserService.validateAllReferralRelationships();
+      
+      let message = `Referral Validation Report:\n\n`;
+      message += `✅ Valid relationships: ${result.valid}\n`;
+      message += `❌ Broken relationships: ${result.broken}\n`;
+      message += `👤 Orphaned sellers: ${result.orphaned}\n\n`;
+      
+      if (result.broken > 0) {
+        message += `Broken relationships found! Use "Fix Broken Chains" to repair them.\n\n`;
+        message += `Sample broken relationships:\n`;
+        const brokenDetails = result.details.filter(d => d.type === "broken").slice(0, 5);
+        brokenDetails.forEach(detail => {
+          message += `• ${detail.sellerEmail}: ${detail.issue}\n`;
+        });
+      } else {
+        message += `🎉 All referral relationships are healthy!`;
+      }
+      
+      alert(message);
+    } catch (error) {
+      console.error("Error validating referrals:", error);
+      alert("Validation failed. Please check console for details.");
+    }
+  };
+
   // Function to copy referral code to clipboard
   const copyReferralCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -180,25 +246,54 @@ function ReferralManagerContent() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold">Admin Referral Code Manager</h1>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
+          <button
+            onClick={validateAllReferrals}
+            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Validate All
+          </button>
+          <button
+            onClick={fixBrokenReferralChains}
+            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center gap-2 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Fix Broken Chains
+          </button>
           <button
             onClick={migrateReferralCodes}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2 text-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Migrate Existing Codes
+            Migrate Codes
           </button>
         </div>
       </div>
       
-      <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6 rounded">
-        <h3 className="text-green-800 font-medium">Enhanced Referral System</h3>
-        <p className="text-green-700 text-sm mt-1">
-          <strong>New Feature:</strong> Referral codes now use a history system. When admins generate new codes, 
-          all previous codes remain valid forever. This ensures existing referred sellers are never disconnected.
-        </p>
+      <div className="space-y-4 mb-6">
+        <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
+          <h3 className="text-green-800 font-medium">Enhanced Referral System</h3>
+          <p className="text-green-700 text-sm mt-1">
+            <strong>New Feature:</strong> Referral codes now use a history system. When admins generate new codes, 
+            all previous codes remain valid forever. This ensures existing referred sellers are never disconnected.
+          </p>
+        </div>
+        
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded">
+          <h3 className="text-red-800 font-medium">🔧 Repair Broken Chains</h3>
+          <p className="text-red-700 text-sm mt-1">
+            <strong>Fix Available:</strong> If some sellers were disconnected due to referral code changes, 
+            use &quot;Fix Broken Chains&quot; to restore them to their original admins. All relationships are tracked by admin ID.
+          </p>
+        </div>
       </div>
         <div className="flex items-center justify-between mb-6">
         <div className="flex-1">
