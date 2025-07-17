@@ -222,25 +222,27 @@ export default function OrdersPage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex border-b border-gray-200 mb-4 sm:mb-6 overflow-x-auto">
-          <Link href="/profile" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            General
-          </Link>
-          <Link href="/receipts-v2" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Receipts
-          </Link>
-          <Link href="/withdrawals" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Withdrawals
-          </Link>
-          <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            Product Pool
-          </Link>
-          <Link href="/stock/listings" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
-            My Listings
-          </Link>
-          <Link href="/stock/pending" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
-            Orders
-          </Link>
+        <div className="flex border-b border-gray-200 mb-4 sm:mb-6 overflow-x-auto scrollbar-hide">
+          <div className="flex min-w-max space-x-1 sm:space-x-0">
+            <Link href="/profile" className="px-2 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              General
+            </Link>
+            <Link href="/receipts-v2" className="px-2 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              Receipts
+            </Link>
+            <Link href="/withdrawals" className="px-2 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              Withdrawals
+            </Link>
+            <Link href="/stock" className="px-2 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              Product Pool
+            </Link>
+            <Link href="/stock/listings" className="px-2 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              My Listings
+            </Link>
+            <Link href="/stock/pending" className="px-2 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-xs sm:text-base flex-shrink-0">
+              Orders
+            </Link>
+          </div>
         </div>
 
         {/* Search Bar */}

@@ -18,7 +18,6 @@ import {
   Menu,
   X,
   DollarSign,
-  Receipt,
   Banknote,
 } from "lucide-react";
 import LogoutButton from "./LogoutButton";
@@ -54,8 +53,6 @@ const navigation: NavItem[] = [
     superadminOnly: true, // Superadmins only
   },
   { name: "Stock Listing", href: "/dashboard/stock", icon: ShoppingBag },
-  { name: "Receipts", href: "/receipts-v2", icon: Receipt, excludeSuperadmin: true },
-  { name: "Withdrawals", href: "/withdrawals", icon: Banknote, excludeSuperadmin: true },
   {
     name: "Seller Credit",
     href: "/dashboard/admin",

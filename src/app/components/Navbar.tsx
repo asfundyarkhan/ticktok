@@ -19,9 +19,10 @@ export default function Navbar() {
   const [visible, setVisible] = useState(true);
   const { balance } = useUserBalance();
   const { isCartOpen, setIsCartOpen } = useCart();
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
   
   const isSeller = userProfile?.role === "seller";
+  const isAuthenticated = !!user; // Check if user is actually logged in
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,13 +47,6 @@ export default function Navbar() {
 
   if (isAuthPage || pathname.startsWith("/dashboard")) return null;
 
-  const isLoggedInPage =
-    pathname.startsWith("/store") ||
-    pathname.startsWith("/stock") ||
-    pathname.startsWith("/profile") ||
-    pathname.startsWith("/wallet") ||
-    pathname.startsWith("/receipts");
-
   return (
     <>
       <nav
@@ -68,7 +62,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">            {/* Left section with logo and navigation */}
             <div className="flex items-center space-x-8">
               <Link
-                href={isLoggedInPage ? (isSeller ? "/profile" : "/store") : "/"}
+                href={isAuthenticated ? (isSeller ? "/profile" : "/store") : "/"}
                 className="flex items-center"
               >
                 <span className="text-lg font-bold text-[#FF0059]">TikTok</span>
@@ -92,14 +86,15 @@ export default function Navbar() {
             
             {/* Right section */}
             <div className="flex items-center space-x-4">              {/* Cart icon (if logged in and not a seller) */}
-              {isLoggedInPage && !isSeller && (
+              {isAuthenticated && !isSeller && (
                 <AnimatedCartIcon
                   className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
                   onClick={() => setIsCartOpen(true)}
                 />
               )}
 
-              {/* Auth buttons with integrated balance */}                {isLoggedInPage ? (
+              {/* Auth buttons with integrated balance */}
+              {isAuthenticated ? (
                 <div className="hidden md:flex items-center space-x-2">
                   {/* Balance display - show for all logged in users */}
                   <Link
@@ -174,7 +169,7 @@ export default function Navbar() {
       >
         <div className="bg-white shadow-lg border-t">
           <div className="max-w-7xl mx-auto divide-y divide-gray-200">
-            {isLoggedInPage ? (
+            {isAuthenticated ? (
               <>
                 {/* Store link for mobile */}
                 <div className="py-2 px-4">
@@ -262,7 +257,7 @@ export default function Navbar() {
           </div>
         </div>
       </div>      {/* Cart Drawer - only show for non-sellers */}
-      {isLoggedInPage && !isSeller && (
+      {isAuthenticated && !isSeller && (
         <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
       )}
     </>

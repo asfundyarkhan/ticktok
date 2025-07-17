@@ -19,7 +19,7 @@ export interface WithdrawalRequest {
   sellerName: string;
   sellerEmail: string;
   amount: number;
-  usdtId?: string; // USDT wallet address/ID for withdrawal
+  usdtId: string; // USDT wallet address/ID for withdrawal (now required)
   status: "pending" | "approved" | "rejected";
   requestDate: Date;
   processedDate?: Date;
@@ -46,7 +46,7 @@ export class WithdrawalRequestService {
     sellerName: string,
     sellerEmail: string,
     amount: number,
-    usdtId?: string
+    usdtId: string
   ): Promise<WithdrawalRequestResult> {
     try {
       // Validate amount
@@ -54,6 +54,14 @@ export class WithdrawalRequestService {
         return {
           success: false,
           message: "Withdrawal amount must be greater than 0",
+        };
+      }
+
+      // Validate USDT address
+      if (!usdtId || !usdtId.trim()) {
+        return {
+          success: false,
+          message: "USDT wallet address is required",
         };
       }
 

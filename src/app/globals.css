@@ -255,3 +255,16 @@
     transform: rotate(360deg);
   }
 }
+
+/* Utility classes */
+@layer utilities {
+  /* Hide scrollbar for mobile navigation */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+  }
+}

@@ -37,11 +37,12 @@ export default function WithdrawalModal({
     }
   }, [isOpen]);
 
-  const validateAmount = (value: string): boolean => {
-    const numValue = parseFloat(value);
+  const validateForm = (amountValue: string, usdtValue: string): boolean => {
+    const numValue = parseFloat(amountValue);
     const newErrors: { amount?: string; usdtId?: string } = {};
 
-    if (!value.trim()) {
+    // Validate amount
+    if (!amountValue.trim()) {
       newErrors.amount = "Amount is required";
     } else if (isNaN(numValue) || numValue <= 0) {
       newErrors.amount = "Amount must be a positive number";
@@ -49,6 +50,13 @@ export default function WithdrawalModal({
       newErrors.amount = `Amount cannot exceed available balance ($${availableBalance.toFixed(2)})`;
     } else if (numValue < 5) {
       newErrors.amount = "Minimum withdrawal amount is $5.00";
+    }
+
+    // Validate USDT address (now required)
+    if (!usdtValue.trim()) {
+      newErrors.usdtId = "USDT wallet address is required";
+    } else if (usdtValue.trim().length < 20) {
+      newErrors.usdtId = "Please enter a valid USDT TRC20 wallet address";
     }
 
     setErrors(newErrors);
@@ -61,7 +69,7 @@ export default function WithdrawalModal({
     if (/^\d*\.?\d*$/.test(value)) {
       setAmount(value);
       if (value) {
-        validateAmount(value);
+        validateForm(value, usdtId);
       } else {
         setErrors({});
       }
@@ -71,7 +79,13 @@ export default function WithdrawalModal({
   const handleSetMaxAmount = () => {
     const maxAmount = Math.max(0, availableBalance);
     setAmount(maxAmount.toFixed(2));
-    validateAmount(maxAmount.toFixed(2));
+    validateForm(maxAmount.toFixed(2), usdtId);
+  };
+
+  const handleUsdtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setUsdtId(value);
+    validateForm(amount, value);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +96,7 @@ export default function WithdrawalModal({
       return;
     }
 
-    if (!validateAmount(amount)) {
+    if (!validateForm(amount, usdtId)) {
       return;
     }
 
@@ -94,7 +108,7 @@ export default function WithdrawalModal({
         sellerName,
         sellerEmail,
         parseFloat(amount),
-        usdtId.trim() || undefined
+        usdtId.trim()
       );
 
       if (result.success) {
@@ -187,19 +201,25 @@ export default function WithdrawalModal({
             {/* USDT ID Field */}
             <div>
               <label htmlFor="usdtId" className="block text-sm font-medium text-gray-700 mb-2">
-                USDT Wallet Address (Optional)
+                USDT Wallet Address <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 id="usdtId"
                 value={usdtId}
-                onChange={(e) => setUsdtId(e.target.value)}
+                onChange={handleUsdtChange}
                 placeholder="Enter your USDT TRC20 wallet address"
-                className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all font-mono text-sm"
+                className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all font-mono text-sm ${
+                  errors.usdtId ? "border-red-500" : "border-gray-300"
+                }`}
                 disabled={isSubmitting}
+                required
               />
+              {errors.usdtId && (
+                <p className="mt-1 text-sm text-red-600">{errors.usdtId}</p>
+              )}
               <p className="mt-1 text-xs text-gray-500">
-                Providing your USDT address helps expedite your withdrawal processing
+                Your USDT TRC20 wallet address is required for withdrawal processing
               </p>
             </div>
 
@@ -222,7 +242,7 @@ export default function WithdrawalModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !amount || !!errors.amount}
+                disabled={isSubmitting || !amount || !usdtId || !!errors.amount || !!errors.usdtId}
                 className="flex-1 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (
