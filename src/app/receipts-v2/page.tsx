@@ -113,12 +113,18 @@ function ReceiptsV2Content() {
     }
   };
 
-  // Computed property to determine if form should be shown
-  const shouldShowForm = (() => {
+  // Computed property to determine if PRODUCT form should be shown
+  const shouldShowProductForm = (() => {
     if (typeof window === 'undefined') return false; // Server-side rendering guard
     const urlParams = new URLSearchParams(window.location.search);
     const hasDepositParam = urlParams.has('deposit');
-    return showSubmissionForm || hasDepositParam || !!depositContext.depositId;
+    return hasDepositParam || !!depositContext.depositId;
+  })();
+
+  // Computed property to determine if MANUAL form should be shown  
+  const shouldShowManualForm = (() => {
+    if (typeof window === 'undefined') return false; // Server-side rendering guard
+    return showSubmissionForm && !depositContext.depositId;
   })();
 
   // Computed property to get current deposit context
@@ -207,6 +213,9 @@ function ReceiptsV2Content() {
           <Link href="/receipts-v2" className="px-3 sm:px-4 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-medium -mb-[2px] whitespace-nowrap text-sm sm:text-base">
             Receipts
           </Link>
+          <Link href="/withdrawals" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            Withdrawals
+          </Link>
           <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Product Pool
           </Link>
@@ -218,8 +227,10 @@ function ReceiptsV2Content() {
           </Link>
         </div>
 
+        {/* Manual Receipt Form - Shows when manually triggered */}
+
         {/* Centered Receipt Form - Shows when coming from Pay Now */}
-        {shouldShowForm && currentDepositContext.depositId && (
+        {shouldShowProductForm && currentDepositContext.depositId && (
           <div className="mb-8">
             <div className="flex justify-center">
               <div className="w-full max-w-2xl">
@@ -258,24 +269,35 @@ function ReceiptsV2Content() {
           </div>
         )}
 
-        {/* Regular Form - Shows when manually opened */}
-        {shouldShowForm && !currentDepositContext.depositId && (
+        {/* Manual Receipt Form - Shows when manually triggered */}
+        {shouldShowManualForm && !currentDepositContext.depositId && (
           <div className="mb-8">
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Submit Deposit Receipt</h3>
+            <div className="flex justify-center">
+              <div className="w-full max-w-2xl">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-lg border-2 border-green-200 p-8">
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium mb-4">
+                      <DollarSign className="w-4 h-4" />
+                      Manual Deposit
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Submit Your Deposit Receipt</h2>
+                    <p className="text-gray-600">Upload your USDT payment receipt to add funds to your wallet</p>
+                  </div>
+                  
+                  <ReceiptSubmission 
+                    onSubmitted={handleReceiptSubmitted}
+                    className="w-full"
+                    isDepositPayment={false} // This makes it a manual deposit, not a product deposit
+                    isManualDeposit={true} // USDT only for manual deposits
+                  />
+                </div>
               </div>
-              <ReceiptSubmission 
-                onSubmitted={handleReceiptSubmitted}
-                className="max-w-2xl"
-                isDepositPayment={true}
-              />
             </div>
           </div>
         )}
 
         {/* Submit New Receipt Button - Only show when no form is displayed */}
-        {!shouldShowForm && (
+        {!shouldShowManualForm && !shouldShowProductForm && (
           <div className="mb-8">
             <button
               type="button"
@@ -293,7 +315,7 @@ function ReceiptsV2Content() {
         )}
 
         {/* Close Form Button - Show when form is displayed */}
-        {shouldShowForm && (
+        {(shouldShowManualForm || shouldShowProductForm) && (
           <div className="mb-8 flex justify-center">
             <button
               type="button"

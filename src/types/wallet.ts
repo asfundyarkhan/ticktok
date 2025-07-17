@@ -37,6 +37,7 @@ export interface WithdrawalRequest {
   id: string;
   sellerId: string;
   amount: number;
+  usdtId?: string; // USDT wallet address/ID for withdrawal
   pendingProfitIds: string[];
   status: "pending" | "approved" | "completed" | "rejected";
   createdAt: Date;

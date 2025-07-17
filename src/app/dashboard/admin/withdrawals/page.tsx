@@ -190,6 +190,9 @@ function WithdrawalRequestsPageContent() {
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  USDT ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -206,7 +209,7 @@ function WithdrawalRequestsPageContent() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     No withdrawal requests found
                   </td>
                 </tr>
@@ -225,6 +228,17 @@ function WithdrawalRequestsPageContent() {
                       <div className="text-sm font-medium text-gray-900">
                         ${request.amount.toFixed(2)}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {request.usdtId ? (
+                        <div className="text-sm text-gray-900 font-mono">
+                          {request.usdtId.length > 20 
+                            ? `${request.usdtId.substring(0, 20)}...` 
+                            : request.usdtId}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">Not provided</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -294,6 +308,15 @@ function WithdrawalRequestsPageContent() {
                   <label className="text-sm font-medium text-gray-500">Amount</label>
                   <div className="text-2xl font-bold text-gray-900">${selectedRequest.amount.toFixed(2)}</div>
                 </div>
+
+                {selectedRequest.usdtId && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">USDT Wallet Address</label>
+                    <div className="text-gray-900 font-mono text-sm bg-gray-50 p-2 rounded border break-all">
+                      {selectedRequest.usdtId}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-sm font-medium text-gray-500">Status</label>

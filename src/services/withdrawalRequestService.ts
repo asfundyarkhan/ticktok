@@ -19,6 +19,7 @@ export interface WithdrawalRequest {
   sellerName: string;
   sellerEmail: string;
   amount: number;
+  usdtId?: string; // USDT wallet address/ID for withdrawal
   status: "pending" | "approved" | "rejected";
   requestDate: Date;
   processedDate?: Date;
@@ -44,7 +45,8 @@ export class WithdrawalRequestService {
     sellerId: string,
     sellerName: string,
     sellerEmail: string,
-    amount: number
+    amount: number,
+    usdtId?: string
   ): Promise<WithdrawalRequestResult> {
     try {
       // Validate amount
@@ -100,6 +102,7 @@ export class WithdrawalRequestService {
         sellerName,
         sellerEmail,
         amount,
+        usdtId,
         status: "pending",
         requestDate: new Date(),
         createdAt: new Date(),

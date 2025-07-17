@@ -138,9 +138,10 @@ export default function NewReceiptManagementPage() {
         borderColor: "border-blue-200"
       };
     }
+    // Manual deposits (no product info) should also be treated as deposits
     return {
-      type: "Withdrawal",
-      icon: <FileText className="w-4 h-4 text-green-600" />,
+      type: "Deposit",
+      icon: <DollarSign className="w-4 h-4 text-green-600" />,
       bgColor: "bg-green-50",
       textColor: "text-green-800",
       borderColor: "border-green-200"
@@ -370,7 +371,7 @@ export default function NewReceiptManagementPage() {
                   <strong>Amount:</strong> ${selectedReceipt.amount.toFixed(2)}
                 </p>
                 <p className="text-sm text-gray-600">
-                  <strong>Type:</strong> {selectedReceipt.isDepositPayment ? "Deposit" : "Withdrawal"}
+                  <strong>Type:</strong> {selectedReceipt.isDepositPayment ? "Product Deposit" : "Manual Deposit"}
                 </p>
               </div>
 

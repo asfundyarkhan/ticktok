@@ -229,6 +229,9 @@ export default function OrdersPage() {
           <Link href="/receipts-v2" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Receipts
           </Link>
+          <Link href="/withdrawals" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
+            Withdrawals
+          </Link>
           <Link href="/stock" className="px-3 sm:px-4 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap text-sm sm:text-base">
             Product Pool
           </Link>

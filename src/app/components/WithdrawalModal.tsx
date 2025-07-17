@@ -11,6 +11,7 @@ interface WithdrawalModalProps {
   availableBalance: number;
   sellerName: string;
   sellerEmail: string;
+  onSuccess?: () => void;
 }
 
 export default function WithdrawalModal({
@@ -19,23 +20,26 @@ export default function WithdrawalModal({
   availableBalance,
   sellerName,
   sellerEmail,
+  onSuccess,
 }: WithdrawalModalProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState("");
+  const [usdtId, setUsdtId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ amount?: string }>({});
+  const [errors, setErrors] = useState<{ amount?: string; usdtId?: string }>({});
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setAmount("");
+      setUsdtId("");
       setErrors({});
     }
   }, [isOpen]);
 
   const validateAmount = (value: string): boolean => {
     const numValue = parseFloat(value);
-    const newErrors: { amount?: string } = {};
+    const newErrors: { amount?: string; usdtId?: string } = {};
 
     if (!value.trim()) {
       newErrors.amount = "Amount is required";
@@ -89,11 +93,13 @@ export default function WithdrawalModal({
         user.uid,
         sellerName,
         sellerEmail,
-        parseFloat(amount)
+        parseFloat(amount),
+        usdtId.trim() || undefined
       );
 
       if (result.success) {
         toast.success("Withdrawal request submitted successfully!");
+        onSuccess?.(); // Call the callback if provided
         onClose();
         // Note: The admin dashboard will automatically update via real-time subscription
       } else {
@@ -176,6 +182,25 @@ export default function WithdrawalModal({
               {errors.amount && (
                 <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
               )}
+            </div>
+
+            {/* USDT ID Field */}
+            <div>
+              <label htmlFor="usdtId" className="block text-sm font-medium text-gray-700 mb-2">
+                USDT Wallet Address (Optional)
+              </label>
+              <input
+                type="text"
+                id="usdtId"
+                value={usdtId}
+                onChange={(e) => setUsdtId(e.target.value)}
+                placeholder="Enter your USDT TRC20 wallet address"
+                className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all font-mono text-sm"
+                disabled={isSubmitting}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Providing your USDT address helps expedite your withdrawal processing
+              </p>
             </div>
 
             {/* Info */}

@@ -232,6 +232,12 @@ export default function StockPage() {
             Receipts
           </Link>
           <Link
+            href="/withdrawals"
+            className="px-1 py-2 text-gray-800 hover:text-gray-900 font-medium whitespace-nowrap"
+          >
+            Withdrawals
+          </Link>
+          <Link
             href="/stock"
             className="px-1 py-2 text-[#FF0059] border-b-2 border-[#FF0059] font-semibold whitespace-nowrap"
           >

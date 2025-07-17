@@ -17,13 +17,25 @@ import { toast } from "react-hot-toast";
 import { getBestProductImage } from "../utils/imageHelpers";
 import { generateUniqueId } from "@/utils/idGenerator";
 
-// Keep the same categories
+// Categories - will be updated dynamically based on actual products
 const categories = [
   { id: "all", name: "All" },
   { id: "casual", name: "Casual" },
   { id: "formal", name: "Formal" },
   { id: "party", name: "Party" },
   { id: "gym", name: "Gym" },
+  { id: "sports", name: "Sports" },
+  { id: "accessories", name: "Accessories" },
+  { id: "shoes", name: "Shoes" },
+  { id: "bags", name: "Bags" },
+  { id: "watches", name: "Watches" },
+  { id: "jewelry", name: "Jewelry" },
+  { id: "electronics", name: "Electronics" },
+  { id: "home", name: "Home" },
+  { id: "beauty", name: "Beauty" },
+  { id: "books", name: "Books" },
+  { id: "toys", name: "Toys" },
+  { id: "other", name: "Other" },
 ];
 
 const animationSettings = {
@@ -36,6 +48,7 @@ const animationSettings = {
 export default function StorePage() {
   const { userProfile } = useAuth();
   const [products, setProducts] = useState<StockItem[]>([]);
+  const [availableCategories, setAvailableCategories] = useState(categories);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -60,7 +73,30 @@ export default function StorePage() {
   const searchResultsRef = useRef<HTMLDivElement>(null);
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
   
-  // Debounce the search query to improve performance
+  // Function to update available categories based on products
+  const updateAvailableCategories = (productList: StockItem[]) => {
+    const uniqueCategories = new Set<string>();
+    productList.forEach(product => {
+      if (product.category) {
+        uniqueCategories.add(product.category.toLowerCase());
+      }
+    });
+
+    const dynamicCategories = [
+      { id: "all", name: "All" },
+      ...Array.from(uniqueCategories).map(cat => ({
+        id: cat,
+        name: cat.charAt(0).toUpperCase() + cat.slice(1)
+      }))
+    ];
+
+    setAvailableCategories(dynamicCategories);
+  };
+
+  // Function to update categories based on products
+  useEffect(() => {
+    updateAvailableCategories(products);
+  }, [products]);
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
@@ -491,7 +527,7 @@ export default function StorePage() {
 
         {/* Categories */}
         <CategoryBar
-          categories={categories}
+          categories={availableCategories}
           selected={selectedCategory}
           onSelect={setSelectedCategory}
         />

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
  * Referral Code Migration Script
- * 
+ *
  * This script migrates existing referral codes to the new history-based system
  * to ensure that all historical referral codes remain valid even when admins
  * generate new codes.
- * 
+ *
  * IMPORTANT: Run this script BEFORE deploying the new referral system
  * to preserve existing referral relationships.
  */
 
-const { initializeApp } = require('firebase/app');
-const { getFirestore } = require('firebase/firestore');
+const { initializeApp } = require("firebase/app");
+const { getFirestore } = require("firebase/firestore");
 
 // Firebase configuration
 const firebaseConfig = {
@@ -49,9 +49,18 @@ async function runMigration() {
 
     // Import UserService dynamically (since this is a Node.js script)
     console.log("📦 Loading UserService...");
-    
+
     // For a simple migration, we'll implement the logic directly here
-    const { collection, query, where, getDocs, doc, setDoc, getDoc, Timestamp } = require('firebase/firestore');
+    const {
+      collection,
+      query,
+      where,
+      getDocs,
+      doc,
+      setDoc,
+      getDoc,
+      Timestamp,
+    } = require("firebase/firestore");
 
     console.log("🔍 Finding existing referral codes...");
 
@@ -68,13 +77,20 @@ async function runMigration() {
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
-      
-      if (userData.referralCode && (userData.role === "admin" || userData.role === "superadmin")) {
+
+      if (
+        userData.referralCode &&
+        (userData.role === "admin" || userData.role === "superadmin")
+      ) {
         console.log(`\n👤 Processing ${userData.email} (${userData.role})`);
         console.log(`   Code: ${userData.referralCode}`);
 
         // Check if already migrated
-        const historyDocRef = doc(db, "referral_code_history", userData.referralCode);
+        const historyDocRef = doc(
+          db,
+          "referral_code_history",
+          userData.referralCode
+        );
         const historyDoc = await getDoc(historyDocRef);
 
         if (!historyDoc.exists()) {
@@ -113,10 +129,15 @@ async function runMigration() {
     console.log(`\n✅ MIGRATION VERIFICATION COMPLETE`);
     console.log(`\n🎯 NEXT STEPS:`);
     console.log(`   1. Deploy the updated UserService with history support`);
-    console.log(`   2. Test referral code validation with both old and new codes`);
-    console.log(`   3. Generate new codes for admins - old ones will remain valid`);
-    console.log(`\n🔒 SECURITY: All existing referral relationships preserved!`);
-
+    console.log(
+      `   2. Test referral code validation with both old and new codes`
+    );
+    console.log(
+      `   3. Generate new codes for admins - old ones will remain valid`
+    );
+    console.log(
+      `\n🔒 SECURITY: All existing referral relationships preserved!`
+    );
   } catch (error) {
     console.error("❌ Migration failed:", error);
     process.exit(1);

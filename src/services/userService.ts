@@ -405,15 +405,19 @@ export class UserService {
 
   // Generate a unique referral code for a user (deprecated - use generateReferralCodeWithHistory)
   static async generateReferralCode(uid: string): Promise<string> {
-    console.warn("generateReferralCode is deprecated, using generateReferralCodeWithHistory instead");
+    console.warn(
+      "generateReferralCode is deprecated, using generateReferralCodeWithHistory instead"
+    );
     return this.generateReferralCodeWithHistory(uid);
   }
-  
+
   // Validate a referral code and check if it belongs to an admin (deprecated - use validateReferralCodeWithHistory)
   static async validateReferralCode(
     referralCode: string
   ): Promise<{ isValid: boolean; adminUid?: string }> {
-    console.warn("validateReferralCode is deprecated, using validateReferralCodeWithHistory instead");
+    console.warn(
+      "validateReferralCode is deprecated, using validateReferralCodeWithHistory instead"
+    );
     return this.validateReferralCodeWithHistory(referralCode);
   }
 
@@ -913,26 +917,36 @@ export class UserService {
 
       // Store the old referral code in history if it exists
       if (userData.referralCode) {
-        await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode), {
-          code: userData.referralCode,
-          adminUid: uid,
-          adminEmail: userData.email,
-          createdAt: userData.updatedAt || Timestamp.now(),
-          replacedAt: Timestamp.now(),
-          isActive: true, // Keep old codes active for existing referrals
-        });
+        await setDoc(
+          doc(
+            firestore,
+            this.REFERRAL_HISTORY_COLLECTION,
+            userData.referralCode
+          ),
+          {
+            code: userData.referralCode,
+            adminUid: uid,
+            adminEmail: userData.email,
+            createdAt: userData.updatedAt || Timestamp.now(),
+            replacedAt: Timestamp.now(),
+            isActive: true, // Keep old codes active for existing referrals
+          }
+        );
       }
 
       // Store the new referral code in history
-      await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, newReferralCode), {
-        code: newReferralCode,
-        adminUid: uid,
-        adminEmail: userData.email,
-        createdAt: Timestamp.now(),
-        replacedAt: null,
-        isActive: true,
-        isCurrent: true, // Mark as the current/primary code
-      });
+      await setDoc(
+        doc(firestore, this.REFERRAL_HISTORY_COLLECTION, newReferralCode),
+        {
+          code: newReferralCode,
+          adminUid: uid,
+          adminEmail: userData.email,
+          createdAt: Timestamp.now(),
+          replacedAt: null,
+          isActive: true,
+          isCurrent: true, // Mark as the current/primary code
+        }
+      );
 
       // Update the user's profile with the new code
       await updateDoc(userRef, {
@@ -942,9 +956,16 @@ export class UserService {
 
       // If there was an old code, mark it as no longer current
       if (userData.referralCode) {
-        await updateDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode), {
-          isCurrent: false,
-        });
+        await updateDoc(
+          doc(
+            firestore,
+            this.REFERRAL_HISTORY_COLLECTION,
+            userData.referralCode
+          ),
+          {
+            isCurrent: false,
+          }
+        );
       }
 
       // Log referral code generation activity
@@ -979,13 +1000,20 @@ export class UserService {
       const normalizedCode = referralCode.trim();
 
       // First check the referral code history collection
-      const historyDocRef = doc(firestore, this.REFERRAL_HISTORY_COLLECTION, normalizedCode);
+      const historyDocRef = doc(
+        firestore,
+        this.REFERRAL_HISTORY_COLLECTION,
+        normalizedCode
+      );
       const historyDoc = await getDoc(historyDocRef);
 
       if (historyDoc.exists()) {
         const historyData = historyDoc.data();
         if (historyData.isActive) {
-          console.log("Found referral code in history, admin:", historyData.adminUid);
+          console.log(
+            "Found referral code in history, admin:",
+            historyData.adminUid
+          );
           return { isValid: true, adminUid: historyData.adminUid };
         }
       }
@@ -1006,16 +1034,19 @@ export class UserService {
 
         if (userData.role === "admin" || userData.role === "superadmin") {
           // If we found it in the user collection but not in history, add it to history
-          await setDoc(doc(firestore, this.REFERRAL_HISTORY_COLLECTION, normalizedCode), {
-            code: normalizedCode,
-            adminUid: adminDoc.id,
-            adminEmail: userData.email,
-            createdAt: userData.createdAt || Timestamp.now(),
-            replacedAt: null,
-            isActive: true,
-            isCurrent: true,
-            migratedFromUserProfile: true,
-          });
+          await setDoc(
+            doc(firestore, this.REFERRAL_HISTORY_COLLECTION, normalizedCode),
+            {
+              code: normalizedCode,
+              adminUid: adminDoc.id,
+              adminEmail: userData.email,
+              createdAt: userData.createdAt || Timestamp.now(),
+              replacedAt: null,
+              isActive: true,
+              isCurrent: true,
+              migratedFromUserProfile: true,
+            }
+          );
 
           return { isValid: true, adminUid: adminDoc.id };
         } else {
@@ -1035,7 +1066,9 @@ export class UserService {
   // Migrate existing referral codes to the history system
   static async migrateExistingReferralCodes(): Promise<void> {
     try {
-      console.log("Starting migration of existing referral codes to history system...");
+      console.log(
+        "Starting migration of existing referral codes to history system..."
+      );
 
       const q = query(
         collection(firestore, this.COLLECTION),
@@ -1043,16 +1076,25 @@ export class UserService {
       );
 
       const querySnapshot = await getDocs(q);
-      console.log(`Found ${querySnapshot.size} users with referral codes to migrate`);
+      console.log(
+        `Found ${querySnapshot.size} users with referral codes to migrate`
+      );
 
       const batch = writeBatch(firestore);
       let migrationCount = 0;
 
       for (const userDoc of querySnapshot.docs) {
         const userData = userDoc.data();
-        if (userData.referralCode && (userData.role === "admin" || userData.role === "superadmin")) {
+        if (
+          userData.referralCode &&
+          (userData.role === "admin" || userData.role === "superadmin")
+        ) {
           // Check if already migrated
-          const historyDocRef = doc(firestore, this.REFERRAL_HISTORY_COLLECTION, userData.referralCode);
+          const historyDocRef = doc(
+            firestore,
+            this.REFERRAL_HISTORY_COLLECTION,
+            userData.referralCode
+          );
           const historyDoc = await getDoc(historyDocRef);
 
           if (!historyDoc.exists()) {
@@ -1073,7 +1115,9 @@ export class UserService {
 
       if (migrationCount > 0) {
         await batch.commit();
-        console.log(`Successfully migrated ${migrationCount} referral codes to history system`);
+        console.log(
+          `Successfully migrated ${migrationCount} referral codes to history system`
+        );
       } else {
         console.log("No referral codes needed migration");
       }
@@ -1084,13 +1128,15 @@ export class UserService {
   }
 
   // Get all referral codes for an admin (including historical ones)
-  static async getAdminReferralCodeHistory(adminUid: string): Promise<Array<{
-    code: string;
-    createdAt: Date;
-    replacedAt: Date | null;
-    isCurrent: boolean;
-    isActive: boolean;
-  }>> {
+  static async getAdminReferralCodeHistory(adminUid: string): Promise<
+    Array<{
+      code: string;
+      createdAt: Date;
+      replacedAt: Date | null;
+      isCurrent: boolean;
+      isActive: boolean;
+    }>
+  > {
     try {
       const q = query(
         collection(firestore, this.REFERRAL_HISTORY_COLLECTION),
@@ -1099,7 +1145,7 @@ export class UserService {
       );
 
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => {
+      return querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           code: data.code,
@@ -1139,7 +1185,7 @@ export class UserService {
           adminEmail: string;
           action: string;
           error?: string;
-        }>
+        }>,
       };
 
       // Get all sellers who have referredBy but might have broken chains
@@ -1150,7 +1196,9 @@ export class UserService {
       );
 
       const sellersSnapshot = await getDocs(sellersQuery);
-      console.log(`📊 Found ${sellersSnapshot.size} sellers with referredBy relationships`);
+      console.log(
+        `📊 Found ${sellersSnapshot.size} sellers with referredBy relationships`
+      );
 
       // Get all admins for reference
       const adminsQuery = query(
@@ -1158,14 +1206,17 @@ export class UserService {
         where("role", "in", ["admin", "superadmin"])
       );
       const adminsSnapshot = await getDocs(adminsQuery);
-      
+
       // Create admin lookup map
-      const adminMap = new Map<string, { email: string; referralCode?: string }>();
-      adminsSnapshot.forEach(doc => {
+      const adminMap = new Map<
+        string,
+        { email: string; referralCode?: string }
+      >();
+      adminsSnapshot.forEach((doc) => {
         const data = doc.data();
         adminMap.set(doc.id, {
           email: data.email,
-          referralCode: data.referralCode
+          referralCode: data.referralCode,
         });
       });
 
@@ -1184,7 +1235,7 @@ export class UserService {
             sellerEmail: sellerData.email,
             adminEmail: `[MISSING: ${adminUid}]`,
             action: "ERROR - Admin not found",
-            error: "Referenced admin no longer exists"
+            error: "Referenced admin no longer exists",
           });
           continue;
         }
@@ -1200,7 +1251,9 @@ export class UserService {
           needsFix = true;
         } else {
           // Check if the stored referral code is still valid for this admin
-          const validation = await this.validateReferralCodeWithHistory(currentReferralCode);
+          const validation = await this.validateReferralCodeWithHistory(
+            currentReferralCode
+          );
           if (!validation.isValid || validation.adminUid !== adminUid) {
             needsFix = true;
           }
@@ -1214,43 +1267,49 @@ export class UserService {
               updatedAt: Timestamp.now(),
               // Add a flag to indicate this was auto-fixed
               referralChainFixed: true,
-              referralChainFixedAt: Timestamp.now()
+              referralChainFixedAt: Timestamp.now(),
             });
 
             result.fixed++;
             result.details.push({
               sellerEmail: sellerData.email,
               adminEmail: admin.email,
-              action: `Fixed - Updated referral code to ${admin.referralCode}`
+              action: `Fixed - Updated referral code to ${admin.referralCode}`,
             });
 
-            console.log(`✅ Fixed ${sellerData.email} → ${admin.email} (${admin.referralCode})`);
+            console.log(
+              `✅ Fixed ${sellerData.email} → ${admin.email} (${admin.referralCode})`
+            );
           } else {
             // Admin has no current referral code - create one
-            const newCode = await this.generateReferralCodeWithHistory(adminUid);
-            
+            const newCode = await this.generateReferralCodeWithHistory(
+              adminUid
+            );
+
             await updateDoc(doc(firestore, this.COLLECTION, sellerId), {
               referralCode: newCode,
               updatedAt: Timestamp.now(),
               referralChainFixed: true,
-              referralChainFixedAt: Timestamp.now()
+              referralChainFixedAt: Timestamp.now(),
             });
 
             result.fixed++;
             result.details.push({
               sellerEmail: sellerData.email,
               adminEmail: admin.email,
-              action: `Fixed - Generated new admin code ${newCode} and linked seller`
+              action: `Fixed - Generated new admin code ${newCode} and linked seller`,
             });
 
-            console.log(`✅ Fixed ${sellerData.email} → ${admin.email} (generated ${newCode})`);
+            console.log(
+              `✅ Fixed ${sellerData.email} → ${admin.email} (generated ${newCode})`
+            );
           }
         } else {
           result.alreadyFixed++;
           result.details.push({
             sellerEmail: sellerData.email,
             adminEmail: admin.email,
-            action: "Already valid - No fix needed"
+            action: "Already valid - No fix needed",
           });
         }
       }
@@ -1291,7 +1350,7 @@ export class UserService {
           sellerEmail: string;
           adminEmail?: string;
           issue?: string;
-        }>
+        }>,
       };
 
       // Get all sellers
@@ -1309,13 +1368,16 @@ export class UserService {
         where("role", "in", ["admin", "superadmin"])
       );
       const adminsSnapshot = await getDocs(adminsQuery);
-      
-      const adminMap = new Map<string, { email: string; referralCode?: string }>();
-      adminsSnapshot.forEach(doc => {
+
+      const adminMap = new Map<
+        string,
+        { email: string; referralCode?: string }
+      >();
+      adminsSnapshot.forEach((doc) => {
         const data = doc.data();
         adminMap.set(doc.id, {
           email: data.email,
-          referralCode: data.referralCode
+          referralCode: data.referralCode,
         });
       });
 
@@ -1328,20 +1390,20 @@ export class UserService {
           result.details.push({
             type: "orphaned",
             sellerEmail: sellerData.email,
-            issue: "No referredBy field - not part of referral system"
+            issue: "No referredBy field - not part of referral system",
           });
           continue;
         }
 
         const adminUid = sellerData.referredBy;
-        
+
         if (!adminMap.has(adminUid)) {
           // Referenced admin doesn't exist
           result.broken++;
           result.details.push({
             type: "broken",
             sellerEmail: sellerData.email,
-            issue: `Referenced admin ${adminUid} no longer exists`
+            issue: `Referenced admin ${adminUid} no longer exists`,
           });
           continue;
         }
@@ -1350,13 +1412,15 @@ export class UserService {
 
         // Check if referral code is valid
         if (sellerData.referralCode) {
-          const validation = await this.validateReferralCodeWithHistory(sellerData.referralCode);
+          const validation = await this.validateReferralCodeWithHistory(
+            sellerData.referralCode
+          );
           if (validation.isValid && validation.adminUid === adminUid) {
             result.valid++;
             result.details.push({
               type: "valid",
               sellerEmail: sellerData.email,
-              adminEmail: admin.email
+              adminEmail: admin.email,
             });
           } else {
             result.broken++;
@@ -1364,7 +1428,7 @@ export class UserService {
               type: "broken",
               sellerEmail: sellerData.email,
               adminEmail: admin.email,
-              issue: `Referral code ${sellerData.referralCode} is invalid or doesn't match admin`
+              issue: `Referral code ${sellerData.referralCode} is invalid or doesn't match admin`,
             });
           }
         } else {
@@ -1373,7 +1437,7 @@ export class UserService {
             type: "broken",
             sellerEmail: sellerData.email,
             adminEmail: admin.email,
-            issue: "Missing referral code"
+            issue: "Missing referral code",
           });
         }
       }
@@ -1414,12 +1478,14 @@ export class UserService {
       console.log("📊 Generating referral relationship report...");
 
       // Get all users
-      const allUsersSnapshot = await getDocs(collection(firestore, this.COLLECTION));
-      
+      const allUsersSnapshot = await getDocs(
+        collection(firestore, this.COLLECTION)
+      );
+
       const sellers: UserProfile[] = [];
       const admins: UserProfile[] = [];
-      
-      allUsersSnapshot.forEach(doc => {
+
+      allUsersSnapshot.forEach((doc) => {
         const data = doc.data() as UserProfile;
         const userWithId = { ...data, uid: doc.id };
         if (data.role === "seller") {
@@ -1429,23 +1495,27 @@ export class UserService {
         }
       });
 
-      const orphanedSellers = sellers.filter(s => !s.referredBy).length;
-      const referralRelationships = sellers.filter(s => s.referredBy).length;
+      const orphanedSellers = sellers.filter((s) => !s.referredBy).length;
+      const referralRelationships = sellers.filter((s) => s.referredBy).length;
 
       // Generate admin stats
       const adminStats = [];
       for (const admin of admins) {
-        const referredSellers = sellers.filter(s => s.referredBy === admin.uid);
+        const referredSellers = sellers.filter(
+          (s) => s.referredBy === admin.uid
+        );
         let totalBalance = 0;
-        
+
         const sellerDetails = [];
         for (const seller of referredSellers) {
           totalBalance += seller.balance || 0;
-          
+
           let isValid = false;
           if (seller.referralCode) {
             try {
-              const validation = await this.validateReferralCodeWithHistory(seller.referralCode);
+              const validation = await this.validateReferralCodeWithHistory(
+                seller.referralCode
+              );
               isValid = validation.isValid && validation.adminUid === admin.uid;
             } catch {
               isValid = false;
@@ -1456,7 +1526,7 @@ export class UserService {
             email: seller.email,
             balance: seller.balance || 0,
             referralCode: seller.referralCode,
-            isValid
+            isValid,
           });
         }
 
@@ -1466,7 +1536,7 @@ export class UserService {
           currentReferralCode: admin.referralCode,
           referredSellersCount: referredSellers.length,
           totalReferralBalance: totalBalance,
-          sellers: sellerDetails
+          sellers: sellerDetails,
         });
       }
 
@@ -1475,10 +1545,12 @@ export class UserService {
         totalAdmins: admins.length,
         referralRelationships,
         orphanedSellers,
-        adminStats
+        adminStats,
       };
 
-      console.log(`📋 Report generated: ${referralRelationships} referral relationships found`);
+      console.log(
+        `📋 Report generated: ${referralRelationships} referral relationships found`
+      );
       return report;
     } catch (error) {
       console.error("Error generating referral relationship report:", error);

@@ -505,10 +505,10 @@ export default function ProductDetailPage() {
               {product.isSale && product.salePrice ? (
                 <div className="flex items-center gap-2">
                   <span className="text-2xl font-semibold text-gray-900">
-                    ${product.salePrice}
+                    ${product.salePrice.toFixed(2)}
                   </span>
                   <span className="text-lg text-gray-500 line-through">
-                    ${product.price}
+                    ${product.price.toFixed(2)}
                   </span>
                   <span className="px-2 py-1 text-xs font-bold text-white bg-red-500 rounded">
                     -{product.salePercentage}% OFF
@@ -516,7 +516,7 @@ export default function ProductDetailPage() {
                 </div>
               ) : (
                 <span className="text-2xl font-semibold text-gray-900">
-                  ${product.price}
+                  ${product.price.toFixed(2)}
                 </span>
               )}
             </div>
@@ -784,15 +784,15 @@ export default function ProductDetailPage() {
                           {relatedProduct.isSale && relatedProduct.salePrice ? (
                             <>
                               <span className="text-sm font-medium text-gray-900">
-                                ${relatedProduct.salePrice}
+                                ${relatedProduct.salePrice.toFixed(2)}
                               </span>
                               <span className="text-xs text-gray-500 line-through">
-                                ${relatedProduct.price}
+                                ${relatedProduct.price.toFixed(2)}
                               </span>
                             </>
                           ) : (
                             <span className="text-sm font-medium text-gray-900">
-                              ${relatedProduct.price}
+                              ${relatedProduct.price.toFixed(2)}
                             </span>
                           )}
                         </div>

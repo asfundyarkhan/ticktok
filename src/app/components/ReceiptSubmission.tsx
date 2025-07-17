@@ -18,6 +18,7 @@ interface ReceiptSubmissionProps {
   requiredAmount?: number;
   onSubmitted?: () => void;
   className?: string;
+  isManualDeposit?: boolean; // New prop to identify manual deposits
 }
 
 export default function ReceiptSubmission({
@@ -27,7 +28,8 @@ export default function ReceiptSubmission({
   productName,
   requiredAmount,
   onSubmitted,
-  className = ""
+  className = "",
+  isManualDeposit = false
 }: ReceiptSubmissionProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState(requiredAmount?.toString() || "");
@@ -39,15 +41,15 @@ export default function ReceiptSubmission({
   const [walletBalance, setWalletBalance] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<"receipt" | "wallet">("receipt");
 
-  // Load wallet balance for deposit payments
+  // Load wallet balance for deposit payments (but not manual deposits)
   useEffect(() => {
-    if (isDepositPayment && user?.uid) {
+    if (isDepositPayment && !isManualDeposit && user?.uid) {
       const unsubscribe = SellerWalletService.subscribeToWalletBalance(user.uid, (balance) => {
         setWalletBalance(balance.available);
       });
       return unsubscribe;
     }
-  }, [isDepositPayment, user?.uid]);
+  }, [isDepositPayment, isManualDeposit, user?.uid]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -193,12 +195,19 @@ export default function ReceiptSubmission({
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
           <FileText className="w-5 h-5" />
-          {isDepositPayment ? "Submit Deposit Receipt" : "Submit Withdrawal Receipt"}
+          {isDepositPayment 
+            ? "Submit Deposit Receipt" 
+            : isManualDeposit 
+              ? "Submit Deposit Receipt"
+              : "Submit Receipt"
+          }
         </h3>
         <p className="text-gray-600">
           {isDepositPayment 
             ? "Upload your deposit payment receipt to activate your profits"
-            : "Upload your payment receipt for withdrawal approval"
+            : isManualDeposit
+              ? "Upload your USDT payment receipt to add funds to your wallet"
+              : "Upload your payment receipt for processing"
           }
         </p>
       </div>
@@ -229,8 +238,8 @@ export default function ReceiptSubmission({
           </div>
         </div>
 
-        {/* Payment Method Selection - Only for deposit payments */}
-        {isDepositPayment && (
+        {/* Payment Method Selection - Only for deposit payments, but NOT for manual deposits */}
+        {isDepositPayment && !isManualDeposit && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Payment Method *
@@ -340,8 +349,8 @@ export default function ReceiptSubmission({
           />
         </div>
 
-        {/* File Upload - Only show for receipt payment method */}
-        {(!isDepositPayment || paymentMethod === "receipt") && (
+        {/* File Upload - Show for receipt payment method or manual deposits */}
+        {(!isDepositPayment || paymentMethod === "receipt" || isManualDeposit) && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Receipt Image *
@@ -405,8 +414,8 @@ export default function ReceiptSubmission({
           type="submit"
           disabled={
             isSubmitting || 
-            (!selectedFile && (!isDepositPayment || paymentMethod === "receipt")) ||
-            (isDepositPayment && paymentMethod === "wallet" && walletBalance < parseFloat(amount || "0"))
+            (!selectedFile && (!isDepositPayment || paymentMethod === "receipt" || isManualDeposit)) ||
+            (isDepositPayment && !isManualDeposit && paymentMethod === "wallet" && walletBalance < parseFloat(amount || "0"))
           }
           className="w-full bg-[#FF0059] text-white py-3 px-4 rounded-lg font-medium hover:bg-[#E6004F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
@@ -416,7 +425,7 @@ export default function ReceiptSubmission({
               Submitting...
             </span>
           ) : (
-            `Submit ${isDepositPayment ? "Deposit" : "Withdrawal"} Receipt`
+            `Submit ${isDepositPayment ? "Deposit" : isManualDeposit ? "Deposit" : "Receipt"} Receipt`
           )}
         </button>
         
