@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import ProductGrid from "@/app/components/ProductGrid";
-import CategoryBar from "@/app/components/CategoryBar";
 import CartDrawer from "@/app/components/CartDrawer";
-import AnimatedCartIcon from "@/app/components/AnimatedCartIcon";
 import FilterSidebar from "@/app/components/FilterSidebar";
 import FilterModal from "@/app/components/FilterModal";
 import { useCart } from "@/app/components/NewCartContext";
@@ -45,8 +44,9 @@ const animationSettings = {
   openCartDelay: 1000,
 };
 
-export default function StorePage() {
-  const { userProfile } = useAuth();
+function StorePageContent() {
+  const { userProfile, user } = useAuth();
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<StockItem[]>([]);
   const [availableCategories, setAvailableCategories] = useState(categories);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -56,22 +56,33 @@ export default function StorePage() {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [showAnimation, setShowAnimation] = useState(false);
   const [animatedProduct, setAnimatedProduct] = useState<StockItem | null>(null);
-  const [showSearchResults, setShowSearchResults] = useState(false);
   const [animationStartPosition, setAnimationStartPosition] = useState({
     x: 0,
     y: 0,
   });
-  const [animationEndPosition, setAnimationEndPosition] = useState({
-    x: 0,
-    y: 0,
+  const [animationEndPosition] = useState({
+    x: window.innerWidth - 100, // Approximate navbar cart position
+    y: 20,
   });
   
   const [showFilterModal, setShowFilterModal] = useState(false);
   
-  const cartIconRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchResultsRef = useRef<HTMLDivElement>(null);
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
+
+  // Handle URL parameters on component mount
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    const searchParam = searchParams.get('search');
+    
+    if (categoryParam && categoryParam !== 'all') {
+      setSelectedCategory(categoryParam);
+    }
+    
+    if (searchParam) {
+      setSearchQuery(searchParam);
+      setDebouncedSearchQuery(searchParam);
+    }
+  }, [searchParams]);
   
   // Function to update available categories based on products
   const updateAvailableCategories = (productList: StockItem[]) => {
@@ -107,44 +118,7 @@ export default function StorePage() {
     };
   }, [searchQuery]);
 
-  // Handle click outside to close search results
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        searchResultsRef.current && 
-        !searchResultsRef.current.contains(event.target as Node) &&
-        searchInputRef.current && 
-        !searchInputRef.current.contains(event.target as Node)
-      ) {
-        setShowSearchResults(false);
-      }
-    }
-    
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   // Allow all users including sellers to access the store page
-
-  useEffect(() => {
-    // Update cart icon position for animation
-    const updateCartPosition = () => {
-      const cartIcon = cartIconRef.current;
-      if (cartIcon) {
-        const rect = cartIcon.getBoundingClientRect();
-        setAnimationEndPosition({
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        });
-      }
-    };
-
-    updateCartPosition();
-    window.addEventListener("resize", updateCartPosition);
-    return () => window.removeEventListener("resize", updateCartPosition);
-  }, []);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -317,6 +291,20 @@ export default function StorePage() {
     product: StockItem,
     event?: React.MouseEvent
   ) => {
+    // Check if user is logged in
+    if (!user) {
+      toast.error("Please log in to add items to cart", {
+        duration: 4000,
+        position: "top-center",
+        style: {
+          border: "1px solid #FF0059",
+          padding: "16px",
+          color: "#FF0059",
+        },
+      });
+      return;
+    }
+
     // Prevent sellers from adding items to cart
     if (userProfile?.role === "seller") {
       toast.error("Sellers cannot purchase items. Please browse as a regular user.");
@@ -392,127 +380,6 @@ export default function StorePage() {
               Products: {products.length} | Filtered: {filteredProducts.length}
             </p>
           </div>
-          
-          {/* Live Search Bar */}
-          <div className="relative flex-grow max-w-xl w-full">
-            <div className="relative">
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (e.target.value.length >= 2) {
-                    setShowSearchResults(true);
-                  } else {
-                    setShowSearchResults(false);
-                  }
-                }}
-                onFocus={() => {
-                  if (searchQuery.length >= 2) {
-                    setShowSearchResults(true);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setShowSearchResults(false);
-                  }
-                }}
-                className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all duration-200"
-                aria-label="Search products"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setShowSearchResults(false);
-                    if (searchInputRef.current) {
-                      searchInputRef.current.focus();
-                    }
-                  }}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                  aria-label="Clear search"
-                >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            
-            {/* Live Search Results */}
-            {searchQuery && searchQuery.length >= 2 && showSearchResults && (
-              <div 
-                ref={searchResultsRef}
-                className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-96 overflow-auto"
-              >
-                {filteredProducts.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-500">No products found matching &ldquo;{searchQuery}&rdquo;</div>
-                ) : (
-                  <div>
-                    {/* Show up to 5 quick results */}
-                    {filteredProducts.slice(0, 5).map(product => (
-                      <div 
-                        key={product.id} 
-                        className="flex items-center p-3 hover:bg-gray-50 cursor-pointer border-b last:border-0"
-                        onClick={() => {
-                          // Navigate to product page
-                          window.location.href = `/store/${product.id}`;
-                        }}
-                      >
-                        <div className="w-12 h-12 bg-gray-100 rounded flex-shrink-0 overflow-hidden">
-                          {(() => {
-                            const imageUrl = getBestProductImage(product);
-                            return imageUrl ? (
-                              <div className="relative w-full h-full">
-                                {/* 
-                                  Using img tag for simple thumbnail in search dropdown
-                                  Next/Image not used here intentionally to reduce complexity
-                                  for these small, temporary search result thumbnails
-                                */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img 
-                                  src={imageUrl}
-                                  alt={product.name} 
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-xs text-gray-400">No image</span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        <div className="ml-3 flex-grow">
-                          <div className="font-medium text-sm">{product.name}</div>
-                          <div className="text-sm text-gray-600">${product.price.toFixed(2)}</div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {filteredProducts.length > 5 && (
-                      <div className="p-3 text-center text-sm text-[#FF0059]">
-                        {filteredProducts.length - 5} more products - scroll down to see all results
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="relative" ref={cartIconRef}>
-              <AnimatedCartIcon onClick={() => setIsCartOpen(true)} />
-            </div>
-          </div>
         </div>
 
         {/* Cart Animation */}
@@ -525,27 +392,43 @@ export default function StorePage() {
           />
         )}
 
-        {/* Categories */}
-        <CategoryBar
-          categories={availableCategories}
-          selected={selectedCategory}
-          onSelect={setSelectedCategory}
-        />
-
-        <div className="mt-8 flex flex-col lg:grid lg:grid-cols-12 lg:gap-8">
-          {/* Mobile Filter Button */}
-          <div className="lg:hidden mb-4">
-            <button
-              onClick={() => setShowFilterModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Combined Filter Button for All Devices */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowFilterModal(true)}
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors space-y-3 sm:space-y-0"
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
               </svg>
-              Filters
-            </button>
-          </div>
+              <span className="font-medium">Filter & Search</span>
+            </div>
+            
+            {/* Active Filter Indicators with proper mobile spacing */}
+            {(searchQuery || selectedCategory !== "all" || selectedSizes.length > 0 || priceRange[0] > 0 || priceRange[1] < 1000) && (
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-4">
+                {searchQuery && (
+                  <span className="bg-pink-500 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                    Search: {searchQuery.length > 8 ? searchQuery.substring(0, 8) + '...' : searchQuery}
+                  </span>
+                )}
+                {selectedCategory !== "all" && (
+                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                    {availableCategories.find(cat => cat.id === selectedCategory)?.name}
+                  </span>
+                )}
+                {(selectedSizes.length > 0 || priceRange[0] > 0 || priceRange[1] < 1000) && (
+                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full whitespace-nowrap">
+                    {selectedSizes.length > 0 ? `${selectedSizes.length} sizes` : 'Price'}
+                  </span>
+                )}
+              </div>
+            )}
+          </button>
+        </div>
 
+        <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-8">
           {/* Desktop Filters */}
           <div className="hidden lg:block lg:col-span-3">
             <FilterSidebar
@@ -583,10 +466,24 @@ export default function StorePage() {
         setPriceRange={setPriceRange}
         selectedSizes={selectedSizes}
         setSelectedSizes={setSelectedSizes}
-        categories={categories}
+        categories={availableCategories}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
       />
     </div>
+  );
+}
+
+export default function StorePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    }>
+      <StorePageContent />
+    </Suspense>
   );
 }

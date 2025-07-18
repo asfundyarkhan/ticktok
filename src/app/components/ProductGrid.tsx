@@ -25,7 +25,14 @@ export default function ProductGrid({
   const [selectedProduct, setSelectedProduct] = useState<StockItem | null>(null);
 
   const handleProductClick = (product: StockItem) => {
-    // Allow all users (including sellers) to view product details
+    // Check if user is logged in for product navigation
+    if (!user) {
+      setSelectedProduct(product);
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Allow all logged in users (including sellers) to view product details
     console.log("ProductGrid: Clicking product", {
       productId: product.id,
       productCode: product.productCode,

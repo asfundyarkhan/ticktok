@@ -38,19 +38,23 @@ export class PlatformStatsService {
 
       console.log("Month boundaries:", { startOfMonth, endOfMonth });
 
-      // Get deposits (receipts) for current month
+      // Get deposits (receipts) for current month - using the new receipts_v2 collection
       const receiptsQuery = query(
-        collection(firestore, "receipts"),
-        where("createdAt", ">=", Timestamp.fromDate(startOfMonth)),
-        where("createdAt", "<=", Timestamp.fromDate(endOfMonth))
+        collection(firestore, "receipts_v2"),
+        where("submittedAt", ">=", Timestamp.fromDate(startOfMonth)),
+        where("submittedAt", "<=", Timestamp.fromDate(endOfMonth)),
+        where("status", "==", "approved")
       );
 
-      console.log("Fetching receipts...");
+      console.log("Fetching approved receipts from receipts_v2...");
       const receiptsSnapshot = await getDocs(receiptsQuery);
       let depositsAccepted = 0;
       let depositTransactionCount = 0;
 
-      console.log("Found receipts count:", receiptsSnapshot.docs.length);
+      console.log(
+        "Found approved receipts count:",
+        receiptsSnapshot.docs.length
+      );
 
       receiptsSnapshot.docs.forEach((doc) => {
         const data = doc.data();
@@ -59,7 +63,7 @@ export class PlatformStatsService {
           status: data.status,
           amount: data.amount,
         });
-        if (data.status === "approved" && data.amount) {
+        if (data.amount) {
           depositsAccepted += data.amount;
           depositTransactionCount++;
         }

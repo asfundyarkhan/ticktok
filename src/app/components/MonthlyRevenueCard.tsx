@@ -119,11 +119,11 @@ export default function MonthlyRevenueCard({ className = "" }: MonthlyRevenueCar
 
             {/* Deposits and Withdrawals Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Deposits Accepted */}
+              {/* Revenue through Receipts */}
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-center gap-2 mb-2">
                   <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">Deposits Accepted</span>
+                  <span className="text-sm font-medium text-blue-800">Revenue through Receipts</span>
                 </div>
                 <div className="text-2xl font-bold text-blue-600">
                   {formatCurrency(stats.depositsAccepted)}
@@ -164,8 +164,8 @@ export default function MonthlyRevenueCard({ className = "" }: MonthlyRevenueCar
             {/* Note */}
             <div className="mt-6 p-3 bg-slate-50 rounded-lg border border-slate-200">
               <p className="text-xs text-slate-600">
-                <strong>Note:</strong> This shows your platform&apos;s net revenue from accepted deposits minus processed 
-                withdrawals. Updates automatically every 30 seconds.
+                <strong>Note:</strong> This shows your platform&apos;s net revenue from approved receipts minus processed 
+                withdrawals. Revenue through receipts includes all approved deposit receipts. Updates automatically every 30 seconds.
               </p>
             </div>
           </div>

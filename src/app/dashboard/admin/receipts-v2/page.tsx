@@ -175,8 +175,33 @@ export default function NewReceiptManagementPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="p-4 sm:p-6">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Receipt Management</h1>
-          <p className="text-sm sm:text-base text-gray-600">Review and approve receipt submissions</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Receipt Management</h1>
+              <p className="text-sm sm:text-base text-gray-600">Review and approve receipt submissions</p>
+            </div>
+            
+            {/* Cleanup Button */}
+            <button
+              onClick={async () => {
+                if (confirm("This will fix auto-processed receipts that are incorrectly showing as pending. Continue?")) {
+                  try {
+                    const result = await NewReceiptService.fixAutoProcessedReceipts();
+                    if (result.success) {
+                      toast.success(`${result.message} (${result.processedCount} receipts fixed)`);
+                    } else {
+                      toast.error(result.message);
+                    }
+                  } catch {
+                    toast.error("Failed to fix receipts");
+                  }
+                }
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+            >
+              Reset Pending Counter
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -216,15 +241,15 @@ export default function NewReceiptManagementPage() {
 
         {/* Receipts List */}
         <div className="bg-white rounded-lg shadow-sm border">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-4 sm:p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Pending Receipts</h2>
           </div>
           
           {receipts.length === 0 ? (
-            <div className="p-12 text-center">
-              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
-              <p className="text-gray-600">No pending receipts to review.</p>
+            <div className="p-8 sm:p-12 text-center">
+              <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+              <p className="text-sm sm:text-base text-gray-600">No pending receipts to review.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
@@ -232,8 +257,8 @@ export default function NewReceiptManagementPage() {
                 const typeInfo = getReceiptTypeInfo(receipt);
                 
                 return (
-                  <div key={receipt.id} className="p-4 sm:p-6 hover:bg-gray-50">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div key={receipt.id} className="p-3 sm:p-6 hover:bg-gray-50">
+                    <div className="flex flex-col gap-4">
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${typeInfo.bgColor} ${typeInfo.textColor} ${typeInfo.borderColor} border`}>
@@ -243,25 +268,30 @@ export default function NewReceiptManagementPage() {
                           {receipt.isWalletPayment && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-800 border border-purple-200">
                               <Wallet className="w-4 h-4" />
-                              Wallet Payment
+                              Wallet
                             </span>
                           )}
                           {receipt.isAutoProcessed && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-800 border border-green-200">
                               <CheckCircle className="w-4 h-4" />
-                              Auto-Processed
+                              Auto
                             </span>
                           )}
-                          <span className="text-xl sm:text-2xl font-bold text-gray-900">
+                        </div>
+                        
+                        <div className="mb-3">
+                          <span className="text-2xl sm:text-3xl font-bold text-gray-900">
                             ${receipt.amount.toFixed(2)}
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 gap-2 sm:gap-4 mb-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <User className="w-4 h-4 flex-shrink-0" />
-                            <span className="font-medium truncate">{receipt.userName}</span>
-                            <span className="text-xs text-gray-500 truncate">({receipt.userEmail})</span>
+                        <div className="space-y-2 mb-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm text-gray-600">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 flex-shrink-0" />
+                              <span className="font-medium">{receipt.userName}</span>
+                            </div>
+                            <span className="text-xs text-gray-500 sm:ml-2 truncate">({receipt.userEmail})</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm text-gray-600">
                             <Calendar className="w-4 h-4 flex-shrink-0" />
@@ -303,33 +333,35 @@ export default function NewReceiptManagementPage() {
                         )}
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 sm:ml-6">
-                        {!receipt.isWalletPayment ? (
-                          <button
-                            onClick={() => window.open(receipt.receiptImageUrl, '_blank')}
-                            className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="sm:inline">View Receipt</span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
-                            <Wallet className="w-4 h-4" />
-                            <span className="sm:inline">Wallet Payment</span>
-                          </span>
-                        )}
+                      <div className="flex flex-col gap-2 w-full">
+                        <div className="flex flex-row gap-2 w-full">
+                          {!receipt.isWalletPayment ? (
+                            <button
+                              onClick={() => window.open(receipt.receiptImageUrl, '_blank')}
+                              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View Receipt</span>
+                            </button>
+                          ) : (
+                            <span className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md">
+                              <Wallet className="w-4 h-4" />
+                              <span>Wallet Payment</span>
+                            </span>
+                          )}
+                        </div>
                         
                         {receipt.isAutoProcessed ? (
-                          <span className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
+                          <span className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
                             <CheckCircle className="w-4 h-4" />
-                            <span className="sm:inline">Already Processed</span>
+                            <span>Already Processed</span>
                           </span>
                         ) : (
-                          <div className="flex flex-col sm:flex-row gap-2">
+                          <div className="flex flex-row gap-2 w-full">
                             <button
                               onClick={() => handleApprove(receipt)}
                               disabled={processingId === receipt.id}
-                              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+                              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
                             >
                               <CheckCircle className="w-4 h-4" />
                               Approve
@@ -337,7 +369,7 @@ export default function NewReceiptManagementPage() {
                             <button
                               onClick={() => handleReject(receipt)}
                               disabled={processingId === receipt.id}
-                              className="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
+                              className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
                             >
                               <XCircle className="w-4 h-4" />
                               Reject

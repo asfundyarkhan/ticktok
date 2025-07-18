@@ -387,15 +387,18 @@ export class NewReceiptService {
     );
 
     return onSnapshot(q, (snapshot) => {
-      const receipts: NewReceipt[] = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          submittedAt: data.submittedAt?.toDate?.() || new Date(),
-          processedAt: data.processedAt?.toDate?.() || undefined,
-        } as NewReceipt;
-      });
+      const receipts: NewReceipt[] = snapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            submittedAt: data.submittedAt?.toDate?.() || new Date(),
+            processedAt: data.processedAt?.toDate?.() || undefined,
+          } as NewReceipt;
+        })
+        // Filter out auto-processed receipts from pending view
+        .filter((receipt) => !receipt.isAutoProcessed);
 
       callback(receipts);
     });
@@ -789,6 +792,61 @@ export class NewReceiptService {
     } catch (error) {
       console.error("Error getting all receipts:", error);
       return [];
+    }
+  }
+
+  /**
+   * Fix auto-processed receipts by updating their status to approved
+   * This helps reset the pending counter without deleting data
+   */
+  static async fixAutoProcessedReceipts(): Promise<{
+    success: boolean;
+    message: string;
+    processedCount: number;
+  }> {
+    try {
+      console.log("🔧 Starting to fix auto-processed receipts...");
+
+      // Get all receipts that are auto-processed but still marked as pending
+      const q = query(
+        collection(firestore, this.COLLECTION),
+        where("status", "==", "pending"),
+        where("isAutoProcessed", "==", true)
+      );
+
+      const querySnapshot = await getDocs(q);
+      let processedCount = 0;
+
+      console.log(
+        `Found ${querySnapshot.docs.length} auto-processed receipts to fix`
+      );
+
+      // Update each auto-processed receipt to approved status
+      for (const docSnapshot of querySnapshot.docs) {
+        const docRef = doc(firestore, this.COLLECTION, docSnapshot.id);
+        await updateDoc(docRef, {
+          status: "approved",
+          processedAt: Timestamp.now(),
+          notes:
+            "Auto-processed wallet payment - status corrected by system cleanup",
+        });
+        processedCount++;
+        console.log(`✅ Fixed receipt ${docSnapshot.id}`);
+      }
+
+      return {
+        success: true,
+        message: `Successfully fixed ${processedCount} auto-processed receipts`,
+        processedCount,
+      };
+    } catch (error) {
+      console.error("❌ Error fixing auto-processed receipts:", error);
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to fix receipts",
+        processedCount: 0,
+      };
     }
   }
 }
