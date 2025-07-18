@@ -242,18 +242,28 @@ export default function NewReceiptManagementPage() {
         {/* Receipts List */}
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 sm:p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Pending Receipts</h2>
+            <h2 className="text-lg font-semibold text-gray-900">All Receipts</h2>
           </div>
           
-          {receipts.length === 0 ? (
+          {allReceipts.length === 0 ? (
             <div className="p-8 sm:p-12 text-center">
               <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
-              <p className="text-sm sm:text-base text-gray-600">No pending receipts to review.</p>
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No receipts found!</h3>
+              <p className="text-sm sm:text-base text-gray-600">No receipts have been submitted yet.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {receipts.map((receipt) => {
+              {allReceipts
+                .sort((a, b) => {
+                  // Sort by status priority: pending first, then approved, then rejected
+                  const statusOrder = { pending: 0, approved: 1, rejected: 2 };
+                  const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+                  if (statusDiff !== 0) return statusDiff;
+                  
+                  // Within same status, sort by date (newest first)
+                  return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+                })
+                .map((receipt) => {
                 const typeInfo = getReceiptTypeInfo(receipt);
                 
                 return (
@@ -277,6 +287,19 @@ export default function NewReceiptManagementPage() {
                               Auto
                             </span>
                           )}
+                          {/* Status Badge */}
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                            receipt.isAutoProcessed || receipt.status === "approved" 
+                              ? "bg-green-50 text-green-800 border-green-200" 
+                              : receipt.status === "rejected" 
+                              ? "bg-red-50 text-red-800 border-red-200"
+                              : "bg-yellow-50 text-yellow-800 border-yellow-200"
+                          }`}>
+                            {(receipt.isAutoProcessed || receipt.status === "approved") && <CheckCircle className="w-4 h-4" />}
+                            {receipt.status === "rejected" && <XCircle className="w-4 h-4" />}
+                            {(!receipt.isAutoProcessed && receipt.status === "pending") && <Clock className="w-4 h-4" />}
+                            {receipt.isAutoProcessed ? "Approved" : receipt.status.charAt(0).toUpperCase() + receipt.status.slice(1)}
+                          </span>
                         </div>
                         
                         <div className="mb-3">
@@ -356,7 +379,7 @@ export default function NewReceiptManagementPage() {
                             <CheckCircle className="w-4 h-4" />
                             <span>Already Processed</span>
                           </span>
-                        ) : (
+                        ) : receipt.status === "pending" ? (
                           <div className="flex flex-row gap-2 w-full">
                             <button
                               onClick={() => handleApprove(receipt)}
@@ -375,6 +398,16 @@ export default function NewReceiptManagementPage() {
                               Reject
                             </button>
                           </div>
+                        ) : receipt.status === "approved" ? (
+                          <span className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Approved {receipt.processedAt ? `on ${new Date(receipt.processedAt).toLocaleDateString()}` : ''}</span>
+                          </span>
+                        ) : (
+                          <span className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md">
+                            <XCircle className="w-4 h-4" />
+                            <span>Rejected {receipt.processedAt ? `on ${new Date(receipt.processedAt).toLocaleDateString()}` : ''}</span>
+                          </span>
                         )}
                       </div>
                     </div>

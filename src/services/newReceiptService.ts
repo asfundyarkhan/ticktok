@@ -359,12 +359,17 @@ export class NewReceiptService {
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        receipts.push({
+        const receipt = {
           id: doc.id,
           ...data,
           submittedAt: data.submittedAt.toDate(),
           processedAt: data.processedAt ? data.processedAt.toDate() : undefined,
-        } as NewReceipt);
+        } as NewReceipt;
+        
+        // Filter out auto-processed receipts from pending view
+        if (!receipt.isAutoProcessed) {
+          receipts.push(receipt);
+        }
       });
 
       return receipts;
