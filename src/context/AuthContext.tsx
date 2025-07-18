@@ -35,6 +35,17 @@ export interface UserProfile {
   phone?: string;
   referralCode?: string;
   referredBy?: string;
+  paymentInfo?: {
+    usdtWalletAddress?: string;
+    bankInfo?: {
+      accountName?: string;
+      accountNumber?: string;
+      bankName?: string;
+      routingNumber?: string;
+      iban?: string;
+      swiftCode?: string;
+    };
+  };
   createdAt: Date;
   updatedAt: Date;
 }

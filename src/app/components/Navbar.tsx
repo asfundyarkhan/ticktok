@@ -115,7 +115,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16">            {/* Left section with logo and navigation */}
             <div className="flex items-center space-x-8">
               <Link
-                href={isAuthenticated ? (isSeller ? "/profile" : "/main") : "/main"}
+                href="/main"
                 className="flex items-center"
               >
                 <span className="text-lg font-bold text-[#FF0059]">TikTok</span>

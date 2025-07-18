@@ -19,7 +19,14 @@ export interface WithdrawalRequest {
   sellerName: string;
   sellerEmail: string;
   amount: number;
-  usdtId: string; // USDT wallet address/ID for withdrawal (now required)
+  currency: "USDT" | "USD" | "EUR" | "GBP" | "MYR";
+  
+  // Payment details based on currency
+  usdtWalletAddress?: string; // For USDT only
+  accountOwner?: string; // For bank transfers
+  bankName?: string; // For bank transfers  
+  accountNumber?: string; // For bank transfers
+  
   status: "pending" | "approved" | "rejected";
   requestDate: Date;
   processedDate?: Date;
@@ -46,7 +53,13 @@ export class WithdrawalRequestService {
     sellerName: string,
     sellerEmail: string,
     amount: number,
-    usdtId: string
+    currency: "USDT" | "USD" | "EUR" | "GBP" | "MYR",
+    paymentDetails: {
+      usdtWalletAddress?: string;
+      accountOwner?: string;
+      bankName?: string;
+      accountNumber?: string;
+    }
   ): Promise<WithdrawalRequestResult> {
     try {
       // Validate amount
@@ -57,12 +70,40 @@ export class WithdrawalRequestService {
         };
       }
 
-      // Validate USDT address
-      if (!usdtId || !usdtId.trim()) {
-        return {
-          success: false,
-          message: "USDT wallet address is required",
-        };
+      // Validate payment details based on currency
+      if (currency === "USDT") {
+        if (!paymentDetails.usdtWalletAddress || !paymentDetails.usdtWalletAddress.trim()) {
+          return {
+            success: false,
+            message: "USDT wallet address is required",
+          };
+        }
+        if (paymentDetails.usdtWalletAddress.trim().length < 20) {
+          return {
+            success: false,
+            message: "Please enter a valid USDT TRC20 wallet address",
+          };
+        }
+      } else {
+        // For bank transfers (USD, EUR, GBP, MYR)
+        if (!paymentDetails.accountOwner || !paymentDetails.accountOwner.trim()) {
+          return {
+            success: false,
+            message: "Account owner name is required",
+          };
+        }
+        if (!paymentDetails.bankName || !paymentDetails.bankName.trim()) {
+          return {
+            success: false,
+            message: "Bank name is required",
+          };
+        }
+        if (!paymentDetails.accountNumber || !paymentDetails.accountNumber.trim()) {
+          return {
+            success: false,
+            message: "Account number is required",
+          };
+        }
       }
 
       // Check seller's available balance
@@ -110,7 +151,14 @@ export class WithdrawalRequestService {
         sellerName,
         sellerEmail,
         amount,
-        usdtId,
+        currency,
+        ...(currency === "USDT" ? {
+          usdtWalletAddress: paymentDetails.usdtWalletAddress
+        } : {
+          accountOwner: paymentDetails.accountOwner,
+          bankName: paymentDetails.bankName,
+          accountNumber: paymentDetails.accountNumber
+        }),
         status: "pending",
         requestDate: new Date(),
         createdAt: new Date(),

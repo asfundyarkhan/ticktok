@@ -14,6 +14,15 @@ interface WithdrawalModalProps {
   onSuccess?: () => void;
 }
 
+type Currency = "USDT" | "USD" | "EUR" | "GBP" | "MYR";
+
+interface PaymentDetails {
+  usdtWalletAddress: string;
+  accountOwner: string;
+  bankName: string;
+  accountNumber: string;
+}
+
 export default function WithdrawalModal({
   isOpen,
   onClose,
@@ -22,27 +31,62 @@ export default function WithdrawalModal({
   sellerEmail,
   onSuccess,
 }: WithdrawalModalProps) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [amount, setAmount] = useState("");
-  const [usdtId, setUsdtId] = useState("");
+  const [currency, setCurrency] = useState<Currency>("USDT");
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
+    usdtWalletAddress: "",
+    accountOwner: "",
+    bankName: "",
+    accountNumber: "",
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ amount?: string; usdtId?: string }>({});
+  const [errors, setErrors] = useState<{
+    amount?: string;
+    usdtWalletAddress?: string;
+    accountOwner?: string;
+    bankName?: string;
+    accountNumber?: string;
+  }>({});
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setAmount("");
-      setUsdtId("");
+      setCurrency("USDT");
+      setPaymentDetails({
+        usdtWalletAddress: "",
+        accountOwner: "",
+        bankName: "",
+        accountNumber: "",
+      });
       setErrors({});
     }
   }, [isOpen]);
 
-  const validateForm = (amountValue: string, usdtValue: string): boolean => {
-    const numValue = parseFloat(amountValue);
-    const newErrors: { amount?: string; usdtId?: string } = {};
+  // Reset payment details when currency changes
+  useEffect(() => {
+    setPaymentDetails({
+      usdtWalletAddress: "",
+      accountOwner: "",
+      bankName: "",
+      accountNumber: "",
+    });
+    setErrors({});
+  }, [currency]);
+
+  const validateForm = (): boolean => {
+    const numValue = parseFloat(amount);
+    const newErrors: {
+      amount?: string;
+      usdtWalletAddress?: string;
+      accountOwner?: string;
+      bankName?: string;
+      accountNumber?: string;
+    } = {};
 
     // Validate amount
-    if (!amountValue.trim()) {
+    if (!amount.trim()) {
       newErrors.amount = "Amount is required";
     } else if (isNaN(numValue) || numValue <= 0) {
       newErrors.amount = "Amount must be a positive number";
@@ -52,11 +96,24 @@ export default function WithdrawalModal({
       newErrors.amount = "Minimum withdrawal amount is $5.00";
     }
 
-    // Validate USDT address (now required)
-    if (!usdtValue.trim()) {
-      newErrors.usdtId = "USDT wallet address is required";
-    } else if (usdtValue.trim().length < 20) {
-      newErrors.usdtId = "Please enter a valid USDT TRC20 wallet address";
+    // Validate payment details based on currency
+    if (currency === "USDT") {
+      if (!paymentDetails.usdtWalletAddress.trim()) {
+        newErrors.usdtWalletAddress = "USDT wallet address is required";
+      } else if (paymentDetails.usdtWalletAddress.trim().length < 20) {
+        newErrors.usdtWalletAddress = "Please enter a valid USDT TRC20 wallet address";
+      }
+    } else {
+      // Bank transfer validation
+      if (!paymentDetails.accountOwner.trim()) {
+        newErrors.accountOwner = "Account owner name is required";
+      }
+      if (!paymentDetails.bankName.trim()) {
+        newErrors.bankName = "Bank name is required";
+      }
+      if (!paymentDetails.accountNumber.trim()) {
+        newErrors.accountNumber = "Account number is required";
+      }
     }
 
     setErrors(newErrors);
@@ -68,24 +125,64 @@ export default function WithdrawalModal({
     // Only allow numbers and decimal point
     if (/^\d*\.?\d*$/.test(value)) {
       setAmount(value);
-      if (value) {
-        validateForm(value, usdtId);
-      } else {
-        setErrors({});
-      }
     }
   };
 
   const handleSetMaxAmount = () => {
     const maxAmount = Math.max(0, availableBalance);
     setAmount(maxAmount.toFixed(2));
-    validateForm(maxAmount.toFixed(2), usdtId);
   };
 
-  const handleUsdtChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setUsdtId(value);
-    validateForm(amount, value);
+  const handlePaymentDetailChange = (field: keyof PaymentDetails, value: string) => {
+    setPaymentDetails(prev => ({ ...prev, [field]: value }));
+  };
+
+  const autoFillPaymentDetails = () => {
+    if (!userProfile?.paymentInfo) {
+      toast.error("No saved payment information found in your profile");
+      return;
+    }
+
+    const { paymentInfo } = userProfile;
+
+    if (currency === "USDT") {
+      if (paymentInfo.usdtWalletAddress) {
+        setPaymentDetails(prev => ({
+          ...prev,
+          usdtWalletAddress: paymentInfo.usdtWalletAddress || ""
+        }));
+        toast.success("USDT wallet address auto-filled from profile");
+      } else {
+        toast.error("No USDT wallet address found in your profile");
+      }
+    } else {
+      // For fiat currencies, use bank information
+      if (paymentInfo.bankInfo?.accountName && paymentInfo.bankInfo?.bankName && paymentInfo.bankInfo?.accountNumber) {
+        setPaymentDetails(prev => ({
+          ...prev,
+          accountOwner: paymentInfo.bankInfo?.accountName || "",
+          bankName: paymentInfo.bankInfo?.bankName || "",
+          accountNumber: paymentInfo.bankInfo?.accountNumber || "",
+        }));
+        toast.success("Bank details auto-filled from profile");
+      } else {
+        toast.error("Incomplete bank information in your profile. Please complete your payment details in your profile page.");
+      }
+    }
+  };
+
+  const hasPaymentInfo = () => {
+    if (!userProfile?.paymentInfo) return false;
+    
+    if (currency === "USDT") {
+      return !!userProfile.paymentInfo.usdtWalletAddress;
+    } else {
+      return !!(
+        userProfile.paymentInfo.bankInfo?.accountName &&
+        userProfile.paymentInfo.bankInfo?.bankName &&
+        userProfile.paymentInfo.bankInfo?.accountNumber
+      );
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,7 +193,7 @@ export default function WithdrawalModal({
       return;
     }
 
-    if (!validateForm(amount, usdtId)) {
+    if (!validateForm()) {
       return;
     }
 
@@ -108,14 +205,14 @@ export default function WithdrawalModal({
         sellerName,
         sellerEmail,
         parseFloat(amount),
-        usdtId.trim()
+        currency,
+        paymentDetails
       );
 
       if (result.success) {
         toast.success("Withdrawal request submitted successfully!");
         onSuccess?.(); // Call the callback if provided
         onClose();
-        // Note: The admin dashboard will automatically update via real-time subscription
       } else {
         toast.error(result.message);
       }
@@ -165,6 +262,148 @@ export default function WithdrawalModal({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Currency Selection */}
+            <div>
+              <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-2">
+                Currency
+              </label>
+              <select
+                id="currency"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as Currency)}
+                className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all"
+                disabled={isSubmitting}
+              >
+                <option value="USDT">USDT</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="MYR">MYR</option>
+              </select>
+            </div>
+
+            {/* Dynamic Payment Details */}
+            {currency === "USDT" ? (
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="usdtWallet" className="block text-sm font-medium text-gray-700">
+                    USDT Wallet Address <span className="text-red-500">*</span>
+                  </label>
+                  {hasPaymentInfo() && (
+                    <button
+                      type="button"
+                      onClick={autoFillPaymentDetails}
+                      className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Auto-fill from Profile
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  id="usdtWallet"
+                  value={paymentDetails.usdtWalletAddress}
+                  onChange={(e) => handlePaymentDetailChange("usdtWalletAddress", e.target.value)}
+                  placeholder="Enter your USDT TRC20 wallet address"
+                  className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all font-mono text-sm ${
+                    errors.usdtWalletAddress ? "border-red-500" : "border-gray-300"
+                  }`}
+                  disabled={isSubmitting}
+                  required
+                />
+                {errors.usdtWalletAddress && (
+                  <p className="mt-1 text-sm text-red-600">{errors.usdtWalletAddress}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">
+                  <strong>Blockchain:</strong> USDT-TRC20
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Auto-fill button for bank details */}
+                {hasPaymentInfo() && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={autoFillPaymentDetails}
+                      className="text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors"
+                      disabled={isSubmitting}
+                    >
+                      Auto-fill Bank Details from Profile
+                    </button>
+                  </div>
+                )}
+                
+                {/* Account Owner */}
+                <div>
+                  <label htmlFor="accountOwner" className="block text-sm font-medium text-gray-700 mb-2">
+                    Account Owner <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="accountOwner"
+                    value={paymentDetails.accountOwner}
+                    onChange={(e) => handlePaymentDetailChange("accountOwner", e.target.value)}
+                    placeholder="Full name on bank account"
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all ${
+                      errors.accountOwner ? "border-red-500" : "border-gray-300"
+                    }`}
+                    disabled={isSubmitting}
+                    required
+                  />
+                  {errors.accountOwner && (
+                    <p className="mt-1 text-sm text-red-600">{errors.accountOwner}</p>
+                  )}
+                </div>
+
+                {/* Bank Name */}
+                <div>
+                  <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Bank Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="bankName"
+                    value={paymentDetails.bankName}
+                    onChange={(e) => handlePaymentDetailChange("bankName", e.target.value)}
+                    placeholder="Name of your bank"
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all ${
+                      errors.bankName ? "border-red-500" : "border-gray-300"
+                    }`}
+                    disabled={isSubmitting}
+                    required
+                  />
+                  {errors.bankName && (
+                    <p className="mt-1 text-sm text-red-600">{errors.bankName}</p>
+                  )}
+                </div>
+
+                {/* Account Number */}
+                <div>
+                  <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                    Account Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="accountNumber"
+                    value={paymentDetails.accountNumber}
+                    onChange={(e) => handlePaymentDetailChange("accountNumber", e.target.value)}
+                    placeholder="Your bank account number"
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all ${
+                      errors.accountNumber ? "border-red-500" : "border-gray-300"
+                    }`}
+                    disabled={isSubmitting}
+                    required
+                  />
+                  {errors.accountNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.accountNumber}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Withdrawal Amount */}
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
                 Withdrawal Amount
@@ -198,31 +437,6 @@ export default function WithdrawalModal({
               )}
             </div>
 
-            {/* USDT ID Field */}
-            <div>
-              <label htmlFor="usdtId" className="block text-sm font-medium text-gray-700 mb-2">
-                USDT Wallet Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="usdtId"
-                value={usdtId}
-                onChange={handleUsdtChange}
-                placeholder="Enter your USDT TRC20 wallet address"
-                className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#FF0059] focus:border-transparent transition-all font-mono text-sm ${
-                  errors.usdtId ? "border-red-500" : "border-gray-300"
-                }`}
-                disabled={isSubmitting}
-                required
-              />
-              {errors.usdtId && (
-                <p className="mt-1 text-sm text-red-600">{errors.usdtId}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">
-                Your USDT TRC20 wallet address is required for withdrawal processing
-              </p>
-            </div>
-
             {/* Info */}
             <div className="text-xs text-gray-500 space-y-1">
               <p>• Minimum withdrawal amount: $5.00</p>
@@ -242,7 +456,7 @@ export default function WithdrawalModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !amount || !usdtId || !!errors.amount || !!errors.usdtId}
+                disabled={isSubmitting || !amount || Object.keys(errors).length > 0}
                 className="flex-1 px-4 py-2 bg-[#FF0059] text-white rounded-lg hover:bg-[#E6004F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (

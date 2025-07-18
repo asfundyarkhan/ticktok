@@ -192,7 +192,7 @@ function WithdrawalRequestsPageContent() {
                     Amount
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    USDT ID
+                    Currency & Payment Info
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -232,15 +232,25 @@ function WithdrawalRequestsPageContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {request.usdtId ? (
-                          <div className="text-sm text-gray-900 font-mono">
-                            {request.usdtId.length > 20 
-                              ? `${request.usdtId.substring(0, 20)}...` 
-                              : request.usdtId}
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">
+                            {request.currency || "USDT"}
                           </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">Not provided</span>
-                        )}
+                          {request.currency === "USDT" ? (
+                            <div className="text-xs text-gray-500 font-mono">
+                              {request.usdtWalletAddress || request.usdtId ? 
+                                (request.usdtWalletAddress || request.usdtId).length > 15 
+                                  ? `${(request.usdtWalletAddress || request.usdtId).substring(0, 15)}...` 
+                                  : (request.usdtWalletAddress || request.usdtId)
+                                : "Not provided"}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">
+                              {request.bankName && <div>{request.bankName}</div>}
+                              {request.accountNumber && <div>***{request.accountNumber.slice(-4)}</div>}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
@@ -315,16 +325,26 @@ function WithdrawalRequestsPageContent() {
                     </div>
                   </div>
 
-                  {request.usdtId && (
-                    <div className="mb-3">
-                      <p className="text-xs text-gray-500 mb-1">USDT Address</p>
-                      <p className="text-xs font-mono text-gray-900 bg-gray-50 p-2 rounded break-all">
-                        {request.usdtId.length > 30 
-                          ? `${request.usdtId.substring(0, 30)}...` 
-                          : request.usdtId}
-                      </p>
+                  {/* Payment Details */}
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 mb-1">Payment Details</p>
+                    <div className="text-xs bg-gray-50 p-2 rounded">
+                      <p className="font-medium">{request.currency || "USDT"}</p>
+                      {request.currency === "USDT" ? (
+                        <p className="font-mono text-gray-700 break-all">
+                          {request.usdtWalletAddress && request.usdtWalletAddress.length > 30 
+                            ? `${request.usdtWalletAddress.substring(0, 30)}...` 
+                            : request.usdtWalletAddress || "Not provided"}
+                        </p>
+                      ) : (
+                        <div className="text-gray-700">
+                          {request.bankName && <p><strong>Bank:</strong> {request.bankName}</p>}
+                          {request.accountOwner && <p><strong>Owner:</strong> {request.accountOwner}</p>}
+                          {request.accountNumber && <p><strong>Account:</strong> ***{request.accountNumber.slice(-4)}</p>}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   {request.processedDate && (
                     <div className="mb-3">
@@ -384,14 +404,35 @@ function WithdrawalRequestsPageContent() {
                   <div className="text-xl sm:text-2xl font-bold text-gray-900">${selectedRequest.amount.toFixed(2)}</div>
                 </div>
 
-                {selectedRequest.usdtId && (
-                  <div>
-                    <label className="text-xs sm:text-sm font-medium text-gray-500">USDT Wallet Address</label>
-                    <div className="text-gray-900 font-mono text-xs sm:text-sm bg-gray-50 p-2 rounded border break-all">
-                      {selectedRequest.usdtId}
-                    </div>
+                <div>
+                  <label className="text-xs sm:text-sm font-medium text-gray-500">Currency & Payment Details</label>
+                  <div className="text-base font-medium text-gray-900 mb-2">{selectedRequest.currency || "USDT"}</div>
+                  <div className="bg-gray-50 p-3 rounded border">
+                    {selectedRequest.currency === "USDT" ? (
+                      <div>
+                        <p className="text-xs font-medium text-gray-600 mb-1">USDT Wallet Address (TRC20):</p>
+                        <p className="text-sm font-mono text-gray-900 break-all">
+                          {selectedRequest.usdtWalletAddress || "Not provided"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Account Owner:</p>
+                          <p className="text-sm text-gray-900">{selectedRequest.accountOwner || "Not provided"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Bank Name:</p>
+                          <p className="text-sm text-gray-900">{selectedRequest.bankName || "Not provided"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-600">Account Number:</p>
+                          <p className="text-sm text-gray-900">{selectedRequest.accountNumber || "Not provided"}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div>
                   <label className="text-xs sm:text-sm font-medium text-gray-500">Status</label>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, UserProfile } from "@/context/AuthContext";
 import { LoadingSpinner } from "../components/Loading";
 import EmailVerificationCheck from "../components/EmailVerificationCheck";
 import SellerWalletDashboard from "../components/SellerWalletDashboard";
@@ -36,6 +36,18 @@ function UserProfileContent() {
       state: "",
       zip: "",
       country: "",
+    },
+  });
+  
+  const [paymentInfo, setPaymentInfo] = useState({
+    usdtWalletAddress: "",
+    bankInfo: {
+      accountName: "",
+      accountNumber: "",
+      bankName: "",
+      routingNumber: "",
+      iban: "",
+      swiftCode: "",
     },
   });
   // Handle unauthenticated users and admin/superadmin redirection
@@ -75,6 +87,18 @@ function UserProfileContent() {
           country: userProfile.address?.country || "",
         },
       });
+      
+      setPaymentInfo({
+        usdtWalletAddress: userProfile.paymentInfo?.usdtWalletAddress || "",
+        bankInfo: {
+          accountName: userProfile.paymentInfo?.bankInfo?.accountName || "",
+          accountNumber: userProfile.paymentInfo?.bankInfo?.accountNumber || "",
+          bankName: userProfile.paymentInfo?.bankInfo?.bankName || "",
+          routingNumber: userProfile.paymentInfo?.bankInfo?.routingNumber || "",
+          iban: userProfile.paymentInfo?.bankInfo?.iban || "",
+          swiftCode: userProfile.paymentInfo?.bankInfo?.swiftCode || "",
+        },
+      });
     }
   }, [userProfile]);
 
@@ -105,13 +129,20 @@ function UserProfileContent() {
     try {
       setIsSaving(true);
 
-      // Update the user profile in Firestore and Auth
-      await updateUserProfile({
+      const updateData: Partial<UserProfile> = {
         displayName: profileData.displayName,
         phone: profileData.phone,
         address: profileData.address,
         updatedAt: new Date(),
-      });
+      };
+
+      // Include payment info for sellers, admins, and superadmins
+      if (userProfile.role === 'seller' || userProfile.role === 'admin' || userProfile.role === 'superadmin') {
+        updateData.paymentInfo = paymentInfo;
+      }
+
+      // Update the user profile in Firestore and Auth
+      await updateUserProfile(updateData);
 
       setIsEditing(false);
       toast.success("Profile updated successfully!");
@@ -471,6 +502,166 @@ function UserProfileContent() {
                 </div>
               </div>
             </div>
+
+            {/* Payment Information Section - Only for sellers, admins, and superadmins */}
+            {(userProfile.role === 'seller' || userProfile.role === 'admin' || userProfile.role === 'superadmin') && (
+              <div className="mt-10 border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Payment Information
+                </h3>
+                
+                <div className="space-y-6">
+                  {/* USDT Wallet Address */}
+                  <div>
+                    <label
+                      htmlFor="usdtWallet"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      USDT Wallet Address (TRC20)
+                    </label>
+                    <input
+                      type="text"
+                      id="usdtWallet"
+                      value={paymentInfo.usdtWalletAddress}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        usdtWalletAddress: e.target.value
+                      })}
+                      disabled={!isEditing}
+                      placeholder="Enter your USDT wallet address"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+
+                  {/* Bank Information */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-800 mb-3 mt-6">Bank Information (Optional)</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="accountName"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Account Name
+                      </label>
+                      <input
+                        type="text"
+                        id="accountName"
+                        value={paymentInfo.bankInfo.accountName}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, accountName: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="accountNumber"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        id="accountNumber"
+                        value={paymentInfo.bankInfo.accountNumber}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, accountNumber: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="bankName"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Bank Name
+                      </label>
+                      <input
+                        type="text"
+                        id="bankName"
+                        value={paymentInfo.bankInfo.bankName}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, bankName: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="routingNumber"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        Routing Number
+                      </label>
+                      <input
+                        type="text"
+                        id="routingNumber"
+                        value={paymentInfo.bankInfo.routingNumber}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, routingNumber: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="iban"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        IBAN (International)
+                      </label>
+                      <input
+                        type="text"
+                        id="iban"
+                        value={paymentInfo.bankInfo.iban}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, iban: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="swiftCode"
+                        className="block text-sm font-medium text-gray-700"
+                      >
+                        SWIFT Code
+                      </label>
+                      <input
+                        type="text"
+                        id="swiftCode"
+                        value={paymentInfo.bankInfo.swiftCode}
+                        onChange={(e) => setPaymentInfo({
+                          ...paymentInfo,
+                          bankInfo: { ...paymentInfo.bankInfo, swiftCode: e.target.value }
+                        })}
+                        disabled={!isEditing}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Security section */}
             <div className="mt-10 border-t border-gray-200 pt-6">

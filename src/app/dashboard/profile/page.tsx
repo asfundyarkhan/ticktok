@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../../components/Loading";
+import { UserProfile } from "../../../context/AuthContext";
 import toast from "react-hot-toast";
 
 export default function ProfilePage() {
@@ -19,6 +20,18 @@ export default function ProfilePage() {
     fullName: "",
     email: "",
     phone: "",
+  });
+  
+  const [paymentInfo, setPaymentInfo] = useState({
+    usdtWalletAddress: "",
+    bankInfo: {
+      accountName: "",
+      accountNumber: "",
+      bankName: "",
+      routingNumber: "",
+      iban: "",
+      swiftCode: "",
+    },
   });  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
@@ -34,6 +47,18 @@ export default function ProfilePage() {
         email: userProfile.email || "",
         phone: userProfile.phone || "",
       });
+      
+      setPaymentInfo({
+        usdtWalletAddress: userProfile.paymentInfo?.usdtWalletAddress || "",
+        bankInfo: {
+          accountName: userProfile.paymentInfo?.bankInfo?.accountName || "",
+          accountNumber: userProfile.paymentInfo?.bankInfo?.accountNumber || "",
+          bankName: userProfile.paymentInfo?.bankInfo?.bankName || "",
+          routingNumber: userProfile.paymentInfo?.bankInfo?.routingNumber || "",
+          iban: userProfile.paymentInfo?.bankInfo?.iban || "",
+          swiftCode: userProfile.paymentInfo?.bankInfo?.swiftCode || "",
+        },
+      });
     }
   }, [userProfile]);
 
@@ -42,10 +67,17 @@ export default function ProfilePage() {
     setIsLoading(true);
 
     try {
-      await updateUserProfile({
+      const updateData: Partial<UserProfile> = {
         displayName: profileData.fullName,
         phone: profileData.phone,
-      });
+      };
+
+      // Only include payment info for sellers, admins, and superadmins
+      if (userProfile?.role === 'seller' || userProfile?.role === 'admin' || userProfile?.role === 'superadmin') {
+        updateData.paymentInfo = paymentInfo;
+      }
+
+      await updateUserProfile(updateData);
 
       toast.success("Profile updated successfully");
     } catch (error) {
@@ -145,6 +177,145 @@ export default function ProfilePage() {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
             />
           </div>
+
+          {/* Payment Information Section - Show role info and fields */}
+          <div className="border-t pt-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Payment Information
+              </h3>
+              <p className="text-sm text-gray-600">
+                Current Role: {userProfile?.role || 'No role'} 
+                {(userProfile?.role === 'seller' || userProfile?.role === 'admin' || userProfile?.role === 'superadmin') 
+                  ? ' - Payment fields available' 
+                  : ' - Payment fields not available for this role'}
+              </p>
+            </div>
+            
+            {/* Always show for testing - remove role restriction temporarily */}
+            <div className="space-y-6">
+                {/* USDT Wallet Address */}
+                <div>
+                  <label htmlFor="usdtWallet" className="block text-sm font-medium text-gray-700">
+                    USDT Wallet Address (TRC20)
+                  </label>
+                  <input
+                    type="text"
+                    id="usdtWallet"
+                    value={paymentInfo.usdtWalletAddress}
+                    onChange={(e) => setPaymentInfo({
+                      ...paymentInfo,
+                      usdtWalletAddress: e.target.value
+                    })}
+                    placeholder="Enter your USDT wallet address"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                  />
+                </div>
+
+                {/* Bank Information */}
+                <div>
+                  <h4 className="text-md font-medium text-gray-800 mb-3 mt-6">Bank Information (Optional)</h4>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="accountName" className="block text-sm font-medium text-gray-700">
+                      Account Name
+                    </label>
+                    <input
+                      type="text"
+                      id="accountName"
+                      value={paymentInfo.bankInfo.accountName}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, accountName: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      id="accountNumber"
+                      value={paymentInfo.bankInfo.accountNumber}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, accountNumber: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="bankName" className="block text-sm font-medium text-gray-700">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      id="bankName"
+                      value={paymentInfo.bankInfo.bankName}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, bankName: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="routingNumber" className="block text-sm font-medium text-gray-700">
+                      Routing Number
+                    </label>
+                    <input
+                      type="text"
+                      id="routingNumber"
+                      value={paymentInfo.bankInfo.routingNumber}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, routingNumber: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="iban" className="block text-sm font-medium text-gray-700">
+                      IBAN (International)
+                    </label>
+                    <input
+                      type="text"
+                      id="iban"
+                      value={paymentInfo.bankInfo.iban}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, iban: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="swiftCode" className="block text-sm font-medium text-gray-700">
+                      SWIFT Code
+                    </label>
+                    <input
+                      type="text"
+                      id="swiftCode"
+                      value={paymentInfo.bankInfo.swiftCode}
+                      onChange={(e) => setPaymentInfo({
+                        ...paymentInfo,
+                        bankInfo: { ...paymentInfo.bankInfo, swiftCode: e.target.value }
+                      })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
           <div className="flex justify-end gap-4">
             <button
