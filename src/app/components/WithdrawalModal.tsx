@@ -14,7 +14,7 @@ interface WithdrawalModalProps {
   onSuccess?: () => void;
 }
 
-type Currency = "USDT" | "USD" | "EUR" | "GBP" | "MYR";
+type Currency = "USDT" | "USD" | "EUR" | "GBP" | "MYR" | "CNY" | "JPY" | "KRW" | "INR" | "IDR" | "SGD" | "THB" | "VND" | "PHP" | "PKR" | "BDT" | "AED" | "SAR" | "NPR" | "KHR" | "LAK" | "MMK";
 
 interface PaymentDetails {
   usdtWalletAddress: string;
@@ -279,6 +279,23 @@ export default function WithdrawalModal({
                 <option value="EUR">EUR</option>
                 <option value="GBP">GBP</option>
                 <option value="MYR">MYR</option>
+                <option value="CNY">CNY</option>
+                <option value="JPY">JPY</option>
+                <option value="KRW">KRW</option>
+                <option value="INR">INR</option>
+                <option value="IDR">IDR</option>
+                <option value="SGD">SGD</option>
+                <option value="THB">THB</option>
+                <option value="VND">VND</option>
+                <option value="PHP">PHP</option>
+                <option value="PKR">PKR</option>
+                <option value="BDT">BDT</option>
+                <option value="AED">AED</option>
+                <option value="SAR">SAR</option>
+                <option value="NPR">NPR</option>
+                <option value="KHR">KHR</option>
+                <option value="LAK">LAK</option>
+                <option value="MMK">MMK</option>
               </select>
             </div>
 

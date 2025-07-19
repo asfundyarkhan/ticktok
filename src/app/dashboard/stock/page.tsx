@@ -19,6 +19,7 @@ function StockPageContent() {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [products, setProducts] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restocking, setRestocking] = useState(false);
 
   // Set up real-time subscription to admin stock
   useEffect(() => {
@@ -82,6 +83,26 @@ function StockPageContent() {
   const handleEdit = (productId: string) => {
     router.push(`/dashboard/stock/edit/${productId}`);
   };
+
+  const handleRestockAll = async () => {
+    if (restocking) return;
+    
+    setRestocking(true);
+    try {
+      const result = await StockService.restockAllItems(500);
+      
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error("Error restocking all items:", error);
+      toast.error("Failed to restock items. Please try again.");
+    } finally {
+      setRestocking(false);
+    }
+  };
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -110,19 +131,36 @@ function StockPageContent() {
             List a Stock
           </Link>
         </nav>
-      </div>      {/* Search */}
-      <div className="relative mb-4 sm:mb-6">
-        <Search
-          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-          size={20}
-        />
-        <input
-          type="text"
-          placeholder="Search available stock"
-          className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
-          value={searchQuery}
-          onChange={handleSearch}
-        />
+      </div>      {/* Search and Restock Section */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4 sm:mb-6">
+        <div className="relative flex-1">
+          <Search
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            size={20}
+          />
+          <input
+            type="text"
+            placeholder="Search available stock"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 text-sm sm:text-base"
+            value={searchQuery}
+            onChange={handleSearch}
+          />
+        </div>
+        
+        <button
+          onClick={handleRestockAll}
+          disabled={restocking || loading}
+          className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base whitespace-nowrap"
+        >
+          {restocking ? (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Restocking...
+            </div>
+          ) : (
+            "Restock All (+500)"
+          )}
+        </button>
       </div>      {/* Products Table */}
       <div className="bg-white rounded-lg shadow-sm overflow-hidden">        {/* Desktop Table */}
         <div className="hidden lg:block">

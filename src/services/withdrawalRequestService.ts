@@ -19,14 +19,36 @@ export interface WithdrawalRequest {
   sellerName: string;
   sellerEmail: string;
   amount: number;
-  currency: "USDT" | "USD" | "EUR" | "GBP" | "MYR";
-  
+  currency:
+    | "USDT"
+    | "USD"
+    | "EUR"
+    | "GBP"
+    | "MYR"
+    | "CNY"
+    | "JPY"
+    | "KRW"
+    | "INR"
+    | "IDR"
+    | "SGD"
+    | "THB"
+    | "VND"
+    | "PHP"
+    | "PKR"
+    | "BDT"
+    | "AED"
+    | "SAR"
+    | "NPR"
+    | "KHR"
+    | "LAK"
+    | "MMK";
+
   // Payment details based on currency
   usdtWalletAddress?: string; // For USDT only
   accountOwner?: string; // For bank transfers
-  bankName?: string; // For bank transfers  
+  bankName?: string; // For bank transfers
   accountNumber?: string; // For bank transfers
-  
+
   status: "pending" | "approved" | "rejected";
   requestDate: Date;
   processedDate?: Date;
@@ -53,7 +75,29 @@ export class WithdrawalRequestService {
     sellerName: string,
     sellerEmail: string,
     amount: number,
-    currency: "USDT" | "USD" | "EUR" | "GBP" | "MYR",
+    currency:
+      | "USDT"
+      | "USD"
+      | "EUR"
+      | "GBP"
+      | "MYR"
+      | "CNY"
+      | "JPY"
+      | "KRW"
+      | "INR"
+      | "IDR"
+      | "SGD"
+      | "THB"
+      | "VND"
+      | "PHP"
+      | "PKR"
+      | "BDT"
+      | "AED"
+      | "SAR"
+      | "NPR"
+      | "KHR"
+      | "LAK"
+      | "MMK",
     paymentDetails: {
       usdtWalletAddress?: string;
       accountOwner?: string;
@@ -72,7 +116,10 @@ export class WithdrawalRequestService {
 
       // Validate payment details based on currency
       if (currency === "USDT") {
-        if (!paymentDetails.usdtWalletAddress || !paymentDetails.usdtWalletAddress.trim()) {
+        if (
+          !paymentDetails.usdtWalletAddress ||
+          !paymentDetails.usdtWalletAddress.trim()
+        ) {
           return {
             success: false,
             message: "USDT wallet address is required",
@@ -86,7 +133,10 @@ export class WithdrawalRequestService {
         }
       } else {
         // For bank transfers (USD, EUR, GBP, MYR)
-        if (!paymentDetails.accountOwner || !paymentDetails.accountOwner.trim()) {
+        if (
+          !paymentDetails.accountOwner ||
+          !paymentDetails.accountOwner.trim()
+        ) {
           return {
             success: false,
             message: "Account owner name is required",
@@ -98,7 +148,10 @@ export class WithdrawalRequestService {
             message: "Bank name is required",
           };
         }
-        if (!paymentDetails.accountNumber || !paymentDetails.accountNumber.trim()) {
+        if (
+          !paymentDetails.accountNumber ||
+          !paymentDetails.accountNumber.trim()
+        ) {
           return {
             success: false,
             message: "Account number is required",
@@ -152,13 +205,15 @@ export class WithdrawalRequestService {
         sellerEmail,
         amount,
         currency,
-        ...(currency === "USDT" ? {
-          usdtWalletAddress: paymentDetails.usdtWalletAddress
-        } : {
-          accountOwner: paymentDetails.accountOwner,
-          bankName: paymentDetails.bankName,
-          accountNumber: paymentDetails.accountNumber
-        }),
+        ...(currency === "USDT"
+          ? {
+              usdtWalletAddress: paymentDetails.usdtWalletAddress,
+            }
+          : {
+              accountOwner: paymentDetails.accountOwner,
+              bankName: paymentDetails.bankName,
+              accountNumber: paymentDetails.accountNumber,
+            }),
         status: "pending",
         requestDate: new Date(),
         createdAt: new Date(),

@@ -6,6 +6,9 @@ interface FilterSidebarProps {
   setPriceRange: (range: [number, number]) => void;
   selectedSizes: string[];
   setSelectedSizes: (sizes: string[]) => void;
+  selectedSeller: string;
+  setSelectedSeller: (seller: string) => void;
+  availableSellers: Array<{id: string, name: string}>;
 }
 
 const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
@@ -15,6 +18,9 @@ export default function FilterSidebar({
   setPriceRange,
   selectedSizes,
   setSelectedSizes,
+  selectedSeller,
+  setSelectedSeller,
+  availableSellers,
 }: FilterSidebarProps) {
   const handleSizeClick = (size: string) => {
     if (selectedSizes.includes(size)) {
@@ -67,6 +73,26 @@ export default function FilterSidebar({
               }`}
             >
               {size}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Seller Filter */}
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Seller</h3>
+        <div className="space-y-2">
+          {availableSellers.map((seller) => (
+            <button
+              key={seller.id}
+              onClick={() => setSelectedSeller(seller.id)}
+              className={`w-full text-left px-3 py-2 text-sm border rounded-md transition-colors ${
+                selectedSeller === seller.id
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "border-gray-300 text-gray-800 hover:border-blue-500 hover:bg-blue-50"
+              }`}
+            >
+              {seller.name}
             </button>
           ))}
         </div>

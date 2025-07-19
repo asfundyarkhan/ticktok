@@ -6,6 +6,7 @@ import ProductGrid from "@/app/components/ProductGrid";
 import CartDrawer from "@/app/components/CartDrawer";
 import FilterSidebar from "@/app/components/FilterSidebar";
 import FilterModal from "@/app/components/FilterModal";
+import SellerProfileModal from "@/app/components/SellerProfileModal";
 import { useCart } from "@/app/components/NewCartContext";
 import { useAuth } from "@/context/AuthContext";
 import { FlyToCartAnimation } from "@/app/components/CartAnimations";
@@ -52,6 +53,8 @@ function StorePageContent() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [selectedSeller, setSelectedSeller] = useState<string>("all");
+  const [availableSellers, setAvailableSellers] = useState<Array<{id: string, name: string}>>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [showAnimation, setShowAnimation] = useState(false);
@@ -61,11 +64,13 @@ function StorePageContent() {
     y: 0,
   });
   const [animationEndPosition] = useState({
-    x: window.innerWidth - 100, // Approximate navbar cart position
+    x: typeof window !== 'undefined' ? window.innerWidth - 100 : 800, // Approximate navbar cart position
     y: 20,
   });
   
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showSellerModal, setShowSellerModal] = useState(false);
+  const [selectedSellerInfo, setSelectedSellerInfo] = useState<{id: string, name: string} | null>(null);
   
   const { setIsCartOpen, isCartOpen, addToCart } = useCart();
 
@@ -73,6 +78,7 @@ function StorePageContent() {
   useEffect(() => {
     const categoryParam = searchParams.get('category');
     const searchParam = searchParams.get('search');
+    const sellerParam = searchParams.get('seller');
     
     if (categoryParam && categoryParam !== 'all') {
       setSelectedCategory(categoryParam);
@@ -81,6 +87,10 @@ function StorePageContent() {
     if (searchParam) {
       setSearchQuery(searchParam);
       setDebouncedSearchQuery(searchParam);
+    }
+    
+    if (sellerParam && sellerParam !== 'all') {
+      setSelectedSeller(sellerParam);
     }
   }, [searchParams]);
   
@@ -104,9 +114,33 @@ function StorePageContent() {
     setAvailableCategories(dynamicCategories);
   };
 
-  // Function to update categories based on products
+  // Function to update available sellers based on products
+  const updateAvailableSellers = (productList: StockItem[]) => {
+    const uniqueSellers = new Set<string>();
+    const sellerNames = new Map<string, string>();
+    
+    productList.forEach(product => {
+      if (product.sellerId && product.sellerName) {
+        uniqueSellers.add(product.sellerId);
+        sellerNames.set(product.sellerId, product.sellerName);
+      }
+    });
+
+    const dynamicSellers = [
+      { id: "all", name: "All Sellers" },
+      ...Array.from(uniqueSellers).map(sellerId => ({
+        id: sellerId,
+        name: sellerNames.get(sellerId) || "Unknown Seller"
+      }))
+    ];
+
+    setAvailableSellers(dynamicSellers);
+  };
+
+  // Function to update categories and sellers based on products
   useEffect(() => {
     updateAvailableCategories(products);
+    updateAvailableSellers(products);
   }, [products]);
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -268,6 +302,10 @@ function StorePageContent() {
         (product.category &&
           product.category.toLowerCase() === selectedCategory.toLowerCase());
 
+      const matchesSeller =
+        selectedSeller === "all" ||
+        product.sellerId === selectedSeller;
+
       const matchesPrice =
         product.price >= priceRange[0] && product.price <= priceRange[1];
         
@@ -283,9 +321,9 @@ function StorePageContent() {
         (product.description && product.description.toLowerCase().includes(query)) || 
         (product.sellerName && product.sellerName.toLowerCase().includes(query));
 
-      return matchesCategory && matchesPrice && matchesSize && matchesSearch;
+      return matchesCategory && matchesSeller && matchesPrice && matchesSize && matchesSearch;
     });
-  }, [selectedCategory, priceRange, selectedSizes, debouncedSearchQuery, products]);
+  }, [selectedCategory, selectedSeller, priceRange, selectedSizes, debouncedSearchQuery, products]);
 
   const handleProductAddToCart = async (
     product: StockItem,
@@ -364,6 +402,11 @@ function StorePageContent() {
     }, animationSettings.animationDelay);
   };
 
+  const handleSellerClick = (sellerId: string, sellerName: string) => {
+    setSelectedSellerInfo({ id: sellerId, name: sellerName });
+    setShowSellerModal(true);
+  };
+
   // Show filtered products
   const totalItems = filteredProducts.length;
 
@@ -436,6 +479,9 @@ function StorePageContent() {
               setPriceRange={setPriceRange}
               selectedSizes={selectedSizes}
               setSelectedSizes={setSelectedSizes}
+              selectedSeller={selectedSeller}
+              setSelectedSeller={setSelectedSeller}
+              availableSellers={availableSellers}
             />
           </div>
 
@@ -450,6 +496,7 @@ function StorePageContent() {
             <ProductGrid
               products={filteredProducts}
               onAddToCart={handleProductAddToCart}
+              onSellerClick={handleSellerClick}
             />
           </div>
         </div>
@@ -471,6 +518,17 @@ function StorePageContent() {
         setSelectedCategory={setSelectedCategory}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        selectedSeller={selectedSeller}
+        setSelectedSeller={setSelectedSeller}
+        availableSellers={availableSellers}
+      />
+      
+      {/* Seller Profile Modal */}
+      <SellerProfileModal
+        isOpen={showSellerModal}
+        onClose={() => setShowSellerModal(false)}
+        sellerId={selectedSellerInfo?.id || ""}
+        sellerName={selectedSellerInfo?.name || ""}
       />
     </div>
   );

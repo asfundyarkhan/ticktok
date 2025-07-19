@@ -12,6 +12,7 @@ import type { Swiper as SwiperType } from "swiper";
 import { FreeMode, Navigation, Thumbs } from "swiper/modules";
 import { StockItem } from "@/types/marketplace";
 import { StockService } from "@/services/stockService";
+import { UserService } from "@/services/userService";
 import Breadcrumb from "@/app/components/Breadcrumb";
 import EnhancedQuickAddButton from "@/app/components/EnhancedQuickAddButton";
 import AddToCartButton from "@/app/components/AddToCartButton";
@@ -23,6 +24,8 @@ import { getBestProductImage, normalizeProductImages } from "@/app/utils/imageHe
 import { generateUniqueId } from "@/utils/idGenerator";
 import { useAuth } from "@/context/AuthContext";
 import LoginModal from "@/app/components/LoginModal";
+import SellerProfileCard from "@/app/components/SellerProfileCard";
+import SellerProfileModal from "@/app/components/SellerProfileModal";
 import styles from "./page.module.css";
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -48,6 +51,7 @@ export default function ProductDetailPage() {
     y: 0,
   });
   const [relatedProducts, setRelatedProducts] = useState<StockItem[]>([]);
+  const [showSellerModal, setShowSellerModal] = useState(false);
   const addToCartButtonRef = useRef<HTMLDivElement>(null);
   const cartIconRef = useRef<HTMLDivElement>(null);
   const { addToCart, isCartOpen, setIsCartOpen } = useCart();
@@ -143,7 +147,9 @@ export default function ProductDetailPage() {
                 salePercentage: 0,
                 listed: true,
                 productCode: listing.productId,
-                category: listing.category
+                category: listing.category,
+                sellerId: listing.sellerId,
+                sellerName: listing.sellerName
               };
             }
           } catch (error) {
@@ -154,6 +160,23 @@ export default function ProductDetailPage() {
         
         if (productData) {
           console.log("ProductDetailPage: Successfully loaded product:", productData);
+          console.log("ProductDetailPage: Seller info - ID:", productData.sellerId, "Name:", productData.sellerName);
+          
+          // If we have a sellerId but no sellerName, fetch it
+          if (productData.sellerId && !productData.sellerName) {
+            try {
+              console.log("ProductDetailPage: Fetching seller name for ID:", productData.sellerId);
+              const sellerProfile = await UserService.getUserProfile(productData.sellerId);
+              if (sellerProfile) {
+                productData.sellerName = sellerProfile.displayName || sellerProfile.email || 'Unknown Seller';
+                console.log("ProductDetailPage: Found seller name:", productData.sellerName);
+              }
+            } catch (error) {
+              console.log("ProductDetailPage: Error fetching seller profile:", error);
+              productData.sellerName = 'Unknown Seller';
+            }
+          }
+          
           setProduct(productData);
           
           // Load related products from the same category
@@ -226,6 +249,12 @@ export default function ProductDetailPage() {
   const handleQuantityIncrease = () => {
     if (safeStock === 0) return;
     setQuantity(Math.min(safeStock, safeQuantity + 1));
+  };
+
+  const handleSellerClick = () => {
+    if (product?.sellerId) {
+      setShowSellerModal(true);
+    }
   };
 
   // Handler for related product quick add
@@ -537,16 +566,43 @@ export default function ProductDetailPage() {
                   <p className="text-sm text-gray-600 whitespace-pre-line">{product.features}</p>
                 )}
               </div>
-            )}{/* Stock Info */}
+            )}
+
+            {/* Seller Profile Section */}
+            {product.sellerId && (
+              <div 
+                className="mt-6 p-4 bg-gray-50 rounded-lg border cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={handleSellerClick}
+              >
+                <h3 className="text-sm font-medium text-gray-900 mb-3">Seller Information</h3>
+                <SellerProfileCard 
+                  sellerId={product.sellerId}
+                  sellerName={product.sellerName}
+                  compact={true}
+                />
+              </div>
+            )}
+            
+            {/* Stock Info */}
             <div className="mt-4">
-              <p className="text-sm text-gray-600">
-                <span className={`font-medium ${product.stock > 10 ? 'text-green-600' : product.stock > 0 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                </span>
+              <div className="flex flex-col gap-1">
+                <p className="text-sm text-gray-600">
+                  <span className={`font-medium ${product.stock > 10 ? 'text-green-600' : product.stock > 0 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                  </span>
+                </p>
                 {product.sellerName && (
-                  <span className="ml-2">• Sold by {product.sellerName}</span>
+                  <p className="text-sm text-gray-600">
+                    <span className="text-gray-500">Sold by</span>
+                    <span 
+                      className="ml-1 font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
+                      onClick={handleSellerClick}
+                    >
+                      {product.sellerName}
+                    </span>
+                  </p>
                 )}
-              </p>
+              </div>
             </div>
             {/* Quantity */}
             <div className="mt-6">
@@ -829,6 +885,14 @@ export default function ProductDetailPage() {
 
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      
+      {/* Seller Profile Modal */}
+      <SellerProfileModal
+        isOpen={showSellerModal}
+        onClose={() => setShowSellerModal(false)}
+        sellerId={product?.sellerId || ""}
+        sellerName={product?.sellerName || ""}
+      />
     </div>
   );
 }

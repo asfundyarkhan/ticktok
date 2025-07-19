@@ -16,6 +16,9 @@ interface FilterModalProps {
   setSelectedCategory: (category: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  selectedSeller: string;
+  setSelectedSeller: (seller: string) => void;
+  availableSellers: Array<{ id: string; name: string }>;
 }
 
 const sizes = ["XS", "S", "M", "L", "XL", "2XL"];
@@ -32,6 +35,9 @@ export default function FilterModal({
   setSelectedCategory,
   searchQuery,
   setSearchQuery,
+  selectedSeller,
+  setSelectedSeller,
+  availableSellers,
 }: FilterModalProps) {
   const handleSizeClick = (size: string) => {
     if (selectedSizes.includes(size)) {
@@ -46,6 +52,7 @@ export default function FilterModal({
     setSelectedSizes([]);
     setSelectedCategory("all");
     setSearchQuery("");
+    setSelectedSeller("all");
   };
 
   if (!isOpen) return null;
@@ -117,6 +124,26 @@ export default function FilterModal({
                     }`}
                   >
                     {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sellers */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Sellers</h3>
+              <div className="space-y-2">
+                {availableSellers.map((seller) => (
+                  <button
+                    key={seller.id}
+                    onClick={() => setSelectedSeller(seller.id)}
+                    className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                      selectedSeller === seller.id
+                        ? "bg-pink-500 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    {seller.name}
                   </button>
                 ))}
               </div>

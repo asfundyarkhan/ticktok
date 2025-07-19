@@ -41,7 +41,7 @@ export interface UserProfile {
   suspended?: boolean;
   referralCode?: string;
   referredBy?: string;
-  
+
   // Payment Information for Withdrawals
   paymentInfo?: {
     usdtWalletAddress?: string;
@@ -51,7 +51,7 @@ export interface UserProfile {
       accountNumber?: string;
     };
   };
-  
+
   createdAt: Date;
   updatedAt: Date;
 }

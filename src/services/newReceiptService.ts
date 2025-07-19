@@ -365,7 +365,7 @@ export class NewReceiptService {
           submittedAt: data.submittedAt.toDate(),
           processedAt: data.processedAt ? data.processedAt.toDate() : undefined,
         } as NewReceipt;
-        
+
         // Filter out auto-processed receipts from pending view
         if (!receipt.isAutoProcessed) {
           receipts.push(receipt);

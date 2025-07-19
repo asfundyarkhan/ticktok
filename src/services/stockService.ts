@@ -36,6 +36,7 @@ import {
   Unsubscribe,
   QuerySnapshot,
   DocumentSnapshot,
+  writeBatch,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../lib/firebase/firebase";
@@ -2289,6 +2290,63 @@ export class StockService {
       onUpdate(updatedListings);
     } catch (error) {
       console.error("Error fetching seller names:", error);
+    }
+  }
+
+  /**
+   * Restock all items by adding specified quantity to each
+   * @param quantity The quantity to add to each item's stock
+   * @returns Promise with restock result
+   */
+  static async restockAllItems(quantity: number = 500): Promise<{
+    success: boolean;
+    message: string;
+    itemsUpdated: number;
+  }> {
+    try {
+      // Get all admin stock items
+      const q = query(collection(firestore, this.COLLECTION));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return {
+          success: false,
+          message: "No items found to restock",
+          itemsUpdated: 0,
+        };
+      }
+
+      let itemsUpdated = 0;
+      const batch = writeBatch(firestore);
+
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        const currentStock = typeof data.stock === "number" ? data.stock : 0;
+        const newStock = currentStock + quantity;
+
+        batch.update(doc.ref, {
+          stock: newStock,
+          updatedAt: Timestamp.now(),
+        });
+
+        itemsUpdated++;
+      });
+
+      // Execute the batch update
+      await batch.commit();
+
+      return {
+        success: true,
+        message: `Successfully added ${quantity} units to ${itemsUpdated} items`,
+        itemsUpdated,
+      };
+    } catch (error) {
+      console.error("Error restocking all items:", error);
+      return {
+        success: false,
+        message: "Failed to restock items. Please try again.",
+        itemsUpdated: 0,
+      };
     }
   }
 }

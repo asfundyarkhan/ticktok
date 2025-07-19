@@ -13,11 +13,13 @@ import { getBestProductImage } from "../utils/imageHelpers";
 interface ProductGridProps {
   products: StockItem[];
   onAddToCart: (product: StockItem, event: React.MouseEvent) => void;
+  onSellerClick?: (sellerId: string, sellerName: string) => void;
 }
 
 export default function ProductGrid({
   products,
   onAddToCart,
+  onSellerClick,
 }: ProductGridProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -45,6 +47,13 @@ export default function ProductGrid({
       router.push(`/store/${product.id}`);
     } else {
       console.error("ProductGrid: Product has no ID", product);
+    }
+  };
+
+  const handleSellerClick = (event: React.MouseEvent, sellerId: string, sellerName: string) => {
+    event.stopPropagation(); // Prevent product click
+    if (onSellerClick && sellerId) {
+      onSellerClick(sellerId, sellerName);
     }
   };
 
@@ -154,7 +163,15 @@ export default function ProductGrid({
               )}
             </div>
             <div className="flex justify-between items-center text-sm text-gray-500">
-              <span>By {product.sellerName || 'Unknown Seller'}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">by</span>
+                <span 
+                  className="font-medium text-gray-700 hover:text-blue-600 cursor-pointer"
+                  onClick={(e) => handleSellerClick(e, product.sellerId || "", product.sellerName || "")}
+                >
+                  {product.sellerName || 'Unknown Seller'}
+                </span>
+              </div>
               <div className="flex items-center gap-2">                <span>{product.stock} in stock</span>
                 {Array.isArray(product.reviews) && product.reviews.length > 0 && (
                   <span>({product.reviews.length} reviews)</span>
