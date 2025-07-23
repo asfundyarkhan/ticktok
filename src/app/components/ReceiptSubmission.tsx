@@ -13,23 +13,27 @@ interface ReceiptSubmissionProps {
   // For deposit payments
   isDepositPayment?: boolean;
   pendingDepositId?: string;
+  pendingDepositIds?: string[]; // For bulk payments
   pendingProductId?: string;
   productName?: string;
   requiredAmount?: number;
   onSubmitted?: () => void;
   className?: string;
   isManualDeposit?: boolean; // New prop to identify manual deposits
+  isBulkPayment?: boolean; // New prop to identify bulk payments
 }
 
 export default function ReceiptSubmission({
   isDepositPayment = false,
   pendingDepositId,
+  pendingDepositIds,
   pendingProductId,
   productName,
   requiredAmount,
   onSubmitted,
   className = "",
-  isManualDeposit = false
+  isManualDeposit = false,
+  isBulkPayment = false
 }: ReceiptSubmissionProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState(requiredAmount?.toString() || "");
@@ -116,12 +120,24 @@ export default function ReceiptSubmission({
     try {
       // Create deposit info with proper validation
       let depositInfo = undefined;
-      if (isDepositPayment && pendingDepositId) {
-        depositInfo = {
-          pendingDepositId,
-          ...(pendingProductId && { pendingProductId }),
-          ...(productName && { productName })
-        };
+      if (isDepositPayment) {
+        if (isBulkPayment && pendingDepositIds && pendingDepositIds.length > 0) {
+          // For bulk payments, use the first deposit ID as primary and include all IDs
+          depositInfo = {
+            pendingDepositId: pendingDepositIds[0], // Primary ID for compatibility
+            pendingDepositIds: pendingDepositIds, // All IDs for bulk processing
+            isBulkPayment: true,
+            ...(pendingProductId && { pendingProductId }),
+            ...(productName && { productName })
+          };
+        } else if (pendingDepositId) {
+          // Single deposit payment
+          depositInfo = {
+            pendingDepositId,
+            ...(pendingProductId && { pendingProductId }),
+            ...(productName && { productName })
+          };
+        }
       }
 
       // Create wallet payment info

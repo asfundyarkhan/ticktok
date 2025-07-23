@@ -387,8 +387,10 @@ export class SellerWalletService {
           // Calculate profit amount based on actual sales only
           const profitAmount = data.pendingProfitAmount || 0;
           const saleAmount = data.salePrice || data.listingPrice;
-          const quantitySold =
-            data.actualQuantitySold || data.quantityListed || 1;
+          // Calculate correct deposit amount based on actual quantity sold
+          const quantitySold = data.actualQuantitySold || data.quantityListed || 1;
+          const originalCostPerUnit = data.originalCostPerUnit || 0;
+          const correctDepositRequired = originalCostPerUnit * quantitySold; // Only for sold quantities
 
           // Map pending_deposits data to PendingProfit interface
           return {
@@ -400,7 +402,7 @@ export class SellerWalletService {
             saleAmount: saleAmount,
             profitAmount: profitAmount,
             baseCost: data.originalCostPerUnit,
-            depositRequired: data.totalDepositRequired,
+            depositRequired: correctDepositRequired, // Fixed: Only for sold quantities
             quantitySold: quantitySold, // Get actual quantity
             status:
               data.status === "sold"
@@ -680,6 +682,11 @@ export class SellerWalletService {
       for (const doc of depositsSnapshot.docs) {
         const data = doc.data();
 
+        // Calculate correct deposit amount for transferred profits too
+        const quantitySold = data.actualQuantitySold || data.quantityListed || 1;
+        const originalCostPerUnit = data.originalCostPerUnit || 0;
+        const correctDepositRequired = originalCostPerUnit * quantitySold;
+
         transfers.push({
           id: doc.id,
           sellerId: data.sellerId,
@@ -688,12 +695,12 @@ export class SellerWalletService {
           saleAmount: data.salePrice || data.listingPrice || 0,
           profitAmount: data.profitTransferredAmount || 0, // Show transferred amount
           baseCost: data.originalCostPerUnit || 0,
-          depositRequired: data.totalDepositRequired || 0,
+          depositRequired: correctDepositRequired, // Fixed: Only for sold quantities
           status: "transferred" as const,
           saleDate: data.saleDate?.toDate() || new Date(),
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
-          quantitySold: data.actualQuantitySold || data.quantityListed || 1,
+          quantitySold: quantitySold,
           transferredAt: data.profitTransferredDate?.toDate(),
           productImage: data.productImage || "",
         });

@@ -75,9 +75,19 @@ export default function OrdersPage() {
     return () => unsubscribe();
   }, [userProfile?.uid]);
 
-  // Get deposit receipt status for an order
+  // Get deposit receipt status for an order (updated to handle bulk payments)
   const getDepositReceiptStatus = (depositId: string) => {
-    return depositReceipts.find(receipt => receipt.pendingDepositId === depositId);
+    // Check for single deposit receipts
+    const singleReceipt = depositReceipts.find(receipt => receipt.pendingDepositId === depositId);
+    if (singleReceipt) return singleReceipt;
+    
+    // Check for bulk payment receipts
+    const bulkReceipt = depositReceipts.find(receipt => 
+      receipt.isBulkPayment && 
+      receipt.pendingDepositIds && 
+      receipt.pendingDepositIds.includes(depositId)
+    );
+    return bulkReceipt;
   };
 
   // Filter orders based on search query and hide those with approved payments or auto-processed receipts

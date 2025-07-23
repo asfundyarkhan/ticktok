@@ -56,18 +56,34 @@ export interface StockListing {
   id: string;
   sellerId: string;
   productId: string;
+  originalProductId?: string; // Reference to original product for instances
   name: string;
   description: string;
+  features?: string; // Product features
   image: string; // Legacy field for backward compatibility
   images?: string[]; // Array of image URLs
   mainImage?: string; // Main display image
+  imageUrl?: string; // Additional image URL field
+  imageURL?: string; // Additional image URL field (alternative naming)
   category: string;
   quantity: number;
   price: number;
   rating?: number;
   reviews?: number;
+  reviewCount?: number;
   sellerName?: string;
   productCode?: string;
+  
+  // Instance-related fields for unique product instances
+  isInstance?: boolean; // Whether this is a product instance
+  originalProductCode?: string; // Original product code before instance creation
+  instanceNumber?: number; // Instance number (1, 2, 3, etc.)
+  totalInstances?: number; // Total number of instances for this product
+  status?: 'available' | 'pending_payment' | 'sold'; // Instance status
+  depositReceiptApproved?: boolean; // Whether deposit receipt is approved for this instance
+  depositReceiptUrl?: string; // URL of the deposit receipt for this instance
+  pendingDepositId?: string; // ID of the pending deposit for this instance
+  
   createdAt: Date;
   updatedAt: Date;
 }

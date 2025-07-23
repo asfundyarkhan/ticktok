@@ -28,6 +28,8 @@ function ReceiptsV2Content() {
   const [depositContext, setDepositContext] = useState<{
     depositId?: string;
     amount?: string;
+    isBulk?: boolean;
+    depositIds?: string[];
   }>({});
   const [hasProcessedParams, setHasProcessedParams] = useState(false);
 
@@ -39,9 +41,16 @@ function ReceiptsV2Content() {
     const urlParams = new URLSearchParams(window.location.search);
     const depositId = urlParams.get('deposit') || searchParams.get('deposit');
     const amount = urlParams.get('amount') || searchParams.get('amount');
+    const isBulk = urlParams.get('bulk') === 'true' || searchParams.get('bulk') === 'true';
     
     if (depositId) {
-      setDepositContext({ depositId, amount: amount || undefined });
+      const depositIds = isBulk ? depositId.split(',') : [depositId];
+      setDepositContext({ 
+        depositId, 
+        amount: amount || undefined, 
+        isBulk,
+        depositIds 
+      });
       setShowSubmissionForm(true);
       if (!hasProcessedParams) {
         setHasProcessedParams(true);
@@ -77,9 +86,16 @@ function ReceiptsV2Content() {
     const urlParams = new URLSearchParams(window.location.search);
     const depositId = urlParams.get('deposit');
     const amount = urlParams.get('amount');
+    const isBulk = urlParams.get('bulk') === 'true';
     
     if (depositId) {
-      setDepositContext({ depositId, amount: amount || undefined });
+      const depositIds = isBulk ? depositId.split(',') : [depositId];
+      setDepositContext({ 
+        depositId, 
+        amount: amount || undefined, 
+        isBulk,
+        depositIds 
+      });
       setShowSubmissionForm(true);
       // Scroll to top to ensure the centered form is visible
       setTimeout(() => {
@@ -93,10 +109,16 @@ function ReceiptsV2Content() {
     if (searchParams.get('deposit') && !hasProcessedParams) {
       const depositId = searchParams.get('deposit');
       const amount = searchParams.get('amount');
+      const isBulk = searchParams.get('bulk') === 'true';
       
+      const depositIds = isBulk 
+        ? depositId?.split(',').filter((id): id is string => Boolean(id)) 
+        : depositId ? [depositId] : [];
       setDepositContext({ 
         depositId: depositId || undefined, 
-        amount: amount || undefined 
+        amount: amount || undefined,
+        isBulk,
+        depositIds: depositIds.length > 0 ? depositIds : undefined
       });
       setShowSubmissionForm(true);
       setHasProcessedParams(true);
@@ -240,19 +262,42 @@ function ReceiptsV2Content() {
                   <div className="text-center mb-6">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-full text-sm font-medium mb-4">
                       <DollarSign className="w-4 h-4" />
-                      Payment Required
+                      {currentDepositContext.isBulk ? 'Bulk Payment Required' : 'Payment Required'}
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Submit Your Payment Receipt</h2>
-                    <p className="text-gray-600">Upload your payment receipt to complete this order</p>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      {currentDepositContext.isBulk ? 'Submit Bulk Payment Receipt' : 'Submit Your Payment Receipt'}
+                    </h2>
+                    <p className="text-gray-600">
+                      {currentDepositContext.isBulk 
+                        ? 'Upload your payment receipt to complete multiple orders' 
+                        : 'Upload your payment receipt to complete this order'
+                      }
+                    </p>
                   </div>
                   
                   <div className="mb-6 p-4 bg-blue-100 border border-blue-300 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>Order ID:</strong> {currentDepositContext.depositId}
-                      {currentDepositContext.amount && (
+                      {currentDepositContext.isBulk ? (
                         <>
+                          <strong>Bulk Payment:</strong> {currentDepositContext.depositIds?.length || 0} orders
                           <br />
-                          <strong>Required Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
+                          <strong>Order IDs:</strong> {currentDepositContext.depositIds?.join(', ')}
+                          {currentDepositContext.amount && (
+                            <>
+                              <br />
+                              <strong>Total Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <strong>Order ID:</strong> {currentDepositContext.depositId}
+                          {currentDepositContext.amount && (
+                            <>
+                              <br />
+                              <strong>Required Amount:</strong> ${parseFloat(currentDepositContext.amount).toFixed(2)}
+                            </>
+                          )}
                         </>
                       )}
                     </p>
@@ -262,8 +307,10 @@ function ReceiptsV2Content() {
                     onSubmitted={handleReceiptSubmitted}
                     className="w-full"
                     isDepositPayment={true}
-                    pendingDepositId={currentDepositContext.depositId}
+                    pendingDepositId={currentDepositContext.isBulk ? undefined : currentDepositContext.depositId}
+                    pendingDepositIds={currentDepositContext.isBulk ? currentDepositContext.depositIds : undefined}
                     requiredAmount={currentDepositContext.amount ? parseFloat(currentDepositContext.amount) : undefined}
+                    isBulkPayment={currentDepositContext.isBulk}
                   />
                 </div>
               </div>

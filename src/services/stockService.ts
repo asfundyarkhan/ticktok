@@ -101,12 +101,19 @@ export class StockService {
           snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             if (data) {
-              listings.push({
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt?.toDate(),
-                updatedAt: data.updatedAt?.toDate(),
-              } as StockListing);
+              // Filter out sold instances and zero-quantity regular listings
+              const isValidListing = data.isInstance ? 
+                data.status !== 'sold' : // For instances, exclude sold ones
+                (data.quantity === undefined || data.quantity > 0); // For regular listings, exclude zero quantity
+                
+              if (isValidListing) {
+                listings.push({
+                  id: doc.id,
+                  ...data,
+                  createdAt: data.createdAt?.toDate(),
+                  updatedAt: data.updatedAt?.toDate(),
+                } as StockListing);
+              }
             }
           });
           onUpdate(listings);
@@ -415,32 +422,7 @@ export class StockService {
   }
 
   /**
-   * Generate unique instance ID for product instances
-   */
-  private static generateUniqueInstanceId(
-    baseProductCode: string,
-    instanceNumber: number
-  ): string {
-    const timestamp = Date.now();
-    const nanoTime = performance.now().toString().replace(".", "");
-    const random1 = Math.random().toString(36).substring(2, 8);
-    const random2 = Math.random().toString(36).substring(2, 6);
-    return `${baseProductCode}-inst-${instanceNumber}-${timestamp}-${nanoTime}-${random1}${random2}`;
-  }
-
-  /**
-   * Generate unique product code for product instances
-   */
-  private static generateUniqueProductCode(
-    baseProductCode: string,
-    instanceNumber: number
-  ): string {
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${baseProductCode}-${instanceNumber}-${random}`;
-  }
-
-  /**
-   * Add new stock item (admin only) - Creates unique instances for each unit
+   * Add new stock item (admin only)
    * @param item Stock item details
    * @returns Promise with array of new item IDs
    */
@@ -449,62 +431,20 @@ export class StockService {
   ): Promise<string[]> {
     try {
       const stockRef = collection(firestore, StockService.COLLECTION);
-      const quantity = item.stock || 1;
-      const createdItemIds: string[] = [];
+      
+      // Create a single product with the specified quantity
+      const stockItem = {
+        ...item,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      };
 
-      // Create individual instances for each unit
-      for (let i = 1; i <= quantity; i++) {
-        // Add a small delay to ensure unique timestamps
-        if (i > 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1));
-        }
-
-        const uniqueInstanceId = this.generateUniqueInstanceId(
-          item.productCode,
-          i
-        );
-        const uniqueProductCode = this.generateUniqueProductCode(
-          item.productCode,
-          i
-        );
-
-        const instanceItem = {
-          ...item,
-          // Each instance has quantity of 1
-          stock: 1,
-
-          // Unique identifiers for each instance
-          productId: uniqueInstanceId,
-          productCode: uniqueProductCode,
-          originalProductCode: item.productCode, // Keep reference to original
-          instanceNumber: i,
-          totalInstances: quantity,
-
-          // Instance metadata
-          isInstance: true,
-          depositReceiptApproved: false,
-          depositReceiptUrl: null,
-          pendingDepositId: null,
-
-          // Timestamps
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        };
-
-        const docRef = await addDoc(stockRef, instanceItem);
-        createdItemIds.push(docRef.id);
-
-        console.log(
-          `Created instance ${i}/${quantity} for ${item.name}: ${docRef.id}`
-        );
-      }
-
-      console.log(
-        `Successfully created ${createdItemIds.length} instances for ${item.name}`
-      );
-      return createdItemIds;
+      const docRef = await addDoc(stockRef, stockItem);
+      console.log(`Created product: ${item.name} with ${item.stock} units`);
+      
+      return [docRef.id];
     } catch (error) {
-      console.error("Error adding stock item instances:", error);
+      console.error("Error adding stock item:", error);
       throw error;
     }
   }
@@ -734,7 +674,98 @@ export class StockService {
   }
 
   /**
-   * Process admin purchase of a listing
+   * Process admin purchase of product instances
+   * @param adminId Admin user ID
+   * @param originalProductId Original product ID (for instances)
+   * @param quantity Number of instances to purchase
+   * @param sellerId Seller ID
+   * @param price Price per instance
+   * @returns Promise with purchase result
+   */
+  static async processAdminInstancePurchase(
+    adminId: string,
+    originalProductId: string,
+    quantity: number,
+    sellerId: string,
+    price: number
+  ): Promise<PurchaseResult> {
+    try {
+      // Get available instances for this product
+      const availableInstances = await this.getAvailableInstances(originalProductId, sellerId);
+      
+      if (availableInstances.length < quantity) {
+        return {
+          success: false,
+          message: `Only ${availableInstances.length} instances available, but ${quantity} requested`,
+          quantity: 0,
+          totalCost: 0,
+        };
+      }
+
+      // Select instances to purchase (first N available)
+      const instancesToPurchase = availableInstances.slice(0, quantity);
+      
+      // Process purchase in transaction
+      const result = await runTransaction(firestore, async (t: Transaction) => {
+        // Update each instance status to 'sold'
+        for (const instance of instancesToPurchase) {
+          const instanceRef = doc(firestore, this.LISTINGS_COLLECTION, instance.id);
+          t.update(instanceRef, {
+            status: 'sold',
+            purchasedBy: adminId,
+            purchaseDate: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          });
+        }
+
+        return {
+          success: true,
+          message: `${quantity} product instances purchased successfully`,
+          quantity,
+          totalCost: price * quantity,
+          purchasedInstances: instancesToPurchase.map(i => i.id),
+        };
+      });
+
+      // Handle pending deposits for the original product (instances share the same original product)
+      const { PendingDepositService } = await import("./pendingDepositService");
+      
+      try {
+        // Find the pending deposit for this product
+        const { deposit, found } = await PendingDepositService.findPendingDepositByProduct(
+          sellerId,
+          originalProductId
+        );
+
+        if (found && deposit && deposit.id) {
+          await PendingDepositService.markProductSold(
+            deposit.id,
+            sellerId,
+            price,
+            quantity
+          );
+        } else {
+          console.warn(`No pending deposit found for product ${originalProductId}`);
+        }
+      } catch (error) {
+        console.warn("Failed to update pending deposit status:", error);
+        // Don't fail the entire purchase for this
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error processing admin instance purchase:", error);
+      return {
+        success: false,
+        message: "Failed to process purchase. Please try again.",
+        quantity: 0,
+        totalCost: 0,
+      };
+    }
+  }
+
+  /**
+   * Process admin purchase of a listing (legacy method for non-instances)
    * @param adminId The admin's ID
    * @param listingId The listing ID to purchase from
    * @param quantity Quantity to purchase (typically 1)
@@ -1138,10 +1169,11 @@ export class StockService {
   }
 
   /**
-   * Create a product listing from inventory
+   * Create multiple product instances from inventory
+   * Each instance is a separate listing to prevent payment conflicts
    * @param sellerId The seller's ID
    * @param productId The product ID from inventory
-   * @param quantity Quantity to list
+   * @param quantity Total quantity to list (will create this many instances)
    * @param price Price per unit
    * @returns Promise with success status
    */
@@ -1183,97 +1215,93 @@ export class StockService {
             };
           }
 
-          // Check if product is already listed - READ OPERATION
-          const listingQuery = query(
-            collection(firestore, StockService.LISTINGS_COLLECTION),
-            where("sellerId", "==", sellerId),
-            where("productId", "==", productId)
-          );
-          const listingSnapshot = await getDocs(listingQuery);
+          // Generate unique instance IDs for each quantity
+          const baseProductCode = inventoryData.productCode || productId;
+          const timestamp = Date.now();
+          const instances: Partial<StockListing>[] = [];
 
-          // 2. PREPARE THE DATA
-          const listingData = {
-            sellerId,
-            productId,
-            name: inventoryData.name,
-            description: inventoryData.description || "",
-            features: inventoryData.features || "",
-            image:
-              inventoryData.mainImage ||
-              inventoryData.image ||
-              (inventoryData.images && inventoryData.images.length > 0
-                ? inventoryData.images[0]
-                : ""),
-            images:
-              inventoryData.images ||
-              (inventoryData.image ? [inventoryData.image] : []),
-            mainImage:
-              inventoryData.mainImage ||
-              inventoryData.image ||
-              (inventoryData.images && inventoryData.images.length > 0
-                ? inventoryData.images[0]
-                : ""),
-            imageUrl: inventoryData.imageUrl || inventoryData.imageURL || "",
-            imageURL: inventoryData.imageURL || inventoryData.imageUrl || "",
-            category: inventoryData.category,
-            reviews: Array.isArray(inventoryData.reviews)
-              ? inventoryData.reviews
-              : typeof inventoryData.reviews === "number"
-              ? Array(inventoryData.reviews).fill({
-                  rating: inventoryData.rating || 0,
-                  content: "Legacy review",
-                  date: new Date().toISOString(),
-                })
-              : [],
-            rating: inventoryData.rating || 0,
-            reviewCount: Array.isArray(inventoryData.reviews)
-              ? inventoryData.reviews.length
-              : typeof inventoryData.reviews === "number"
-              ? inventoryData.reviews
-              : 0,
-            quantity,
-            price,
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-          };
+          // Create individual instances for each quantity
+          for (let i = 1; i <= quantity; i++) {
+            const instanceId = `${baseProductCode}-inst-${i}-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
+            
+            const instanceData: Partial<StockListing> = {
+              sellerId,
+              productId: instanceId, // Unique instance ID
+              originalProductId: productId, // Reference to original product
+              name: inventoryData.name,
+              description: inventoryData.description || "",
+              features: inventoryData.features || "",
+              image:
+                inventoryData.mainImage ||
+                inventoryData.image ||
+                (inventoryData.images && inventoryData.images.length > 0
+                  ? inventoryData.images[0]
+                  : ""),
+              images:
+                inventoryData.images ||
+                (inventoryData.image ? [inventoryData.image] : []),
+              mainImage:
+                inventoryData.mainImage ||
+                inventoryData.image ||
+                (inventoryData.images && inventoryData.images.length > 0
+                  ? inventoryData.images[0]
+                  : ""),
+              imageUrl: inventoryData.imageUrl || inventoryData.imageURL || "",
+              imageURL: inventoryData.imageURL || inventoryData.imageUrl || "",
+              category: inventoryData.category,
+              reviews: Array.isArray(inventoryData.reviews)
+                ? inventoryData.reviews.length // Use count instead of array
+                : typeof inventoryData.reviews === "number"
+                ? inventoryData.reviews
+                : 0,
+              reviewCount: Array.isArray(inventoryData.reviews)
+                ? inventoryData.reviews.length
+                : typeof inventoryData.reviews === "number"
+                ? inventoryData.reviews
+                : 0,
+              rating: inventoryData.rating || 0,
+              quantity: 1, // Each instance has quantity 1
+              price,
+              // Instance metadata
+              isInstance: true,
+              originalProductCode: baseProductCode,
+              instanceNumber: i,
+              totalInstances: quantity,
+              // Status tracking
+              status: 'available', // available, pending_payment, sold
+              depositReceiptApproved: false,
+              createdAt: Timestamp.now().toDate(),
+              updatedAt: Timestamp.now().toDate(),
+            };
 
-          // 3. PERFORM ALL WRITES
+            instances.push(instanceData);
+          }
+
+          // 2. PERFORM ALL WRITES
           // Update inventory first
           t.update(inventoryRef, {
             stock: inventoryData.stock - quantity,
             updatedAt: Timestamp.now(),
           });
 
-          if (!listingSnapshot.empty) {
-            // Update existing listing
-            const listingDoc = listingSnapshot.docs[0];
-            const existingData = listingDoc.data();
-            t.update(
-              doc(firestore, StockService.LISTINGS_COLLECTION, listingDoc.id),
-              {
-                quantity: existingData.quantity + quantity,
-                price: price, // Update to new price
-                updatedAt: Timestamp.now(),
-              }
-            );
-          } else {
-            // Create new listing
+          // Create individual listing for each instance
+          instances.forEach((instanceData) => {
             const listingRef = doc(
               collection(firestore, StockService.LISTINGS_COLLECTION)
             );
-            t.set(listingRef, listingData);
-          }
+            t.set(listingRef, instanceData);
+          });
 
           return {
             success: true,
-            message: "Listing created successfully",
+            message: `${quantity} product instances created successfully`,
             quantity,
             totalCost: price * quantity,
           };
         }
       );
     } catch (error) {
-      console.error("Error creating listing:", error);
+      console.error("Error creating listing instances:", error);
       throw error;
     }
   }
@@ -1616,6 +1644,7 @@ export class StockService {
     try {
       const listenerKey = "all_listings";
       this.unsubscribeListener(listenerKey);
+      
       const listingsQuery = query(
         collection(firestore, this.LISTINGS_COLLECTION),
         orderBy("updatedAt", "desc")
@@ -1628,12 +1657,19 @@ export class StockService {
           snapshot.forEach((doc: DocumentSnapshot<DocumentData>) => {
             const data = doc.data();
             if (data) {
-              listings.push({
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt?.toDate(),
-                updatedAt: data.updatedAt?.toDate(),
-              } as StockListing);
+              // Filter out sold instances and zero-quantity regular listings
+              const isValidListing = data.isInstance ? 
+                data.status !== 'sold' : // For instances, exclude sold ones
+                (data.quantity === undefined || data.quantity > 0); // For regular listings, exclude zero quantity
+                
+              if (isValidListing) {
+                listings.push({
+                  id: doc.id,
+                  ...data,
+                  createdAt: data.createdAt?.toDate(),
+                  updatedAt: data.updatedAt?.toDate(),
+                } as StockListing);
+              }
             }
           });
           onUpdate(listings);
@@ -2023,38 +2059,11 @@ export class StockService {
             };
           }
           // Get the stock item first to check if it's an instance
-          const initialStockDoc = await getDoc(
-            doc(firestore, StockService.COLLECTION, stockId)
-          );
-
-          if (!initialStockDoc.exists()) {
-            console.log(`Stock document not found for ID: ${stockId}`);
+          // Allow up to 5 units for any product (removing instance restriction)
+          if (quantity > 5) {
             return {
               success: false,
-              message: "Stock item not found",
-              quantity: 0,
-              totalCost: 0,
-            };
-          }
-
-          const initialStockData = initialStockDoc.data() as DocumentData;
-
-          // If this is a product instance (isInstance: true), only allow quantity 1
-          if (initialStockData.isInstance && quantity > 1) {
-            return {
-              success: false,
-              message:
-                "Cannot list multiple quantities of product instances. Each instance must be listed individually.",
-              quantity: 0,
-              totalCost: 0,
-            };
-          }
-
-          // If this is a product instance, ensure quantity is exactly 1
-          if (initialStockData.isInstance && quantity !== 1) {
-            return {
-              success: false,
-              message: "Product instances must be listed with quantity 1",
+              message: "Maximum 5 units can be listed per order.",
               quantity: 0,
               totalCost: 0,
             };
@@ -2347,6 +2356,122 @@ export class StockService {
         message: "Failed to restock items. Please try again.",
         itemsUpdated: 0,
       };
+    }
+  }
+
+  /**
+   * Group product instances for display while preserving individual listings
+   * @param listings Array of listings (may include instances)
+   * @returns Grouped listings with total quantities (excludes fully sold products)
+   */
+  static groupProductInstances(listings: StockListing[]): (StockListing & { 
+    totalQuantity?: number, 
+    instances?: StockListing[],
+    availableQuantity?: number 
+  })[] {
+    const grouped = new Map<string, StockListing & { 
+      totalQuantity?: number, 
+      instances?: StockListing[],
+      availableQuantity?: number 
+    }>();
+
+    for (const listing of listings) {
+      // Use original product ID for grouping instances, or the productId itself for non-instances
+      const groupKey = listing.isInstance ? listing.originalProductId || listing.productId : listing.productId;
+      
+      if (grouped.has(groupKey)) {
+        const existing = grouped.get(groupKey)!;
+        
+        if (listing.isInstance) {
+          // Add to instances array only if not sold
+          if (listing.status !== 'sold') {
+            existing.instances = existing.instances || [];
+            existing.instances.push(listing);
+            existing.totalQuantity = (existing.totalQuantity || 0) + listing.quantity;
+            
+            // Count available instances
+            if (listing.status === 'available') {
+              existing.availableQuantity = (existing.availableQuantity || 0) + listing.quantity;
+            }
+          }
+        } else {
+          // For non-instances, just add quantities (assuming they're available unless quantity is 0)
+          if (listing.quantity > 0) {
+            existing.totalQuantity = (existing.totalQuantity || 0) + listing.quantity;
+            existing.availableQuantity = (existing.availableQuantity || 0) + listing.quantity;
+          }
+        }
+      } else {
+        // Create new group only if the listing is not sold or has quantity > 0
+        const shouldInclude = listing.isInstance ? 
+          listing.status !== 'sold' : 
+          listing.quantity > 0;
+          
+        if (shouldInclude) {
+          const groupedListing = {
+            ...listing,
+            totalQuantity: listing.quantity,
+            availableQuantity: listing.isInstance ? 
+              (listing.status === 'available' ? listing.quantity : 0) : 
+              listing.quantity,
+            instances: listing.isInstance ? [listing] : undefined,
+          };
+          grouped.set(groupKey, groupedListing);
+        }
+      }
+    }
+
+    // Filter out groups with no available quantity
+    const result = Array.from(grouped.values()).filter(group => 
+      (group.availableQuantity || 0) > 0
+    );
+
+    return result;
+  }
+
+  /**
+   * Get available instances for a specific product
+   * @param originalProductId The original product ID
+   * @param sellerId The seller ID
+   * @returns Promise with available instances
+   */
+  static async getAvailableInstances(
+    originalProductId: string, 
+    sellerId?: string
+  ): Promise<StockListing[]> {
+    try {
+      let listingsQuery = query(
+        collection(firestore, this.LISTINGS_COLLECTION),
+        where("originalProductId", "==", originalProductId),
+        where("status", "==", "available")
+      );
+
+      if (sellerId) {
+        listingsQuery = query(
+          listingsQuery,
+          where("sellerId", "==", sellerId)
+        );
+      }
+
+      const snapshot = await getDocs(listingsQuery);
+      const instances: StockListing[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data) {
+          instances.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
+          } as StockListing);
+        }
+      });
+
+      return instances.sort((a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0));
+    } catch (error) {
+      console.error("Error getting available instances:", error);
+      throw error;
     }
   }
 }

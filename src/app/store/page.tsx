@@ -479,9 +479,6 @@ function StorePageContent() {
               setPriceRange={setPriceRange}
               selectedSizes={selectedSizes}
               setSelectedSizes={setSelectedSizes}
-              selectedSeller={selectedSeller}
-              setSelectedSeller={setSelectedSeller}
-              availableSellers={availableSellers}
             />
           </div>
 

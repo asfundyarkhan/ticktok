@@ -1,0 +1,13 @@
+{
+  "name": "receipt-data-restore",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Emergency script to restore receipt data",
+  "main": "restore-receipt-data.js",
+  "scripts": {
+    "restore": "node restore-receipt-data.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.0.0"
+  }
+}

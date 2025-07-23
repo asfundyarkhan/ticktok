@@ -38,6 +38,11 @@ export interface NewReceipt {
   pendingProductId?: string;
   productName?: string;
 
+  // Bulk payment integration
+  isBulkPayment?: boolean;
+  pendingDepositIds?: string[];
+  bulkOrderCount?: number;
+
   // Wallet payment integration
   isWalletPayment?: boolean;
   walletBalanceUsed?: number;
@@ -95,9 +100,11 @@ export class NewReceiptService {
     receiptFile: File,
     description?: string,
     depositInfo?: {
-      pendingDepositId: string;
+      pendingDepositId?: string; // Made optional for bulk payments
       pendingProductId?: string;
       productName?: string;
+      pendingDepositIds?: string[]; // For bulk payments
+      isBulkPayment?: boolean; // Flag to indicate bulk payment
     },
     walletPayment?: {
       isWalletPayment: boolean;
@@ -142,6 +149,15 @@ export class NewReceiptService {
 
       if (depositInfo?.productName) {
         receiptData.productName = depositInfo.productName;
+      }
+
+      // Add bulk payment fields
+      if (depositInfo?.isBulkPayment) {
+        receiptData.isBulkPayment = true;
+        if (depositInfo.pendingDepositIds && depositInfo.pendingDepositIds.length > 0) {
+          receiptData.pendingDepositIds = depositInfo.pendingDepositIds;
+          receiptData.bulkOrderCount = depositInfo.pendingDepositIds.length;
+        }
       }
 
       // Add wallet payment information if provided
@@ -270,6 +286,62 @@ export class NewReceiptService {
           }
         } catch (error) {
           console.error("❌ Error updating pending deposit status:", error);
+          // Don't fail the whole operation if this fails
+        }
+      }
+
+      // Handle bulk deposit payments (for wallet payments and regular receipts)
+      if (depositInfo?.pendingDepositIds && depositInfo.pendingDepositIds.length > 0) {
+        try {
+          const { PendingDepositService } = await import(
+            "./pendingDepositService"
+          );
+
+          // For wallet payments, mark ALL deposits as paid immediately
+          if (walletPayment?.isWalletPayment) {
+            console.log(`💳 Processing bulk wallet payment for ${depositInfo.pendingDepositIds.length} deposits`);
+            
+            let successCount = 0;
+            let failureCount = 0;
+
+            for (const depositId of depositInfo.pendingDepositIds) {
+              try {
+                const markDepositResult = await PendingDepositService.markDepositPaid(
+                  depositId,
+                  receiptData.userId as string
+                );
+                
+                if (markDepositResult.success) {
+                  successCount++;
+                  console.log(`✅ Bulk deposit ${depositId} marked as paid via wallet: ${markDepositResult.message}`);
+                } else {
+                  failureCount++;
+                  console.error(`❌ Failed to mark bulk deposit ${depositId} as paid: ${markDepositResult.message}`);
+                }
+              } catch (error) {
+                failureCount++;
+                console.error(`❌ Error processing bulk deposit ${depositId}:`, error);
+              }
+            }
+
+            console.log(`💳 Bulk wallet payment processing complete: ${successCount} success, ${failureCount} failures`);
+          } else {
+            // For non-wallet payments, update all deposits to receipt_submitted
+            for (const depositId of depositInfo.pendingDepositIds) {
+              try {
+                await PendingDepositService.updateDepositStatus(
+                  depositId,
+                  "receipt_submitted",
+                  docRef.id
+                );
+              } catch (error) {
+                console.error(`❌ Error updating bulk deposit ${depositId} status:`, error);
+              }
+            }
+            console.log(`✅ Updated ${depositInfo.pendingDepositIds.length} bulk deposits to receipt_submitted`);
+          }
+        } catch (error) {
+          console.error("❌ Error updating bulk deposit status:", error);
           // Don't fail the whole operation if this fails
         }
       }
@@ -449,73 +521,142 @@ export class NewReceiptService {
       }
 
       // Handle deposit payment processing outside of the main transaction
-      if (receiptData.isDepositPayment && receiptData.pendingDepositId) {
-        console.log(
-          `🏦 Processing deposit payment for: ${receiptData.pendingDepositId}`
-        );
-
-        try {
-          const { PendingDepositService } = await import(
-            "./pendingDepositService"
+      if (receiptData.isDepositPayment) {
+        // Handle both single and bulk deposit payments
+        if (receiptData.isBulkPayment && receiptData.pendingDepositIds && receiptData.pendingDepositIds.length > 0) {
+          console.log(
+            `🏦 Processing bulk deposit payment for ${receiptData.pendingDepositIds.length} deposits: ${receiptData.pendingDepositIds.join(', ')}`
           );
 
-          // Check if deposit is already processed to avoid duplicate processing
-          const existingDeposit = await PendingDepositService.getDepositById(
-            receiptData.pendingDepositId
-          );
-          if (existingDeposit && existingDeposit.status === "deposit_paid") {
-            console.log(
-              `✅ Deposit ${receiptData.pendingDepositId} already processed, skipping`
+          try {
+            const { PendingDepositService } = await import(
+              "./pendingDepositService"
             );
-            depositProcessed = true;
-            depositProcessingResult = {
-              success: true,
-              message: "Deposit already processed",
-            };
-          } else {
-            depositProcessingResult =
-              await PendingDepositService.markDepositPaid(
-                receiptData.pendingDepositId,
-                receiptData.userId
-              );
-            depositProcessed = depositProcessingResult.success;
-          }
 
-          if (depositProcessed && receiptData.pendingProductId) {
-            try {
-              const { PendingProductService } = await import(
-                "./pendingProductService"
-              );
+            let allDepositsProcessed = true;
+            let processedCount = 0;
+            let skippedCount = 0;
+            const processingErrors: string[] = [];
 
-              // Get the pending product to find the productId
-              const pendingProducts =
-                await PendingProductService.getSellerPendingProducts(
+            // Process each deposit in the bulk payment
+            for (const depositId of receiptData.pendingDepositIds) {
+              try {
+                // Check if deposit is already processed to avoid duplicate processing
+                const existingDeposit = await PendingDepositService.getDepositById(depositId);
+                if (existingDeposit && existingDeposit.status === "deposit_paid") {
+                  console.log(`✅ Deposit ${depositId} already processed, skipping`);
+                  skippedCount++;
+                  continue;
+                }
+
+                const depositResult = await PendingDepositService.markDepositPaid(
+                  depositId,
                   receiptData.userId
                 );
-              const targetProduct = pendingProducts.find(
-                (p) => p.id === receiptData.pendingProductId
-              );
 
-              if (targetProduct) {
-                // Only update to deposit_approved when deposit is actually processed
-                // The deposit processing should handle this status update automatically
-                console.log(
-                  `✅ Deposit processed for product ${targetProduct.productId}, status will be updated by deposit service`
-                );
+                if (depositResult.success) {
+                  processedCount++;
+                  console.log(`✅ Processed deposit ${depositId}`);
+                } else {
+                  processingErrors.push(`Failed to process ${depositId}: ${depositResult.message}`);
+                  allDepositsProcessed = false;
+                }
+              } catch (error) {
+                const errorMsg = `Error processing deposit ${depositId}: ${error}`;
+                console.error(errorMsg);
+                processingErrors.push(errorMsg);
+                allDepositsProcessed = false;
               }
-            } catch (error) {
-              console.error("Error updating status across systems:", error);
-              // Don't fail the whole process if this fails
             }
+
+            depositProcessed = allDepositsProcessed || processedCount > 0; // Success if we processed at least some
+            depositProcessingResult = {
+              success: depositProcessed,
+              message: `Bulk payment: ${processedCount} processed, ${skippedCount} already paid${processingErrors.length > 0 ? `, ${processingErrors.length} errors` : ''}`
+            };
+
+            console.log(`✅ Bulk deposit payment processed: ${processedCount}/${receiptData.pendingDepositIds.length} deposits`);
+            if (processingErrors.length > 0) {
+              console.error('Processing errors:', processingErrors);
+            }
+
+          } catch (error) {
+            console.error("Error processing bulk deposit payment:", error);
+            return {
+              success: false,
+              message: "Failed to process bulk deposit payment",
+            };
           }
 
-          console.log(`✅ Deposit payment processed: ${depositProcessed}`);
-        } catch (error) {
-          console.error("Error processing deposit payment:", error);
-          return {
-            success: false,
-            message: "Failed to process deposit payment",
-          };
+        } else if (receiptData.pendingDepositId) {
+          // Handle single deposit payment (original logic)
+          console.log(
+            `🏦 Processing single deposit payment for: ${receiptData.pendingDepositId}`
+          );
+
+          try {
+            const { PendingDepositService } = await import(
+              "./pendingDepositService"
+            );
+
+            // Check if deposit is already processed to avoid duplicate processing
+            const existingDeposit = await PendingDepositService.getDepositById(
+              receiptData.pendingDepositId
+            );
+            if (existingDeposit && existingDeposit.status === "deposit_paid") {
+              console.log(
+                `✅ Deposit ${receiptData.pendingDepositId} already processed, skipping`
+              );
+              depositProcessed = true;
+              depositProcessingResult = {
+                success: true,
+                message: "Deposit already processed",
+              };
+            } else {
+              depositProcessingResult =
+                await PendingDepositService.markDepositPaid(
+                  receiptData.pendingDepositId,
+                  receiptData.userId
+                );
+              depositProcessed = depositProcessingResult.success;
+            }
+
+            if (depositProcessed && receiptData.pendingProductId) {
+              try {
+                const { PendingProductService } = await import(
+                  "./pendingProductService"
+                );
+
+                // Get the pending product to find the productId
+                const pendingProducts =
+                  await PendingProductService.getSellerPendingProducts(
+                    receiptData.userId
+                  );
+                const targetProduct = pendingProducts.find(
+                  (p) => p.id === receiptData.pendingProductId
+                );
+
+                if (targetProduct) {
+                  // Only update to deposit_approved when deposit is actually processed
+                  // The deposit processing should handle this status update automatically
+                  console.log(
+                    `✅ Deposit processed for product ${targetProduct.productId}, status will be updated by deposit service`
+                  );
+                }
+              } catch (error) {
+                console.error("Error updating status across systems:", error);
+                // Don't fail the whole process if this fails
+              }
+            }
+
+            console.log(`✅ Single deposit payment processed: ${depositProcessed}`);
+          } catch (error) {
+            console.error("Error processing single deposit payment:", error);
+            return {
+              success: false,
+              message: "Failed to process single deposit payment",
+            };
+          }
         }
 
         if (!depositProcessed) {

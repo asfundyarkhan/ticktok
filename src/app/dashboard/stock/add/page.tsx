@@ -32,7 +32,7 @@ function AddStockPageContent() {
     features: "",
     price: "0",
     productCode: "",
-    quantity: "0",
+    quantity: "1",
     category: "general",
     rating: "0",
     reviews: "0",
@@ -126,8 +126,7 @@ function AddStockPageContent() {
       }
 
       const createdItemIds = await StockService.addStockItem(productData);
-      const instanceCount = createdItemIds.length;
-      toast.success(`Product added successfully! Created ${instanceCount} unique instance${instanceCount > 1 ? 's' : ''} and now available for sellers!`);
+      toast.success(`Product added successfully! Now available for sellers!`);
 
       setFormData({
         name: "",
@@ -135,7 +134,7 @@ function AddStockPageContent() {
         features: "",
         price: "0",
         productCode: "",
-        quantity: "0",
+        quantity: "1",
         category: "general",
         rating: "0",
         reviews: "0",
@@ -381,7 +380,7 @@ function AddStockPageContent() {
               <input
                 type="number"
                 id="quantity"
-                min="0"
+                min="1"
                 value={formData.quantity}
                 onChange={(e) => setFormData((prev) => ({ ...prev, quantity: e.target.value }))}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500"

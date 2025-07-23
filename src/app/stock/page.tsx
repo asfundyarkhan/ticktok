@@ -421,12 +421,12 @@ export default function StockPage() {
                           quantity={selectedQuantities[product.productId] || 0}
                           onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
                           min={1}
-                          max={product.stock}
+                          max={5}
                           size="md"
                           className="w-full"
                         />
                         <div className="text-xs text-gray-500 mt-1">
-                          Max: {product.stock} units available
+                          Max: 5 units (per listing limit)
                         </div>
                       </>
                     ) : (
@@ -502,7 +502,7 @@ export default function StockPage() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                          <span className="text-sm text-gray-500">Max: {product.stock} available</span>
+                          <span className="text-sm text-gray-500">Max: 5 units (per listing limit)</span>
                         </div>
                         <div className="flex items-center space-x-3">
                           <div className="flex-1">
@@ -510,7 +510,7 @@ export default function StockPage() {
                               quantity={selectedQuantities[product.productId] || 0}
                               onQuantityChange={(quantity) => handleQuantityChange(product.productId, quantity)}
                               min={1}
-                              max={product.stock}
+                              max={5}
                               size="md"
                               className="w-full"
                             />

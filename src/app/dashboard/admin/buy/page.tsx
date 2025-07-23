@@ -14,6 +14,10 @@ import { toast } from 'react-hot-toast';
 interface ListingWithSeller extends StockListing {
   sellerName: string;
   sellerEmail: string;
+  // Additional fields for grouped instances
+  totalQuantity?: number;
+  instances?: StockListing[];
+  availableQuantity?: number;
 }
 
 function AdminBuyPageContent() {
@@ -93,7 +97,14 @@ function AdminBuyPageContent() {
             sellerEmail: sellerInfoMap.get(listing.sellerId)?.sellerEmail || 'No email'
           }));
           
-          setListings(listingsWithSellers);
+          // Group product instances for better display while preserving seller info
+          const groupedListings = StockService.groupProductInstances(listingsWithSellers).map(groupedListing => ({
+            ...groupedListing,
+            sellerName: sellerInfoMap.get(groupedListing.sellerId)?.sellerName || 'Unknown Seller',
+            sellerEmail: sellerInfoMap.get(groupedListing.sellerId)?.sellerEmail || 'No email'
+          })) as ListingWithSeller[];
+          
+          setListings(groupedListings);
         } catch (error) {
           console.error('Error processing listings:', error);
           toast.error('Failed to load listings');
@@ -140,7 +151,10 @@ function AdminBuyPageContent() {
       return;
     }
 
-    if (listing.quantity <= 0) {
+    // Check availability - use availableQuantity for instances, quantity for regular listings
+    const availableQty = listing.availableQuantity !== undefined ? listing.availableQuantity : listing.quantity;
+    
+    if (availableQty <= 0) {
       toast.error('This item is out of stock.');
       return;
     }
@@ -148,14 +162,32 @@ function AdminBuyPageContent() {
     try {
       setPurchasing(listing.id);
       
-      // Call admin-specific purchase method
-      const result = await StockService.processAdminPurchase(
-        user.uid,
-        listing.id,
-        1, // Always buy 1 item
-        listing.sellerId,
-        listing.price
-      );
+      let result;
+      
+      // Check if this is a product instance (grouped display)
+      if (listing.isInstance || listing.instances) {
+        // Use instance purchase method for products with instances
+        const originalProductId = listing.originalProductId || 
+                                listing.instances?.[0]?.originalProductId || 
+                                listing.productId;
+        
+        result = await StockService.processAdminInstancePurchase(
+          user.uid,
+          originalProductId,
+          1, // Always buy 1 instance
+          listing.sellerId,
+          listing.price
+        );
+      } else {
+        // Use legacy purchase method for traditional listings
+        result = await StockService.processAdminPurchase(
+          user.uid,
+          listing.id,
+          1, // Always buy 1 item
+          listing.sellerId,
+          listing.price
+        );
+      }
       
       if (result.success) {
         toast.success(`Successfully purchased ${listing.name} from ${listing.sellerName}`);
@@ -348,7 +380,21 @@ function AdminBuyPageContent() {
                     ${listing.price.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {listing.quantity}
+                    {listing.availableQuantity !== undefined ? (
+                      <div>
+                        <span className="font-medium">{listing.availableQuantity}</span>
+                        {listing.totalQuantity !== listing.availableQuantity && (
+                          <span className="text-gray-500 ml-1">/ {listing.totalQuantity}</span>
+                        )}
+                        {listing.instances && (
+                          <div className="text-xs text-gray-500">
+                            {listing.instances.length} instances
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      listing.quantity
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button
@@ -360,7 +406,7 @@ function AdminBuyPageContent() {
                     </button>
                     <button
                       onClick={() => handleAdminPurchase(listing)}
-                      disabled={purchasing === listing.id || listing.quantity === 0}
+                      disabled={purchasing === listing.id || (listing.availableQuantity !== undefined ? listing.availableQuantity : listing.quantity) === 0}
                       className="text-green-600 hover:text-green-900 inline-flex items-center disabled:text-gray-400 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart className="h-4 w-4 mr-1" />
@@ -433,7 +479,23 @@ function AdminBuyPageContent() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Available</p>
-                  <p className="text-lg font-bold text-gray-900">{listing.quantity}</p>
+                  <div className="text-lg font-bold text-gray-900">
+                    {listing.availableQuantity !== undefined ? (
+                      <div>
+                        <span>{listing.availableQuantity}</span>
+                        {listing.totalQuantity !== listing.availableQuantity && (
+                          <span className="text-gray-500 text-sm ml-1">/ {listing.totalQuantity}</span>
+                        )}
+                        {listing.instances && (
+                          <div className="text-xs text-gray-500 font-normal">
+                            {listing.instances.length} instances
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      listing.quantity
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -450,7 +512,7 @@ function AdminBuyPageContent() {
                 </button>
                 <button
                   onClick={() => handleAdminPurchase(listing)}
-                  disabled={purchasing === listing.id || listing.quantity === 0}
+                  disabled={purchasing === listing.id || (listing.availableQuantity !== undefined ? listing.availableQuantity : listing.quantity) === 0}
                   className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed inline-flex items-center justify-center"
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
@@ -537,7 +599,23 @@ function AdminBuyPageContent() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Available</p>
-                      <p className="text-xl font-bold text-gray-900">{selectedListing.quantity}</p>
+                      <div className="text-xl font-bold text-gray-900">
+                        {selectedListing.availableQuantity !== undefined ? (
+                          <div>
+                            <span>{selectedListing.availableQuantity}</span>
+                            {selectedListing.totalQuantity !== selectedListing.availableQuantity && (
+                              <span className="text-gray-500 text-sm ml-1">/ {selectedListing.totalQuantity}</span>
+                            )}
+                            {selectedListing.instances && (
+                              <div className="text-xs text-gray-500 font-normal">
+                                {selectedListing.instances.length} instances
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          selectedListing.quantity
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -553,7 +631,7 @@ function AdminBuyPageContent() {
                   </button>
                   <button
                     onClick={() => handleAdminPurchase(selectedListing)}
-                    disabled={purchasing === selectedListing.id || selectedListing.quantity === 0}
+                    disabled={purchasing === selectedListing.id || (selectedListing.availableQuantity !== undefined ? selectedListing.availableQuantity : selectedListing.quantity) === 0}
                     className="w-full px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {purchasing === selectedListing.id ? 'Purchasing...' : 'Buy 1 Item'}

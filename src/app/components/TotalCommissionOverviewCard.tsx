@@ -161,7 +161,7 @@ export default function TotalCommissionOverviewCard() {
         <p className="text-xs text-gray-600">
           <strong>Note:</strong> {isSuperadmin 
             ? "This shows your platform's net revenue from accepted deposits minus processed withdrawals. Updates automatically every 30 seconds."
-            : "This commission balance only includes earnings from superadmin deposits and receipt approvals. Product sales revenue is not included in commission calculations."}
+            : "This earnings balance only includes earnings from superadmin deposits and receipt approvals. Product sales revenue is not included in earnings calculations."}
         </p>
       </div>
     </div>

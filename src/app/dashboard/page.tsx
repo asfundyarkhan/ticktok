@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { LoadingSpinner } from "../components/Loading";
 import { onSnapshot, query, collection, where } from "firebase/firestore";
 import { firestore } from "../../lib/firebase/firebase";
-import TransactionBalanceCard from "../components/TransactionBalanceCard";
-import TotalCommissionOverviewCard from "../components/TotalCommissionOverviewCard";
+import AdminMonthlyRevenueCard from "../components/AdminMonthlyRevenueCard";
+import MonthlyRevenueCard from "../components/MonthlyRevenueCard";
 import RecentActivityPanel from "../components/RecentActivityPanel";
 
 export default function DashboardPage() {
@@ -160,7 +160,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Top Right: Commission Overview */}
+          {/* Top Right: Earnings Overview */}
           <div className="bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-gray-100">
             <div className="flex items-start justify-between mb-4 lg:mb-6">
               <div className="flex items-start space-x-3 lg:space-x-4">
@@ -183,9 +183,12 @@ export default function DashboardPage() {
             
             <div className="space-y-4">
               {userProfile?.role === "superadmin" ? (
-                <TotalCommissionOverviewCard />
+                <MonthlyRevenueCard />
               ) : (
-                <TransactionBalanceCard />
+                <AdminMonthlyRevenueCard 
+                  userRole={userProfile?.role as "admin" | "seller" | "superadmin"}
+                  showBreakdown={true}
+                />
               )}
             </div>
           </div>

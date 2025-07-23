@@ -6,7 +6,8 @@ import { AdminRoute } from "../../components/AdminRoute";
 import { LoadingSpinner } from "../../components/Loading";
 import { CommissionService } from "../../../services/commissionService";
 import { CommissionSummary } from "../../../types/commission";
-import TransactionBalanceCard from "../../components/TransactionBalanceCard";
+import AdminMonthlyRevenueCard from "../../components/AdminMonthlyRevenueCard";
+import MonthlyRevenueCard from "../../components/MonthlyRevenueCard";
 import TransactionHistory from "../../components/TransactionHistory";
 import { 
   TrendingUp, 
@@ -167,7 +168,14 @@ function TransactionDashboardContent() {
           <>
             {/* Main Balance Card */}
             <div className="mb-8">
-              <TransactionBalanceCard />
+              {isSuperadmin ? (
+                <MonthlyRevenueCard />
+              ) : (
+                <AdminMonthlyRevenueCard 
+                  userRole={userProfile?.role as "admin" | "seller" | "superadmin"}
+                  showBreakdown={true}
+                />
+              )}
             </div>
 
             {/* Stats Grid */}

@@ -95,6 +95,12 @@ const navigation: NavItem[] = [
     icon: Shield,
     superadminOnly: true,
   },
+  {
+    name: "Seller Management",
+    href: "/dashboard/superadmin/seller-management",
+    icon: Users,
+    superadminOnly: true,
+  },
 ];
 
 export default function Sidebar() {
