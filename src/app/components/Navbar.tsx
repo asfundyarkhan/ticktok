@@ -231,8 +231,8 @@ export default function Navbar() {
             </div>
             
             {/* Right section */}
-            <div className="flex items-center space-x-4">              {/* Cart icon (if logged in and not a seller) */}
-              {isAuthenticated && !isSeller && (
+            <div className="flex items-center space-x-4">              {/* Cart icon (if logged in) */}
+              {isAuthenticated && (
                 <AnimatedCartIcon
                   className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
                   onClick={() => setIsCartOpen(true)}

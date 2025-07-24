@@ -325,7 +325,7 @@ export default function ProductDetailPage() {
       };
       
       addToCart(productToAdd);
-      toast.success(`${finalQuantity} ${productToAdd.name} added to cart!`);
+      // Removed toast notification - using CartNotification instead
     }, 100);
 
     // Hide animation after it's complete
@@ -373,7 +373,7 @@ export default function ProductDetailPage() {
   }
   return (
     <div className="bg-white">
-      <Toaster position="top-right" />
+      {/* Removed duplicate Toaster - using main layout's Toaster instead */}
       
       {/* Login Modal */}
       <LoginModal 

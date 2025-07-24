@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Plus, Minus } from "lucide-react";
+import { Trash2, Plus, Minus, AlertCircle } from "lucide-react";
 import Breadcrumb from "@/app/components/Breadcrumb";
 import { useCart } from "@/app/components/NewCartContext";
+import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
 import CheckoutButton from "@/app/components/CheckoutButton";
@@ -12,7 +13,7 @@ import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 export default function CartPage() {
   return (
-    <ProtectedRoute allowedRoles={["user", "admin", "superadmin"]}>
+    <ProtectedRoute allowedRoles={["user", "admin", "superadmin", "seller"]}>
       <CartContent />
     </ProtectedRoute>
   );
@@ -26,8 +27,10 @@ function CartContent() {
     getCartTotal,
     loading,
   } = useCart();
+  const { userProfile } = useAuth();
   const [promoCode, setPromoCode] = useState("");
   const discount = 0.2; // 20% discount
+  const isSeller = userProfile?.role === "seller";
 
   const breadcrumbItems = [
     { label: "Home", href: "/" },
@@ -208,7 +211,19 @@ function CartContent() {
             </div>
             
             <div className="mt-6">
-              <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
+              {isSeller ? (
+                <div className="w-full p-4 bg-amber-50 border border-amber-200 rounded-md">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                    <p className="text-sm font-medium text-amber-800">Sellers can&apos;t purchase items</p>
+                  </div>
+                  <p className="text-xs text-amber-700">
+                    You can add items to your cart to browse, but checkout is not available for seller accounts.
+                  </p>
+                </div>
+              ) : (
+                <CheckoutButton className="w-full py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium" />
+              )}
             </div>
             
             <div className="mt-4">

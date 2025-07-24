@@ -343,11 +343,7 @@ function StorePageContent() {
       return;
     }
 
-    // Prevent sellers from adding items to cart
-    if (userProfile?.role === "seller") {
-      toast.error("Sellers cannot purchase items. Please browse as a regular user.");
-      return;
-    }
+    // Allow sellers to add items to cart (they'll be blocked at checkout)
 
     // Validate stock before adding to cart
     if (product.stock <= 0) {
@@ -388,9 +384,6 @@ function StorePageContent() {
       console.log(`Cart item created:`, cartItem);
 
       addToCart(cartItem);
-
-      // Show toast notification that item was added
-      toast.success(`${product.name} added to cart!`);
 
       // Hide animation after it completes
       setTimeout(() => {

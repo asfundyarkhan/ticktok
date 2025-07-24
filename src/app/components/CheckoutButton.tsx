@@ -18,7 +18,7 @@ export default function CheckoutButton({
 }: CheckoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { cartItems, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const router = useRouter();
 
   const handleCheckout = async () => {
@@ -29,6 +29,20 @@ export default function CheckoutButton({
 
     if (!user) {
       toast.error("Please log in to complete your purchase");
+      return;
+    }
+
+    // Prevent sellers from checking out
+    if (userProfile?.role === "seller") {
+      toast.error("Sellers can't purchase items", {
+        duration: 4000,
+        position: "top-center",
+        style: {
+          border: "1px solid #F59E0B",
+          padding: "16px",
+          color: "#F59E0B",
+        },
+      });
       return;
     }
 

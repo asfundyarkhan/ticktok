@@ -1,9 +1,11 @@
 "use client";
 
-import { ShoppingBag, X, Plus, Minus } from "lucide-react";
+import { ShoppingBag, X, Plus, Minus, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "./NewCartContext";
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -12,7 +14,9 @@ interface CartDrawerProps {
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { cartItems, removeFromCart, updateQuantity, getCartTotal } = useCart();
+  const { userProfile } = useAuth();
   const cartTotal = getCartTotal();
+  const isSeller = userProfile?.role === "seller";
 
   return (
     <>
@@ -140,13 +144,25 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                 Shipping and taxes calculated at checkout.
               </p>
               <div className="space-y-3">
-                <Link
-                  href="/cart"
-                  onClick={onClose}
-                  className="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-pink-700 transition-colors"
-                >
-                  Checkout
-                </Link>
+                {isSeller ? (
+                  <div className="w-full p-4 bg-amber-50 border border-amber-200 rounded-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-amber-600" />
+                      <p className="text-sm font-medium text-amber-800">Sellers can&apos;t purchase items</p>
+                    </div>
+                    <p className="text-xs text-amber-700">
+                      You can add items to your cart to browse, but checkout is not available for seller accounts.
+                    </p>
+                  </div>
+                ) : (
+                  <Link
+                    href="/cart"
+                    onClick={onClose}
+                    className="w-full flex items-center justify-center rounded-md border border-transparent bg-pink-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-pink-700 transition-colors"
+                  >
+                    Checkout
+                  </Link>
+                )}
                 <button
                   onClick={onClose}
                   className="w-full flex items-center justify-center rounded-md border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"

@@ -142,7 +142,7 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
           } as CartItem;
           setLastAddedItem(newItem);
           setHasNewAddition(true);
-          toast.success(`${item.name} added to cart!`);
+          // Removed toast notification - using CartNotification instead
         } else {
           toast.error("Failed to add item to cart");
         }
@@ -192,7 +192,7 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
           setLastAddedItem(addedItem);
           setHasNewAddition(true);
         }
-        toast.success(`${item.name} added to cart!`);
+        // Removed toast notification - using CartNotification instead
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
@@ -209,13 +209,13 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
         const success = await NewCartService.removeFromCart(user.uid, itemId);
         if (success) {
           await refreshCart();
-          toast.success("Item removed from cart");
+          // Removed toast notification for less clutter
         } else {
           toast.error("Failed to remove item");
         }
       } else {
         setCartItems(prevItems => prevItems.filter(item => item.id !== itemId));
-        toast.success("Item removed from cart");
+        // Removed toast notification for less clutter
       }
     } catch (error) {
       console.error("Error removing from cart:", error);
@@ -229,6 +229,16 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
     if (quantity <= 0) {
       await removeFromCart(itemId);
       return;
+    }
+
+    // Check stock limits before updating
+    const currentItem = cartItems.find(item => item.id === itemId);
+    if (currentItem) {
+      const maxStock = Number(currentItem.stock) || 0;
+      if (maxStock > 0 && quantity > maxStock) {
+        toast.error(`Cannot add more items. Only ${maxStock} available in stock.`);
+        return;
+      }
     }
 
     setLoading(true);
@@ -260,11 +270,11 @@ export function NewCartProvider({ children }: { children: ReactNode }) {
         const success = await NewCartService.clearCart(user.uid);
         if (success) {
           setCartItems([]);
-          toast.success("Cart cleared");
+          // Removed toast notification for less clutter
         }
       } else {
         setCartItems([]);
-        toast.success("Cart cleared");
+        // Removed toast notification for less clutter
       }
     } catch (error) {
       console.error("Error clearing cart:", error);
