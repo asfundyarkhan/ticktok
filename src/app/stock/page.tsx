@@ -167,11 +167,8 @@ export default function StockPage() {
           return;
         }
         
-        // Reset quantity and redirect to listings
+        // Reset quantity only (stay on same page)
         handleQuantityChange(productId, 0);
-        setTimeout(() => {
-          window.location.href = "/stock/listings";
-        }, 2000);
         
       } catch (error) {
         console.error("Error creating listing:", error);

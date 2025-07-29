@@ -14,7 +14,10 @@ import {
   CheckCircle,
   XCircle,
   Wallet,
-  DollarSign
+  DollarSign,
+  Square,
+  CheckSquare,
+  Users
 } from "lucide-react";
 
 export default function AdminReceiptsV2Page() {
@@ -22,10 +25,14 @@ export default function AdminReceiptsV2Page() {
   const [allReceipts, setAllReceipts] = useState<NewReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<NewReceipt | null>(null);
-  const [action, setAction] = useState<"approve" | "reject" | null>(null);
+  const [action, setAction] = useState<"approve" | "reject" | "bulk_approve" | "bulk_reject" | null>(null);
   const [notes, setNotes] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  
+  // Bulk selection state
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Load all receipts on mount
   useEffect(() => {
@@ -73,8 +80,124 @@ export default function AdminReceiptsV2Page() {
     setShowModal(true);
   };
 
+  // Bulk selection handlers
+  const toggleReceiptSelection = (receiptId: string) => {
+    const newSelection = new Set(selectedReceiptIds);
+    if (newSelection.has(receiptId)) {
+      newSelection.delete(receiptId);
+    } else {
+      newSelection.add(receiptId);
+    }
+    setSelectedReceiptIds(newSelection);
+    setShowBulkActions(newSelection.size > 0);
+  };
+
+  const selectAllPendingReceipts = () => {
+    const pendingReceipts = allReceipts.filter(r => r.status === "pending" && !r.isAutoProcessed);
+    const allPendingIds = new Set(pendingReceipts.map(r => r.id).filter(Boolean) as string[]);
+    setSelectedReceiptIds(allPendingIds);
+    setShowBulkActions(allPendingIds.size > 0);
+  };
+
+  const clearSelection = () => {
+    setSelectedReceiptIds(new Set());
+    setShowBulkActions(false);
+  };
+
+  const handleBulkApprove = () => {
+    if (selectedReceiptIds.size === 0) return;
+    setAction("bulk_approve");
+    setNotes("");
+    setShowModal(true);
+  };
+
+  const handleBulkReject = () => {
+    if (selectedReceiptIds.size === 0) return;
+    setAction("bulk_reject");
+    setNotes("");
+    setShowModal(true);
+  };
+
   const processReceipt = async () => {
-    if (!selectedReceipt || !user) return;
+    if (!user) return;
+
+    // Handle bulk operations
+    if (action === "bulk_approve" || action === "bulk_reject") {
+      if (selectedReceiptIds.size === 0) return;
+
+      const selectedReceipts = allReceipts.filter(r => selectedReceiptIds.has(r.id || ""));
+      
+      if (action === "bulk_reject" && !notes.trim()) {
+        toast.error("Please provide a reason for bulk rejection");
+        return;
+      }
+
+      setProcessingId("bulk");
+      
+      try {
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
+        for (const receipt of selectedReceipts) {
+          try {
+            let result;
+            if (action === "bulk_approve") {
+              result = await NewReceiptService.approveReceipt(
+                receipt.id!,
+                user.uid,
+                user.displayName || user.email || "Superadmin",
+                notes || "Bulk approval"
+              );
+            } else {
+              result = await NewReceiptService.rejectReceipt(
+                receipt.id!,
+                user.uid,
+                user.displayName || user.email || "Superadmin",
+                notes
+              );
+            }
+
+            if (result.success) {
+              successCount++;
+            } else {
+              errorCount++;
+              errors.push(`${receipt.userEmail || 'Unknown'}: ${result.message}`);
+            }
+          } catch (err) {
+            errorCount++;
+            errors.push(`${receipt.userEmail || 'Unknown'}: Processing failed`);
+            console.error(`Error processing receipt ${receipt.id}:`, err);
+          }
+        }
+
+        if (successCount > 0) {
+          const actionText = action === "bulk_approve" ? "approved" : "rejected";
+          toast.success(`${successCount} receipt(s) ${actionText} successfully`);
+        }
+
+        if (errorCount > 0) {
+          toast.error(`${errorCount} receipt(s) failed to process`);
+          console.error("Bulk processing errors:", errors);
+        }
+
+        // Clear selection and close modal
+        clearSelection();
+        setShowModal(false);
+        setSelectedReceipt(null);
+        setNotes("");
+
+      } catch (error) {
+        console.error("Error during bulk processing:", error);
+        toast.error("Failed to process receipts");
+      } finally {
+        setProcessingId(null);
+      }
+      return;
+    }
+
+    // Handle single receipt operations
+    if (!selectedReceipt) return;
 
     setProcessingId(selectedReceipt.id!);
     
@@ -334,13 +457,74 @@ export default function AdminReceiptsV2Page() {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {showBulkActions && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedReceiptIds.size} receipt(s) selected
+                </span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-50"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  onClick={handleBulkApprove}
+                  disabled={processingId === "bulk"}
+                  className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
+                  {processingId === "bulk" ? "Processing..." : "Approve Selected"}
+                </button>
+                <button
+                  onClick={handleBulkReject}
+                  disabled={processingId === "bulk"}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
+                >
+                  {processingId === "bulk" ? "Processing..." : "Reject Selected"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Receipts List */}
         <div className="bg-white shadow-sm rounded-lg border">
           <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200">
-            <h2 className="text-base sm:text-lg font-medium text-gray-900">Receipt History</h2>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              All receipt types with current status
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h2 className="text-base sm:text-lg font-medium text-gray-900">Receipt History</h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                  All receipt types with current status
+                </p>
+              </div>
+              
+              {/* Bulk selection controls */}
+              {allReceipts.filter(r => r.status === "pending" && !r.isAutoProcessed).length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={selectAllPendingReceipts}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    Select All Pending
+                  </button>
+                  {selectedReceiptIds.size > 0 && (
+                    <button
+                      onClick={clearSelection}
+                      className="text-sm font-medium text-gray-600 hover:text-gray-800"
+                    >
+                      Clear ({selectedReceiptIds.size})
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="overflow-hidden">
@@ -374,29 +558,47 @@ export default function AdminReceiptsV2Page() {
                         <div className="space-y-3">
                           {/* Mobile: Stacked layout, Desktop: Flex layout */}
                           <div className="flex flex-col space-y-3 lg:flex-row lg:items-start lg:justify-between lg:space-y-0 lg:space-x-4">
-                            {/* Receipt Info */}
+                            {/* Selection Checkbox + Receipt Info */}
                             <div className="flex-1 min-w-0 space-y-3">
-                              {/* Badges */}
-                              <div className="flex flex-wrap items-center gap-2">
-                                {/* Receipt Type Badge */}
-                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeInfo.bgColor} ${typeInfo.textColor} ${typeInfo.borderColor} border`}>
-                                  {typeInfo.icon}
-                                  <span className="hidden xs:inline">{typeInfo.type}</span>
-                                  <span className="xs:hidden">{typeInfo.type.split(' ')[0]}</span>
-                                </span>
+                              <div className="flex items-start gap-3">
+                                {/* Checkbox for pending receipts only */}
+                                {receipt.status === "pending" && !receipt.isAutoProcessed && (
+                                  <button
+                                    onClick={() => toggleReceiptSelection(receipt.id || "")}
+                                    className="flex-shrink-0 mt-1 p-1 hover:bg-gray-100 rounded"
+                                  >
+                                    {selectedReceiptIds.has(receipt.id || "") ? (
+                                      <CheckSquare className="h-5 w-5 text-blue-600" />
+                                    ) : (
+                                      <Square className="h-5 w-5 text-gray-400" />
+                                    )}
+                                  </button>
+                                )}
                                 
-                                {/* Status Badge */}
-                                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor} ${statusInfo.borderColor} border`}>
-                                  {statusInfo.icon}
-                                  {statusInfo.status}
-                                </span>
-                              </div>
-                              
-                              {/* Amount - Prominent on mobile */}
-                              <div className="lg:hidden">
-                                <span className="text-xl sm:text-2xl font-bold text-gray-900">
-                                  ${(receipt.amount || 0).toFixed(2)}
-                                </span>
+                                <div className="flex-1 min-w-0 space-y-3">
+                                  {/* Badges */}
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {/* Receipt Type Badge */}
+                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${typeInfo.bgColor} ${typeInfo.textColor} ${typeInfo.borderColor} border`}>
+                                      {typeInfo.icon}
+                                      <span className="hidden xs:inline">{typeInfo.type}</span>
+                                      <span className="xs:hidden">{typeInfo.type.split(' ')[0]}</span>
+                                    </span>
+                                    
+                                    {/* Status Badge */}
+                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor} ${statusInfo.borderColor} border`}>
+                                      {statusInfo.icon}
+                                      {statusInfo.status}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Amount - Prominent on mobile */}
+                                  <div className="lg:hidden">
+                                    <span className="text-xl sm:text-2xl font-bold text-gray-900">
+                                      ${(receipt.amount || 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                               
                               {/* Details Grid */}
@@ -484,59 +686,96 @@ export default function AdminReceiptsV2Page() {
       </div>
 
       {/* Modal */}
-      {showModal && selectedReceipt && (
+      {showModal && (action === "bulk_approve" || action === "bulk_reject" || selectedReceipt) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-                {action === "approve" ? "Approve Receipt" : "Reject Receipt"}
+                {action === "bulk_approve" ? "Bulk Approve Receipts" : 
+                 action === "bulk_reject" ? "Bulk Reject Receipts" :
+                 action === "approve" ? "Approve Receipt" : "Reject Receipt"}
               </h3>
               
-              <div className="mb-4 space-y-2">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">User:</span>
-                  <span className="ml-2 break-words">{selectedReceipt.userName || selectedReceipt.userEmail}</span>
+              {/* Bulk operation details */}
+              {(action === "bulk_approve" || action === "bulk_reject") && (
+                <div className="mb-4 space-y-2">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Selected Receipts:</span>
+                    <span className="ml-2">{selectedReceiptIds.size} receipts</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Total Amount:</span>
+                    <span className="ml-2">
+                      ${allReceipts
+                        .filter(r => selectedReceiptIds.has(r.id || ""))
+                        .reduce((sum, r) => sum + (r.amount || 0), 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                  {action === "bulk_reject" && (
+                    <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+                      <strong>Warning:</strong> This will reject all selected receipts with the same reason.
+                    </div>
+                  )}
                 </div>
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Amount:</span>
-                  <span className="ml-2">${(selectedReceipt.amount || 0).toFixed(2)}</span>
+              )}
+
+              {/* Single receipt details */}
+              {selectedReceipt && !action?.startsWith("bulk") && (
+                <div className="mb-4 space-y-2">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">User:</span>
+                    <span className="ml-2 break-words">{selectedReceipt.userName || selectedReceipt.userEmail}</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Amount:</span>
+                    <span className="ml-2">${(selectedReceipt.amount || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">Type:</span>
+                    <span className="ml-2">{getReceiptType(selectedReceipt).type}</span>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Type:</span>
-                  <span className="ml-2">{getReceiptType(selectedReceipt).type}</span>
-                </div>
-              </div>
+              )}
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {action === "approve" ? "Notes (optional)" : "Rejection reason (required)"}
+                  {action?.includes("approve") ? "Notes (optional)" : "Rejection reason (required)"}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder={action === "approve" ? "Add any notes..." : "Explain why this receipt is being rejected..."}
+                  placeholder={action?.includes("approve") ? "Add any notes..." : 
+                    action?.startsWith("bulk") ? "Provide a reason for bulk rejection..." :
+                    "Explain why this receipt is being rejected..."}
                 />
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setSelectedReceipt(null);
+                    setNotes("");
+                  }}
                   className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={processReceipt}
-                  disabled={processingId === selectedReceipt.id}
+                  disabled={processingId === selectedReceipt?.id || processingId === "bulk"}
                   className={`w-full sm:w-auto px-4 py-2 text-sm font-medium text-white rounded-md ${
-                    action === "approve" 
+                    action?.includes("approve") 
                       ? "bg-green-600 hover:bg-green-700" 
                       : "bg-red-600 hover:bg-red-700"
                   } disabled:opacity-50`}
                 >
-                  {processingId === selectedReceipt.id ? "Processing..." : 
+                  {(processingId === selectedReceipt?.id || processingId === "bulk") ? "Processing..." : 
+                    action === "bulk_approve" ? `Approve ${selectedReceiptIds.size} Receipts` :
+                    action === "bulk_reject" ? `Reject ${selectedReceiptIds.size} Receipts` :
                     action === "approve" ? "Approve" : "Reject"
                   }
                 </button>
