@@ -361,10 +361,13 @@ export class CommissionService {
       transactionsSnap.forEach((doc) => {
         const data = doc.data() as CommissionTransaction;
 
+        // Ensure commissionAmount is a valid number
+        const commissionAmount = Number(data.commissionAmount) || 0;
+
         if (data.type === "superadmin_deposit") {
-          totalFromSuperadminDeposits += data.commissionAmount;
+          totalFromSuperadminDeposits += commissionAmount;
         } else if (data.type === "receipt_approval") {
-          totalFromReceiptApprovals += data.commissionAmount;
+          totalFromReceiptApprovals += commissionAmount;
         }
 
         if (!lastTransaction || data.createdAt.toDate() > lastTransaction) {
@@ -445,7 +448,8 @@ export class CommissionService {
 
       balancesSnap.forEach((doc) => {
         const data = doc.data() as CommissionBalance;
-        totalBalance += data.totalCommissionBalance || 0;
+        const balance = Number(data.totalCommissionBalance) || 0;
+        totalBalance += balance;
       });
 
       // Get breakdown by transaction type
@@ -460,10 +464,13 @@ export class CommissionService {
       transactionsSnap.forEach((doc) => {
         const data = doc.data() as CommissionTransaction;
 
+        // Ensure commissionAmount is a valid number
+        const commissionAmount = Number(data.commissionAmount) || 0;
+
         if (data.type === "superadmin_deposit") {
-          totalFromSuperadminDeposits += data.commissionAmount;
+          totalFromSuperadminDeposits += commissionAmount;
         } else if (data.type === "receipt_approval") {
-          totalFromReceiptApprovals += data.commissionAmount;
+          totalFromReceiptApprovals += commissionAmount;
         }
       });
 

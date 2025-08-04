@@ -388,7 +388,7 @@ export class MonthlyRevenueService {
 
       // Get withdrawals (money going out)
       const withdrawalsQuery = query(
-        collection(firestore, "withdrawals"),
+        collection(firestore, "withdrawal_requests"),
         where("status", "==", "approved"),
         orderBy("createdAt", "desc")
       );

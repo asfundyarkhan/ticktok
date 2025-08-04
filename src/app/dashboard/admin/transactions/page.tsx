@@ -6,6 +6,7 @@ import TransactionHistory from "../../../components/TransactionHistory";
 import MonthlyRevenueCard from "../../../components/MonthlyRevenueCard";
 import { useAuth } from "../../../../context/AuthContext";
 import { CommissionService } from "../../../../services/commissionService";
+import { PlatformStatsService } from "../../../../services/platformStatsService";
 import { CommissionSummary } from "../../../../types/commission";
 import { LoadingSpinner } from "../../../components/Loading";
 import { 
@@ -43,16 +44,18 @@ function AdminTransactionsPageContent() {
         
         // Fetch summary based on user role
         if (isSuperAdmin) {
-          // For superadmin, get platform-wide data
-          const summary = await CommissionService.getTotalCommissionBalance();
+          // For superadmin, get platform-wide revenue data (deposits minus withdrawals)
+          const stats = await PlatformStatsService.getMonthlyPlatformStats();
+          
+          // Convert platform stats to transaction summary format for display
           setTransactionSummary({
-            totalCommissionBalance: summary.totalBalance,
-            totalFromSuperadminDeposits: summary.totalFromSuperadminDeposits,
-            totalFromReceiptApprovals: summary.totalFromReceiptApprovals,
-            transactionCount: summary.adminsCount, // Using adminsCount as transaction count
+            totalCommissionBalance: stats.totalMonthlyRevenue,
+            totalFromSuperadminDeposits: stats.depositsAccepted,
+            totalFromReceiptApprovals: stats.withdrawalsProcessed,
+            transactionCount: stats.totalTransactions,
           });
         } else {
-          // For regular admin, get personal data
+          // For regular admin, get personal commission data
           const summary = await CommissionService.getAdminCommissionSummary(user.uid);
           setTransactionSummary(summary);
         }
@@ -69,20 +72,25 @@ function AdminTransactionsPageContent() {
     // Subscribe to real-time updates every 30 seconds for live data
     const interval = setInterval(fetchTransactionData, 30 * 1000);
 
-    // Subscribe to real-time updates
-    const unsubscribeBalance = CommissionService.subscribeToAdminCommissionBalance(
-      user.uid,
-      (balance) => {
-        setTransactionSummary(prev => ({
-          ...prev,
-          totalCommissionBalance: balance,
-        }));
-      }
-    );
+    // Subscribe to real-time updates for admins only
+    let unsubscribeBalance: (() => void) | null = null;
+    if (!isSuperAdmin) {
+      unsubscribeBalance = CommissionService.subscribeToAdminCommissionBalance(
+        user.uid,
+        (balance) => {
+          setTransactionSummary(prev => ({
+            ...prev,
+            totalCommissionBalance: balance,
+          }));
+        }
+      );
+    }
 
     return () => {
       clearInterval(interval);
-      unsubscribeBalance();
+      if (unsubscribeBalance) {
+        unsubscribeBalance();
+      }
     };
   }, [user, isSuperAdmin]);
 
@@ -226,13 +234,13 @@ function AdminTransactionsPageContent() {
                 </div>
                 <div>
                   <h3 className="text-slate-600 text-sm font-medium mb-1">
-                    {isSuperAdmin ? "Revenue through Receipts" : "Revenue through Receipts"}
+                    {isSuperAdmin ? "Withdrawals Processed" : "Revenue through Receipts"}
                   </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     ${transactionSummary.totalFromReceiptApprovals.toFixed(2)}
                   </p>
                   <p className="text-slate-500 text-xs mt-1">
-                    {isSuperAdmin ? "Total revenue from approved receipts" : "From approved receipts"}
+                    {isSuperAdmin ? "Total withdrawals processed" : "From approved receipts"}
                   </p>
                 </div>
               </div>
@@ -252,13 +260,13 @@ function AdminTransactionsPageContent() {
                 </div>
                 <div>
                   <h3 className="text-slate-600 text-sm font-medium mb-1">
-                    {isSuperAdmin ? "Withdrawals Processed" : "Deposit Commissions"}
+                    {isSuperAdmin ? "Deposits Accepted" : "Deposit Commissions"}
                   </h3>
                   <p className="text-2xl font-bold text-slate-900">
                     ${transactionSummary.totalFromSuperadminDeposits.toFixed(2)}
                   </p>
                   <p className="text-slate-500 text-xs mt-1">
-                    {isSuperAdmin ? "Total withdrawals processed" : "From admin deposits"}
+                    {isSuperAdmin ? "Total deposits processed" : "From admin deposits"}
                   </p>
                 </div>
               </div>
